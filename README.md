@@ -1,5 +1,18 @@
 # OEIS_03
 
+## 概要
+
+2016年から始めたOEISの編集で使用したコードが溜まってきたので、随時公開していきます。
+
+当分の間は直近編集したコードをあげていきます。
+
+|  数列番号  |  該当レポジトリ  |
+| ---- | ---- |
+|  A000001-A099999  |  [OEIS_00](https://github.com/manman4/OEIS_00)  |
+|  A100000-A199999  |  [OEIS_01](https://github.com/manman4/OEIS_01)  |
+|  A200000-A299999  |  [OEIS_02](https://github.com/manman4/OEIS_02)  |
+|  A300000-A399999  |  [OEIS_03](https://github.com/manman4/OEIS_03)  |
+
 ## b-file
 
 b-fileをアップロードさせないため、テキストファイルもアップロードしない
