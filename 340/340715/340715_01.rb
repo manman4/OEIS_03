@@ -26,7 +26,8 @@ def A340715(n)
   }
 end
 
-(1..5).each{|i|
+n = 5
+(1..n).each{|i|
   print i
   print ' '
   puts A340715(i)
