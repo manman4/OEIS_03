@@ -6,7 +6,7 @@ def make_CnXPk(n, k):
     for i in range(1, k + 1):
         for j in range(1, n):
             grids.append((i + (j - 1) * k, i + j * k))
-        #grids.append((i + (n - 1) * k, i))
+        grids.append((i + (n - 1) * k, i))
     for i in range(1, k * n, k):
         for j in range(1, k):
             grids.append((i + j - 1, i + j))
