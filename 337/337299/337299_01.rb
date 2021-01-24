@@ -15,9 +15,10 @@ def A299786(n)
   A(Array.new(n + 1, -1), [0] + (1..n).map{|i| 2 ** (i - 1)}, n)
 end
 
-n = 2000
-ary = A299786(n)
-(0..1000).each{|i|
+m = 2000
+n = 1000
+ary = A299786(m)
+(0..n).each{|i|
   j = ary[i]
   break if j.to_s.size > 1000
   print i
