@@ -6,7 +6,7 @@ def pow(a, m, mod)
   return k * a % mod
 end
 
-def A127092(n)
+def A333506(n)
   cnt = 0
   i = 1
   while cnt < n
@@ -22,4 +22,4 @@ def A127092(n)
 end
 
 n = 10000
-A127092(n)
+A333506(n)
