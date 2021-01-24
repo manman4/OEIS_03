@@ -27,7 +27,7 @@ p ary = B(n)
   puts j
 }
 
-(0..5).each{|i| p [i, (0..10).map{|j| A(i, j)}]}
-(0..5).each{|i| p (0..5).map{|j| A(j, i)}}
-p (0..10).map{|i| A(i, i)}
+# (0..5).each{|i| p [i, (0..10).map{|j| A(i, j)}]}
+# (0..5).each{|i| p (0..5).map{|j| A(j, i)}}
+# p (0..10).map{|i| A(i, i)}
 
