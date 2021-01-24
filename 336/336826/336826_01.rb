@@ -14,13 +14,13 @@ end
 n = 3273375
 # n = 50000000
 ary = B(n)
-b = []
+# b = []
 (1..10000).each{|i|
   j = ary[i - 1]
-  b << j if j + 1 == ary[i]
+  # b << j if j + 1 == ary[i]
   break if j.to_s.size > 1000
   print i
   print ' '
   puts j
 }
-p b
+# p b
