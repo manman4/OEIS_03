@@ -7,7 +7,7 @@ def A(k, n)
   (0..n).inject(0){|s, i| s + (-k) ** i * ncr(2 * n, 2 * i)}
 end
 
-n = 1000
+n = 500
 (0..n).each{|i|
   j = A(i, i)
   break if j.to_s.size > 1000
