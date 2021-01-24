@@ -18,7 +18,7 @@ def B(n)
 end
 
 n = 10
-p ary = B(n)
+ary = B(n)
 (0..ary.size - 1).each{|i|
   j = ary[i]
   break if j.to_s.size > 1000
