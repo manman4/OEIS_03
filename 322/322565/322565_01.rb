@@ -1,4 +1,3 @@
-# x‚©‚çŠJn‚µyæ‚µ‚Äp/q
 def A(x, y, p, q, base, n)
   ary = [x]
   s = x
