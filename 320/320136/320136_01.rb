@@ -6,8 +6,8 @@ end
 
 def A(ary, n)
   a_ary = [1]
-  a = [0] + (1..n).map{|i| ary.inject(0){|s, j| s += j[1] * s(j[0], i)}}
-  (1..n).each{|i| a_ary << (1..i).inject(0){|s, j| s -= a[j] * a_ary[-j]} / i}
+  a = [0] + (1..n).map{|i| ary.inject(0){|s, j| s + j[1] * s(j[0], i)}}
+  (1..n).each{|i| a_ary << (1..i).inject(0){|s, j| s - a[j] * a_ary[-j]} / i}
   a_ary
 end
 
@@ -21,7 +21,7 @@ def B(a, n)
   A(ary, n)
 end
 
-n = 10000
+n = 100
 ary = B([1, 1, 2, 14], n)
 (0..n).each{|i|
   j = ary[i]
