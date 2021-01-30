@@ -1,4 +1,3 @@
-# x‚©‚çŠJŽn‚µyæ‚µ‚Äp/q
 def A(x, y, p, q, base, n)
   ary = [x]
   s = x
@@ -20,9 +19,10 @@ def A321074(n)
   A(5, 2, 3, 1, 11, n)
 end
 
-n = 10100
-ary = A321074(n)
-(0..10000).each{|i|
+m = 10100
+n = 10000
+ary = A321074(m)
+(0..n).each{|i|
   j = ary[i]
   break if j.to_s.size > 1000
   print i
