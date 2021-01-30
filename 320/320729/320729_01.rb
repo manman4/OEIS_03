@@ -34,7 +34,7 @@ def E_2k(k, n)
   [b] + (1..n).map{|i| c * sigma(2 * k - 1, i)}
 end
 
-# mŸˆÈ‰º‚ğæ‚èo‚·
+# mæ¬¡ä»¥ä¸‹ã‚’å–ã‚Šå‡ºã™
 def mul(f_ary, b_ary, m)
   s1, s2 = f_ary.size, b_ary.size
   ary = Array.new(s1 + s2 - 1, 0)
@@ -73,7 +73,7 @@ def inverse_Euler_transform(ary, n)
     (1..i).each{|j|
       s += m_ary[i / j] * c[j] if i % j == 0
     }
-    # ary‚Ì—v‘f‚ª®”‚È‚çAs / i‚Í®”
+    # aryã®è¦ç´ ãŒæ•´æ•°ãªã‚‰ã€s / iã¯æ•´æ•°
     a << s / i
   }
   a
