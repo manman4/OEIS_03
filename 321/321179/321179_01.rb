@@ -26,7 +26,7 @@ def C(n)
 end
 
 n = 20
-p ary = (0..n).map{|i| C(i)}
+ary = (0..n).map{|i| C(i)}
 (0..n).each{|i|
   j = ary[i]
   break if j.to_s.size > 1000
@@ -35,6 +35,6 @@ p ary = (0..n).map{|i| C(i)}
   puts j
 }
 
-(0..3).to_a.repeated_permutation(3){|a,b,c|
-  p [a,b,c] if a*a+2*b*b+3*c*c==9
-}
+# (0..3).to_a.repeated_permutation(3){|a,b,c|
+#   p [a,b,c] if a*a+2*b*b+3*c*c==9
+# }
