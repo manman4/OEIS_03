@@ -1,0 +1,1 @@
+{a(n) = polcoeff(prod(i=1, n, sum(j=0, sqrtint((n*(n+1))^2\(4*i)), x^(i*j^2)+x*O(x^((n*(n+1))^2/4)))), (n*(n+1))^2/4)}
