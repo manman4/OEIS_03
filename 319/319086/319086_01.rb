@@ -16,7 +16,7 @@ def sigma(x, i)
   sum
 end
 
-n = 1000
+n = 10000
 s = 0
 (1..n).each{|i|
   s += i * i * sigma(1, i)
