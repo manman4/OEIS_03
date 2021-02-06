@@ -11,7 +11,7 @@ def A(ary, n)
   a_ary
 end
 
-def A331484(n)
+def A318582(n)
   a = A([[2, 1], [1, -1]], n)
   ary = [1]
   (1..n).each{|i| ary << -(1..i).inject(0){|s, j| s + a[j - 1] * ary[-j]}}
@@ -19,7 +19,7 @@ def A331484(n)
 end
 
 m = 10050
-ary = A331484(m)
+ary = A318582(m)
 (0..10000).each{|i|
   j = ary[i]
   break if j.to_s.size > 1000
