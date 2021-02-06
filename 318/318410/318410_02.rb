@@ -20,8 +20,8 @@ def A(k, m, n)
   ary.reverse + [0] * (n + 1 - ary.size)
 end
 
-n = 5010
-ary = A(9, 9, n)
+m = 5010
+ary = A(9, 9, m)
 (0..5000).each{|i|
   j = ary[i]
   print i

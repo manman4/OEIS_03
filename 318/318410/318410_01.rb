@@ -22,8 +22,8 @@ def A(n)
   ary
 end
 
-n = 1010
-ary = A(n + 1)
+m = 1010
+ary = A(m + 1)
 (0..1000).each{|i|
   j = ary[i]
   print i
