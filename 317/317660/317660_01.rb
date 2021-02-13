@@ -13,7 +13,7 @@ def A(n)
   a = bernoulli(n + 1)
   ary = [1]
   (1..n).each{|i|
-    ary << -1r / i * (0..i - 2).inject(0){|s, j| s += a[i - j + 1] * ary[j] / ((i - j - 1r) * (i - j + 1))}
+    ary << -1r / i * (0..i - 2).inject(0){|s, j| s + a[i - j + 1] * ary[j] / ((i - j - 1r) * (i - j + 1))}
   }
   ary
 end
