@@ -28,7 +28,7 @@ def B(k, n)
   A(k + 1, n)
 end
 
-def A306846(n)
+def A306914(n)
   a = []
   (0..n).each{|i| a << B(i, n - i)}
   ary = []
@@ -41,7 +41,7 @@ def A306846(n)
 end
 
 n = 139
-ary = A306846(n)
+ary = A306914(n)
 (0..ary.size - 1).each{|i|
   j = ary[i]
   break if j.to_s.size > 1000
