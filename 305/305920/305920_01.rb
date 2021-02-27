@@ -19,7 +19,7 @@ def A(k, n)
   (1..n).map{|i| sigma(k, i)}
 end
 
-# mŸˆÈ‰º‚ğæ‚èo‚·
+# mï¿½ï¿½ï¿½È‰ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½oï¿½ï¿½
 def mul(f_ary, b_ary, m)
   s1, s2 = f_ary.size, b_ary.size
   ary = Array.new(s1 + s2 - 1, 0)
@@ -33,7 +33,7 @@ def mul(f_ary, b_ary, m)
   ary
 end
 
-# mŸˆÈ‰º‚ğæ‚èo‚·
+# mï¿½ï¿½ï¿½È‰ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½oï¿½ï¿½
 def power(ary, n, m)
   return [1] if n == 0
   k = power(ary, n >> 1, m)
@@ -44,7 +44,7 @@ end
 
 def A000594(n)
   ary = Array.new(n + 1, 0)
-  # ƒ„ƒRƒr‚ÌŒö®‚Ì•K—v‚È‚Æ‚±‚ë‚¾‚¯æ‚èo‚·
+  # ï¿½ï¿½ï¿½Rï¿½rï¿½ÌŒï¿½ï¿½ï¿½ï¿½Ì•Kï¿½vï¿½È‚Æ‚ï¿½ï¿½ë‚¾ï¿½ï¿½ï¿½ï¿½ï¿½oï¿½ï¿½
   i = 0
   j, k = 2 * i + 1, i * (i + 1) / 2
   while k <= n
@@ -52,7 +52,7 @@ def A000594(n)
     i += 1
     j, k = 2 * i + 1, i * (i + 1) / 2
   end
-  # 8æ‚µ‚Äx”{
+  # 8ï¿½æ‚µï¿½ï¿½xï¿½{
   power(ary, 8, n).unshift(0)[1..n]
 end
 
@@ -71,7 +71,7 @@ end
 # ary[0] = 1
 def inverse_Euler_transform(ary, n)
   c = [0]
-  (1..n).each{|i| c << (1..i - 1).inject(i * ary[i]){|s, j| s -= ary[j] * c[-j]}}
+  (1..n).each{|i| c << (1..i - 1).inject(i * ary[i]){|s, j| s - ary[j] * c[-j]}}
   m_ary = [0] + (1..n).map{|i| A008683(i)}
   a = [0]
   (1..n).each{|i|
@@ -79,13 +79,13 @@ def inverse_Euler_transform(ary, n)
     (1..i).each{|j|
       s += m_ary[i / j] * c[j] if i % j == 0
     }
-    # ary‚Ì—v‘f‚ª®”‚È‚çAs / i‚Í®”
+    # aryï¿½Ì—vï¿½fï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È‚ï¿½As / iï¿½Íï¿½ï¿½ï¿½
     a << s / i
   }
   a
 end
 
-n = 400
+n = 40
 a = A008408(n)
 a0 = Array.new(n + 1, 1)
 ary = inverse_Euler_transform(a, n)
