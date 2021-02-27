@@ -8,7 +8,7 @@ def A(f_ary, g_ary, n)
   ary = [1]
   a = [0] + (1..n).map{|i| s(f_ary, g_ary, i)}
   b = [0] + (1..n).map{|i| s(f_ary.map{|i| -i}, g_ary.map{|i| -i}, i)}
-  (1..n).each{|i| ary << (1..i).inject(0){|s, j| s += (a[j] + b[j]) * ary[-j]} / i}
+  (1..n).each{|i| ary << (1..i).inject(0){|s, j| s + (a[j] + b[j]) * ary[-j]} / i}
   ary
 end
 
