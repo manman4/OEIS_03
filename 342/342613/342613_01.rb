@@ -12,7 +12,7 @@ n = 400
 (1..n).each{|i|
   j = A(i)
   break if j.to_s.size > 1000
-  # FORMURLA確認
+  # FORMULA確認
   if i.prime?
     k = 1 + (i - 1) ** (i + 1)
     break if j != k
