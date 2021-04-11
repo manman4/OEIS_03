@@ -1,4 +1,3 @@
-  
 def ncr(n, r)
   return 1 if r == 0
   (n - r + 1..n).inject(:*) / (1..r).inject(:*)
