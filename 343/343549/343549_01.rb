@@ -12,7 +12,7 @@ def A(k, n)
   s
 end
 
-n = 30
+n = 1000
 (1..n).each{|i|
   j = A(i + 1, i)
   break if j.to_s.size > 1000
