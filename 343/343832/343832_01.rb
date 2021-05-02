@@ -9,11 +9,11 @@ def ncr(n, r)
 end
 
 def A(n)
-  (0..n - 1).inject(0){|s, i| s + f(i) * ncr(n - 1, i) * ncr(2 * n - 1, i)}
+  (0..n).inject(0){|s, i| s + f(i) * ncr(n, i) * ncr(2 * n + 1, i)}
 end
 
 n = 500
-(1..n).each{|i|
+(0..n).each{|i|
   j = A(i)
   break if j.to_s.size > 1000
   print i
