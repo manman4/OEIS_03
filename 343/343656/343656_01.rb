@@ -1,5 +1,3 @@
-require './linear'
-
 require 'prime'
 
 def d(n)
