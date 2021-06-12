@@ -17,7 +17,6 @@ def A(k, n)
   s
 end
 
-
 n = 1000
 (0..n).each{|i|
   j = A(i, i)
