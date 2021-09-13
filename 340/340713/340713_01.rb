@@ -30,3 +30,4 @@ str.split(/\R/).each{|i|
     puts m
   end
 }
+
