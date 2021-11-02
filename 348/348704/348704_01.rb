@@ -14,9 +14,10 @@ def A(k, n)
   sum
 end
 
-def A348704(n)
-  (0..n).map{|i| A(i, i)}
-end
-
-p A348704(9)
+n = 15
+(0..n).each{|i| 
+  print i
+  print ' ' 
+  puts A(i, i)
+}
 
