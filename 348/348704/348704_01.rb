@@ -20,4 +20,3 @@ n = 15
   print ' ' 
   puts A(i, i)
 }
-
