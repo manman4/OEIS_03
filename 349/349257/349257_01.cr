@@ -1,7 +1,7 @@
 require "big"
 
 def a(n)
-return 0 if n == 0
+  return 0 if n == 0
   k = 1
   (1..n).each{|i| k *= i}
   max = 0
