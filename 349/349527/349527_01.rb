@@ -13,8 +13,8 @@ def A(k, n)
   ary
 end
 
-n = 16
-p ary = A(2, n)
+n = 500
+ary = A(2, n)
 (0..n).each{|i|
   j = ary[i]
   break if j.to_s.size > 1000
