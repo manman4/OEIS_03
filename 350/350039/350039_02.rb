@@ -16,7 +16,7 @@ n = 10000
 # include?()でlistに入れていくより、あとで数えた方が速い
 
 # a(10000)=1265616<2*1000^2なので1000でOK
-ary = A(1000).group_by(&:to_i).select{|k, v| v.size > 1}.keys.sort[0..n]
+ary = A(1000).group_by(&:to_i).select{|k, v| v.size > 1}.keys.sort[0..n - 1]
 (1..n).each{|i|
   print i
   print ' '
