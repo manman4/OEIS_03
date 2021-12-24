@@ -21,7 +21,6 @@ def A(n)
   a = [1]
   ary = [1]
   (1..n).each{|i|
-    p i
     b = [1] + [0] * (2 * i - 1) + [1]
     a = mul(a, b)
     ary << power(a, i)[i * i * (i + 1) / 2]
