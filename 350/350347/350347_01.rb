@@ -15,4 +15,11 @@ def A350347(n)
   end
   ary
 end
-p A350347(100)
+
+n = 1000
+ary = A350347(n)
+(1..n).each{|i|
+  print i
+  print ' '
+  puts ary[i - 1]
+}
