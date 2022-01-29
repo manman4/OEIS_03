@@ -2,7 +2,7 @@ default(parisize, 120000000)
 
 M=40;
 
-a(n) = vecmax(Vec(prod(k=1, n, 1 + x^(2*k-1)))); 
+a(n) = vecmax(Vec(prod(k=1, n, 1+x^(2*k-1)))); 
 for(n=0, M, print1(a(n), ", "));
 
 print
