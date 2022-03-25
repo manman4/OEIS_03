@@ -1,0 +1,1 @@
+my(N=66, x='x+O('x^N)); Vec(1/sum(k=1, N, isprime(2*k-1)*x^k)^2)
