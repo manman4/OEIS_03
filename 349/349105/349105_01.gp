@@ -1,0 +1,1 @@
+my(N=40, x='x+O('x^N)); Vec(serlaplace(1/(1-(sinh(x)+x*cosh(x))/2)))
