@@ -8,12 +8,12 @@ def A(k, m, n)
   x = f(m)
   (1..n).each{|i|
     y = f(i - 1) / x
-    ary << (k + 1..i).inject(0){|s, j| s + ary[-j] * j * y / (f(i - j) * (j - k).to_r)}.to_i
+    ary << (k + 1..i).inject(0){|s, j| s + j * ary[-j] * y / (f(i - j) * (j - k).to_r)}.to_i
   }
   ary
 end
 
-n = 500
+n = 22
 ary = A(2, 2, n)
 (0..n).each{|i|
   j = ary[i]
