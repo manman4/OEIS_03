@@ -1,4 +1,4 @@
-M=30;
+M=20;
 
 b(n) = n*sum(k=1, n-1, (k-1)!*abs(stirling(n-1, k, 1)));
 for(n=0, 15, print1(b(n),", "))
