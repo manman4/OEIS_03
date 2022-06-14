@@ -13,11 +13,12 @@ def A354962(n)
   (0..n).map{|i| A(i, i)}
 end
 
-p A354962(10)
-# (0..ary.size - 1).each{|i|
-#   j = ary[i]
-#   break if j.to_s.size > 1000
-#   print i
-#   print ' '
-#   puts j
-# }  
+n = 50
+ary = A354962(n)
+(0..n).each{|i|
+  j = ary[i]
+  break if j.to_s.size > 1000
+  print i
+  print ' '
+  puts j
+}  
