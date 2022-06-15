@@ -19,4 +19,10 @@ def A354969(n)
   (2..n).map{|i| C(i)}
 end
 
-p A354969(100)
+n = 10000
+ary = A354969(n)
+(2..n).each{|i|
+  print i
+  print ' '
+  puts ary[i - 2]
+}
