@@ -1,0 +1,4 @@
+M=18;
+
+a(n)=local(A, F); if(n<0, 0, A=O(x); F=exp(x+x*O(x^n))-1; for(m=1, n, A=intformal( 1+F*subst( A, x, 2*x+x*O(x^m) )/2)); n!*polcoef(A, n));
+for(n=0, M, print1(a(n), ", "));
