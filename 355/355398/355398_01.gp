@@ -1,0 +1,1 @@
+my(N=30, x='x+O('x^N)); Vec(serlaplace(exp(exp(3*x)/3-exp(2*x)/2+1/6)))
