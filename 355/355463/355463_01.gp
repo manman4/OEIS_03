@@ -1,0 +1,1 @@
+my(N=20, x='x+O('x^N)); Vec(sum(k=0, N, (x/(1-k^k*x))^k))
