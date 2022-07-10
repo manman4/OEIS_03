@@ -13,7 +13,7 @@ def A(k, m, n)
   ary
 end
 
-n = 20
+n = 500
 ary = A(4, 4, n)
 (0..n).each{|i|
   j = ary[i]
