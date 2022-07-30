@@ -1,0 +1,4 @@
+M=19;
+
+a(n) = my(x='x+O('x^(n+1))); polcoef(sum(k=1, n, (k-1)^n*x^k*(1+x^k)/(1-x^k)^3)/(1-x), n);
+for(n=1, M, print1(a(n), ", "));
