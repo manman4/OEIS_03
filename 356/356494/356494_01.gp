@@ -1,0 +1,1 @@
+my(N=20, x='x+O('x^N)); Vec(serlaplace(prod(k=1, N, exp(exp(k*x^k)-1))))
