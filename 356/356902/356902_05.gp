@@ -1,0 +1,1 @@
+my(A=1, n=21); for(i=1, n, A=exp((exp(x+x*O(x^n))-1)*x/A+x*O(x^n))); Vec(serlaplace(A))
