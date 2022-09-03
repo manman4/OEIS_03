@@ -1,0 +1,1 @@
+my(A=1, n=18); for(i=1, n, A=exp((exp(x*A)-1)*(x/A^2+x*O(x^n)))); Vec(serlaplace(A))
