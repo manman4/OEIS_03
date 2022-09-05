@@ -1,0 +1,1 @@
+my(N=30, x='x+O('x^N)); Vec(serlaplace(-x^3*log(1-x)/lambertw(-x^3*log(1-x))))
