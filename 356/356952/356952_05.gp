@@ -1,0 +1,1 @@
+my(A=1, n=23); for(i=1, n, A=exp((exp(x+x*O(x^n))-1)*(x^3/6*A+x*O(x^n)))); Vec(serlaplace(A))
