@@ -1,0 +1,1 @@
+my(N=20, x='x+O('x^N)); concat(0, Vec(serlaplace(-lambertw(2*log(1-x))/2)))
