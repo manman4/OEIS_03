@@ -1,0 +1,1 @@
+my(A=0, n=17); for(i=1, n, A=exp(x*exp(3*A+x*O(x^n)))-1 ); concat(0, Vec(serlaplace(A)))
