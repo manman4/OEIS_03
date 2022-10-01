@@ -25,4 +25,4 @@ def A(n)
   @count
 end
 
-p (1..35).map{|i| p A(i)}
+p (1..30).map{|i| p A(i)}
