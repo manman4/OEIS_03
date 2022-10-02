@@ -18,6 +18,7 @@ def search(a, num, n)
     }
   end
 end
+
 def A(n)
   a = [0] * (n + 1)
   @count = 0
