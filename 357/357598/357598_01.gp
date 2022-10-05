@@ -1,0 +1,1 @@
+my(N=30, x='x+O('x^N)); concat(0, Vec(serlaplace(sinh(2*(exp(x)-1))/2)))
