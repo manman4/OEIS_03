@@ -1,0 +1,1 @@
+my(N=30, x='x+O('x^N)); concat([0, 0], Vec(serlaplace((exp(x)-1)*tan((exp(x)-1)/2))))
