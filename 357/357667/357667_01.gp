@@ -1,0 +1,1 @@
+my(x='x+O('x^30)); Vec(serlaplace(cosh(3*(exp(x)-1))))
