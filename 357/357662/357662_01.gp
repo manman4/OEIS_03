@@ -1,0 +1,1 @@
+my(N=30, x='x+O('x^N)); apply(round, Vec(serlaplace(cosh((exp(3*x)-1)/sqrt(3)))))
