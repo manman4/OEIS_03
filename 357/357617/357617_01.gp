@@ -1,0 +1,1 @@
+my(N=30, x='x+O('x^N)); concat(0, Vec(serlaplace(sinh((exp(4*x)-1)/4))))
