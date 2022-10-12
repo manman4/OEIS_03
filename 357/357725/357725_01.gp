@@ -1,0 +1,1 @@
+my(N=30, x='x+O('x^N)); apply(round, Vec(serlaplace(cos(sqrt(2)*(exp(x)-1)))))
