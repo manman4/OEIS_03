@@ -5,7 +5,7 @@ path = ARGV[0] ? ARGV[0] : '.'
 # .txtはgitignoreしているので.rbファイルに保存
 cnt = 0
 ary = []
-File.open("squence_list.rb", mode = "w"){|f|
+File.open("squence_list.csv", mode = "w"){|f|
   f.write("#{Time.now.strftime("%Y-%m-%d %H:%M:%S")} 現在\n")
   Find.find(path){|item|
     # ./git とか省く
@@ -19,7 +19,7 @@ File.open("squence_list.rb", mode = "w"){|f|
           if !ary.include?(sequence_num)
             cnt += 1
             ary << sequence_num
-            f.write("#{cnt} #{sequence_num}\n")
+            f.write("#{cnt},#{sequence_num}\n")
           end
         end
       end
