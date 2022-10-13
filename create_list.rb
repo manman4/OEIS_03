@@ -6,7 +6,7 @@ path = ARGV[0] ? ARGV[0] : '.'
 cnt = 0
 ary = []
 File.open("squence_list.csv", mode = "w"){|f|
-  f.write("#{Time.now.strftime("%Y-%m-%d %H:%M:%S")} 現在\n")
+  f.write("#{cnt},#{Time.now.strftime("%Y-%m-%d %H:%M:%S")} 現在\n")
   Find.find(path){|item|
     # ./git とか省く
     if /[0-9]{3}/.match?(File.dirname(item)[2..4])
