@@ -1,0 +1,1 @@
+my(N=30, x='x+O('x^N)); Vec(serlaplace(exp((exp(x^4)-1)/x^3)))
