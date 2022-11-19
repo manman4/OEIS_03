@@ -1,6 +1,6 @@
 def A030717(n)
   ary = [1]
-  n.times{
+  (n - 1).times{
     ary += ary.uniq.sort.map{|i| ary.count(i)}
   }
   ary
