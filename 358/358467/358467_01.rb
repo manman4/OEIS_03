@@ -8,7 +8,7 @@ def A(k, n)
   a
 end
 
-n = 100
+n = 81
 ary = A(1, n)
 b = [ary[0]]
 (1..n - 1).each{|i|
