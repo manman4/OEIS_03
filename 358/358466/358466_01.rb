@@ -8,4 +8,4 @@ def A(k, n)
   a
 end
 
-p A(1, 100)
+p A(1, 65)
