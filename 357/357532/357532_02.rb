@@ -1,8 +1,3 @@
-def f(n)
-  return 1 if n < 2
-  (1..n).inject(:*)
-end
-
 def A(k, n)
   ary = [1] * k
   (k..n).each{|i|
@@ -11,7 +6,7 @@ def A(k, n)
   ary
 end
 
-n = 1000
+n = 37
 ary = A(3, n)
 (0..n).each{|i|
   j = ary[i]
