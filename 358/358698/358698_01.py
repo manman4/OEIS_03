@@ -15,4 +15,5 @@ def A333758(n, k):
 def A358698(n):
     return A333758(n, 7)
 
-print([A358698(n) for n in range(2, 22)])
+for i in range(2, 51):
+    print(str(i) + ' ' + str(A358698(i)))
