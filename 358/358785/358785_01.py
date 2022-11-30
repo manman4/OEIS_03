@@ -11,5 +11,5 @@ def A(n, k):
 def A358785(n):
     return A(n, 11)
 
-for n in range(2, 15):
-    print(A358785(n))
+for i in range(2, 41):
+    print(str(i) + ' ' + str(A358785(i)))
