@@ -2,6 +2,12 @@
 from graphillion import GraphSet
 
 
+########################################
+# A358960 allocated for Seiichi Manyama.
+# @author Seiichi Manyama
+########################################
+
+
 def make_tetrahedral_graph():
     return [
         (1, 2), (1, 3), (1, 4),
