@@ -91,7 +91,7 @@ def directed_Hamiltonian_path(n, v):
     for goal in range(1, v + 1):
         paths = GraphSet.paths(1, goal, is_hamilton=True)
         s += paths.len()
-    return s * v
+    return v * s
 
 
 platonic_graph_info = [[4, 4], [6, 8], [8, 6], [12, 20], [20, 12]]
