@@ -84,8 +84,10 @@ def directed_Hamiltonian_cycle(n):
     return 2 * cycles.len()
 
 
-def directed_Hamiltonian_path(n, v):
+def directed_Hamiltonian_path(n):
     universe = make_universe(n)
+    # V-E+F=2
+    v = len(universe) + 2 - n
     GraphSet.set_universe(universe)
     s = 0
     for goal in range(1, v + 1):
@@ -94,13 +96,13 @@ def directed_Hamiltonian_path(n, v):
     return v * s
 
 
-platonic_graph_info = [[4, 4], [6, 8], [8, 6], [12, 20], [20, 12]]
+platonic_graph_info = [4, 6, 8, 12, 20]
 
 # A343213
-print([spanning_tree(i[0]) for i in platonic_graph_info])
+print([spanning_tree(i) for i in platonic_graph_info])
 
 # A268283
-print([directed_Hamiltonian_cycle(i[0]) for i in platonic_graph_info])
+print([directed_Hamiltonian_cycle(i) for i in platonic_graph_info])
 
 # A358960
-print([directed_Hamiltonian_path(i[0], i[1]) for i in platonic_graph_info])
+print([directed_Hamiltonian_path(i) for i in platonic_graph_info])
