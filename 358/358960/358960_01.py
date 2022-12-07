@@ -96,6 +96,7 @@ def directed_Hamiltonian_path(n):
     return v * s
 
 
+# A053016
 platonic_graph_info = [4, 6, 8, 12, 20]
 
 # A343213
