@@ -86,8 +86,8 @@ def undirected_cycle(n):
     universe = make_universe(n)
     GraphSet.set_universe(universe)
     cycles = GraphSet.cycles()
-    print([cycles.len(i).len() for i in range(3, 24)])
-    print(sum([cycles.len(i).len() for i in range(3, 24)]))
+    print([cycles.len(i).len() for i in range(3, 21)])
+    print(sum([cycles.len(i).len() for i in range(3, 21)]))
     return cycles.len()
 
 
