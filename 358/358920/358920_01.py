@@ -32,7 +32,5 @@ def A307026(n, k):
 def A358920(n):
     return A307026(n, 5)
 
-# print([A339751(n) for n in range(1, 21)])
-for i in range(1, 41):
-    print(A358920(i))
-    # print(str(i) + ' ' + str(A339751(i)))
+for i in range(1, 18):
+    print(str(i) + ' ' + str(A358920(i)))
