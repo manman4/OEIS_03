@@ -1,0 +1,1 @@
+my(N=80, x='x+O('x^N)); Vec(sum(k=1, N, numdiv(k^7)*x^k/(1-x^k)))
