@@ -1,0 +1,1 @@
+my(N=80, x='x+O('x^N)); Vec(sum(k=1, N, eulerphi(7*k)*x^k/(1-x^k))/6)
