@@ -1,0 +1,1 @@
+my(N=100, x='x+O('x^N)); Vec(sum(k=0, sqrtint(N), (k^2+1)*x^(k^2+1)/(1-x^(k^2+1))))
