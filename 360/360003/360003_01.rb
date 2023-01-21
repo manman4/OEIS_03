@@ -22,24 +22,33 @@ def C(n)
   ary
 end
 
-def take_logarithm(ary)
-  a = []
-  ary.map{|i|
-    if i > 0
-      a <<  Math.log(1 + i)
-    else
-      a << -Math.log(1 - i)
-    end
-  }
-  a
-end
-
 n = 10010
 m = 10000
-ary = take_logarithm(C(n))
-print 'No,Value'
-(1..m).each{|i|
+ary = C(n)
+(0..m).each{|i|
   print i
-  print ','
-  puts ary[i - 1]
+  print ' '
+  puts ary[i]
 }
+
+# def take_logarithm(ary)
+#   a = []
+#   ary.map{|i|
+#     if i > 0
+#       a <<  Math.log(1 + i)
+#     else
+#       a << -Math.log(1 - i)
+#     end
+#   }
+#   a
+# end
+
+# n = 10010
+# m = 10000
+# ary = take_logarithm(C(n))
+# print 'No,Value'
+# (0..m).each{|i|
+#   print i
+#   print ','
+#   puts ary[i - 1]
+# }
