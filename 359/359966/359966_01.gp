@@ -1,0 +1,1 @@
+my(N=100, x='x+O('x^N)); Vec(prod(k=2, sqrtint(N+1), 1-x^(k^2-1)))
