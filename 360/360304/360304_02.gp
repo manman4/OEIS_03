@@ -1,0 +1,1 @@
+my(N=20, x='x+O('x^N)); Vec(sqrt(sum(k=0, N, (2*k)!/k!*(2*x)^k)))
