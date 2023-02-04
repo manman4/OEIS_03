@@ -4,10 +4,10 @@ def ncr(n, r)
 end
 
 def A(k, n)
-  (0..n / k).inject(0){|s, i| s + ncr(n -  k * i, i) * ncr(2 * (n - k * i), n -  k * i)}
+  (0..n / k).inject(0){|s, i| s + ncr(n - k * i, i) * ncr(2 * (n - k * i), n -  k * i)}
 end
 
-n = 1000
+n = 10
 (0..n).each{|i|
   j = A(2, i)
   break if j.to_s.size > 1000
