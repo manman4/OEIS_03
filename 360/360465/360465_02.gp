@@ -1,0 +1,1 @@
+my(N=20, x='x+O('x^N)); Vec(serlaplace(-lambertw(-x*exp(2*x))/(x*exp(2*x))))
