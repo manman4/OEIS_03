@@ -1,0 +1,1 @@
+my(N=20, x='x+O('x^N)); Vec(serlaplace(1+x+sum(k=2, N, exp((k^k-1)*x)*x^k/k!)))
