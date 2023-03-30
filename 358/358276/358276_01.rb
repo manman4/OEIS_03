@@ -5,7 +5,7 @@ def A(n)
     s = 0
     (1..i - 1).each{|j|
       if i % j == 0
-        s += (i / j) * (-1) ** (i / j - 1)  * ary[j]
+        s += (i / j) * (-1) ** (i / j - 1) * ary[j]
       end
     }
     ary << s
