@@ -14,3 +14,4 @@ ary = A(2, n)
   print ' '
   puts ary[i] - ary[i - 1]
 }
+

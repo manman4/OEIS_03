@@ -23,3 +23,4 @@ n = 10000
   print ' '
   puts A(i)
 }
+
