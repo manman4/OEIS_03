@@ -1,0 +1,3 @@
+a(n) = (-1)^n * n! * sum(k=0, n, 3^k * binomial((n-k)/3,k)/(n-k)!);
+
+for(n=0, 19, print1(a(n),", "))          
