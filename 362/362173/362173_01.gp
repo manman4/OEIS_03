@@ -1,0 +1,1 @@
+my(N=30, x='x+O('x^N)); Vec(serlaplace(exp((-2*lambertw(-x^3/2))^(1/3))/(1+lambertw(-x^3/2))))
