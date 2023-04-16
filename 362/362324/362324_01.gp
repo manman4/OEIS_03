@@ -1,0 +1,1 @@
+my(N=30, x='x+O('x^N)); Vec(serlaplace(exp((lambertw(5*x^5)/5)^(1/5))/(1+lambertw(5*x^5))))
