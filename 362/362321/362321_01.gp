@@ -1,0 +1,1 @@
+my(N=20, x='x+O('x^N)); Vec(serlaplace(exp((-lambertw(-4*x^4)/4)^(1/4))/(1+lambertw(-4*x^4))))
