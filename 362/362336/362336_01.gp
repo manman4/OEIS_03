@@ -1,0 +1,1 @@
+my(N=30, x='x+O('x^N)); Vec(serlaplace(exp((-24*lambertw(-x^5/24))^(1/5))/(1+lambertw(-x^5/24))))
