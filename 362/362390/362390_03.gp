@@ -1,0 +1,1 @@
+my(N=20, x='x+O('x^N)); Vec(serlaplace(-3 * lambertw(-x^3/3 * exp(x))/x^3 ))
