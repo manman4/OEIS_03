@@ -1,0 +1,1 @@
+my(N=30, x='x+O('x^N)); Vec(serlaplace( ( lambertw(x^4 * exp(4*x))/x^4 )^(1/4) ))
