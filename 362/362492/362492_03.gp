@@ -1,0 +1,1 @@
+my(N=30, x='x+O('x^N)); Vec(serlaplace( sqrt( lambertw(x^2 * exp(2*x))/x^2 ) ))
