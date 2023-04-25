@@ -1,0 +1,1 @@
+my(N=22, x='x+O('x^N)); Vec(serlaplace(exp(x*exp(-lambertw(-x^2)))))
