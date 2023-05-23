@@ -10,7 +10,7 @@ def A(n)
   return 1 if n == 0
   cnt = 0
   partition(n, 1, n).each{|i|
-    cnt += 1if (i[0] - i.size).prime? 
+    cnt += 1 if (i[0] - i.size).prime? 
   }
   cnt
 end
