@@ -1,0 +1,1 @@
+my(N=56, x='x+O('x^N)); concat([0, 0, 0, 0], Vec(sum(i=1, N, sum(j=0, N, x^(5*i+j)/prod(k=i, 4*i+j, 1-x^k)))))
