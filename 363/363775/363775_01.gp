@@ -1,0 +1,1 @@
+my(N=50, x='x+O('x^N)); Vec(1/sum(k=0, sqrtint(N), x^k^2)^3)
