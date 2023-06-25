@@ -1,0 +1,2 @@
+my(N=90, x='x+O('x^N)); concat(0, Vec(sum(k=1, N, x^(6*k-4)/(1 - x^(7*k-5)) )))
+
