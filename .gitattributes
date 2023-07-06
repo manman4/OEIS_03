@@ -1,1 +1,2 @@
-*.gp linguist-language=parigp
+# LinguistはPARI/GPを公式にサポートしていないため、parigpという言語として認識されない。
+# *.gp linguist-language=parigp
