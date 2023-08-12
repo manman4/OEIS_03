@@ -1,2 +1,2 @@
-a(n) = sum(k=0, n, (-1)^k * 2^(n-k) * binomial(n,k) * binomial(5*n+k+1,n) / (5*n+k+1) ); 
-for(n=0, 22, print1(a(n),", "))   
+seq(n) = my(A=1); for(i=1, n, A=1+x*A^5/(1 + x*A^5 +x*O(x^n))  ); Vec(A);         
+seq(18)   
