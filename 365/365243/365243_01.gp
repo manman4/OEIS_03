@@ -1,0 +1,3 @@
+a(n) = sum(k=0, n\3, binomial(n-2*k-1,k) * binomial(n-k+1,n-3*k)/(n-k+1) );
+for(n=0, 33, print1(a(n), ", "))
+
