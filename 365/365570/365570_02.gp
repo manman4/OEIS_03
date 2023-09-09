@@ -1,0 +1,1 @@
+my(N=20, x='x+O('x^N)); Vec(serlaplace( 1/(6 - 5*exp(x))^(4/5) ))
