@@ -1,0 +1,1 @@
+my(N=40, x='x+O('x^N)); Vec(serlaplace(exp(sum(k=0, N\5, x^(5*k+4)/(5*k+4)!))))
