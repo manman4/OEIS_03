@@ -9,7 +9,7 @@ end
 
 n = 1000
 (0..n).each{|i| 
-  j =A(3, 5, i)
+  j = A(3, 5, i)
   break if j.to_s.size > 1000
   print i
   print ' '
