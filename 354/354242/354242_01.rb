@@ -20,3 +20,4 @@ ary = A(4, 2, n)
   print ' '
   puts j
 }
+
