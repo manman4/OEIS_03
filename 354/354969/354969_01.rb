@@ -26,3 +26,4 @@ ary = A354969(n)
   print ' '
   puts ary[i - 2]
 }
+
