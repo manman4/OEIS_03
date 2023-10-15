@@ -22,4 +22,3 @@ ary = [0] + mu_ary(m)
   print ' '
   puts j
 }
-
