@@ -1,0 +1,1 @@
+my(N=30, x='x+O('x^N)); concat([0, 0], Vec(serlaplace( -x * log(4 - 3*exp(x)) )))
