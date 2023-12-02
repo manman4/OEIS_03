@@ -11,3 +11,4 @@ def A(n)
 end
 
 p A(200).group_by(&:to_i).select{|k, v| v.size > 1}.keys.sort[0..50]
+

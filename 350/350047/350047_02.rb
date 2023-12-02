@@ -20,3 +20,4 @@ ary = A(10000).group_by(&:to_i).select{|k, v| v.size > 1}.keys.sort[0..n - 1]
   print ' '
   puts ary[i - 1]
 }
+
