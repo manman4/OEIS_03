@@ -11,3 +11,4 @@ def A(n)
 end
 
 p A(30).uniq.sort[0..100]
+

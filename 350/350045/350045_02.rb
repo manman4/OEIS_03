@@ -19,3 +19,4 @@ ary = A(2000).uniq.sort[0..n - 1]
   print ' '
   puts ary[i - 1]
 }
+
