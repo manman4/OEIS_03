@@ -27,3 +27,4 @@ ary = A(2, n)
   print ' '
   puts j
 }
+
