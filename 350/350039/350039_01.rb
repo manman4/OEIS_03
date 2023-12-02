@@ -14,3 +14,4 @@ end
 
 # include?()でlistに入れていくより、あとで数えた方が速い
 p A(100).group_by(&:to_i).select{|k, v| v.size > 1}.keys.sort[0..50]
+
