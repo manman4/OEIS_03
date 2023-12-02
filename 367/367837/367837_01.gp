@@ -1,8 +1,7 @@
 M=15;
 N=16;
 
-\\ 	
-a(0) = 1; a(n) = n * a(n-1) + Sum_{k=1..n} 4^k * binomial(n,k) * a(n-k).
+\\ a(0) = 1; a(n) = n * a(n-1) + Sum_{k=1..n} 4^k * binomial(n,k) * a(n-k).
 a(n) = if(n==0, 1, n*a(n-1) + sum(k=1, n, 4^k * binomial(n,k) * a(n-k)));
 for(n=0, M, print1(a(n),", "))
 
