@@ -27,3 +27,4 @@ ary = B(n)
   puts ary[i]
 }
 
+
