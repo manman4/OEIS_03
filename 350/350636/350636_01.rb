@@ -46,3 +46,4 @@ ary1 = E(n)
   print ' '
   puts ary0[i] - ary1[i]
 }
+
