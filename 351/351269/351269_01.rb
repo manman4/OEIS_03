@@ -29,3 +29,4 @@ ary = A(6, n)
   print ' '
   puts j
 }
+
