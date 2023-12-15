@@ -32,3 +32,4 @@ n = 300
   print ' '
   puts j
 }
+
