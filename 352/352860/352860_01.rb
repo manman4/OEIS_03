@@ -17,4 +17,4 @@ ary = A(2, n)
   print i
   print ' '
   puts j
-}  
+}
