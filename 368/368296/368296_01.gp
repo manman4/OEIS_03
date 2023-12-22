@@ -10,6 +10,9 @@ V(n, k) = 1/(k-1) * sum(j=0, n, k^j\(k+1));
 for(n=0, 20, print1(V(n, 0), ", "));
 \\ 正しい方
 V(n, k) = if(k<2, T(n,k), 1/(k-1) * sum(j=0, n, k^j\(k+1)));
+V2(n, k) = if(k<2, T(n,k), sum(j=0, n, k^j\(k^2-1)));
+\\ V(n, k) = V2(n, k)の確認
+for(k=2, 100, for(n=0, 1000, if(V(n, k)!=V2(n, k), print1([k, n], ", "))));
 
 W(n, k) = if(n<4, T(n,k), (k+1)*W(n-1,k) - (k-1)*W(n-2,k) - (k+1)*W(n-3,k) + k*W(n-4,k));
 
