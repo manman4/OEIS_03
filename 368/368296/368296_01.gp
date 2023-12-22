@@ -15,11 +15,16 @@ V2(n, k) = sum(j=0, n, k^j\(k^2-1));
 for(n=0, 20, print1(V2(n, 0), ", "));
 V2(n, k) = if(k<2, T(n,k), sum(j=0, n, k^j\(k^2-1)));
 \\ V(n, k) = V2(n, k)の確認
-for(k=2, 100, for(n=0, 1000, if(V(n, k)!=V2(n, k), print1([k, n], ", "))));
+for(k=2, 100, for(n=0, 200, if(V(n, k)!=V2(n, k), print1([k, n], ", "))));
 
 W(n, k) = if(n<4, T(n,k), (k+1)*W(n-1,k) - (k-1)*W(n-2,k) - (k+1)*W(n-3,k) + k*W(n-4,k));
 
 X(n, k) = polcoeff(x^2/((1-x) * (1-k*x) * (1-x^2) + x*O(x^n)), n);
+
+\\ 失敗例
+Y(n, k) = 1/(k-1) * (k^(n+1)\(k^2-1) - (n+1)\2);
+for(n=0, 20, print1(Y(n, 0), ", "));
+Y(n, k) = if(k<2, T(n,k), 1/(k-1) * (k^(n+1)\(k^2-1) - (n+1)\2));
 
 
 for(n=2, 12, for(k=2, n,  print1(T(k,n-k), ", ")));
@@ -28,4 +33,5 @@ for(n=2, 13, for(k=2, n,  print1(T(k,n-k)-U(k,n-k), ", ")));
 for(n=2, 13, for(k=2, n,  print1(T(k,n-k)-V(k,n-k), ", ")));
 for(n=2, 13, for(k=2, n,  print1(T(k,n-k)-W(k,n-k), ", ")));
 for(n=2, 13, for(k=2, n,  print1(T(k,n-k)-X(k,n-k), ", ")));
+for(n=2, 13, for(k=2, n,  print1(T(k,n-k)-Y(k,n-k), ", ")));
 
