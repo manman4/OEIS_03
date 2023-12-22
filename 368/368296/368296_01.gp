@@ -35,6 +35,7 @@ for(n=2, 12, for(k=2, n, print1(T(k,n-k), ", ")));
 for(n=2, 13, for(k=2, n, print1(T(k,n-k)-S(k,n-k), ", ")));
 for(n=2, 13, for(k=2, n, print1(T(k,n-k)-U(k,n-k), ", ")));
 for(n=2, 13, for(k=2, n, print1(T(k,n-k)-V(k,n-k), ", ")));
+for(n=2, 13, for(k=2, n, print1(T(k,n-k)-V2(k,n-k), ", ")));
 for(n=2, 13, for(k=2, n, print1(T(k,n-k)-W(k,n-k), ", ")));
 for(n=2, 13, for(k=2, n, print1(T(k,n-k)-X(k,n-k), ", ")));
 for(n=2, 13, for(k=2, n, print1(T(k,n-k)-Y(k,n-k), ", ")));
