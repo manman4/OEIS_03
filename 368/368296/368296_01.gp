@@ -26,6 +26,10 @@ Y(n, k) = 1/(k-1) * (k^(n+1)\(k^2-1) - (n+1)\2);
 for(n=0, 20, print1(Y(n, 0), ", "));
 Y(n, k) = if(k<2, T(n,k), 1/(k-1) * (k^(n+1)\(k^2-1) - (n+1)\2));
 
+\\ 一般の場合
+a(n, m, k) = (k^(n+1)\(k^m-1)-(n+1)\m)/(k-1);    
+b(n, m, k) = sum(j=0, n, k^(n-j)*(j\m));
+for(k=2, 20, for(m=2, 20, for(n=0, 100, if(a(n, m, k)!=b(n, m, k), print1([k, m, n], ", ")))));
 
 for(n=2, 12, for(k=2, n, print1(T(k,n-k), ", ")));
 for(n=2, 13, for(k=2, n, print1(T(k,n-k)-S(k,n-k), ", ")));
