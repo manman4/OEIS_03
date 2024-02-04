@@ -1,0 +1,1 @@
+my(N=30, x='x+O('x^N)); Vec(prod(k=1, N, 1+k^3*x^k/(1-x^k)))
