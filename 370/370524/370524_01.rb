@@ -4,7 +4,7 @@ def b(a, n, k)
   (1..n - 1).each{|i|
     s += 1 if a[i] == i + 1 && a[i + 1] == i
   }
-  return false if s != 1
+  return false if s != k
   true
 end
 
