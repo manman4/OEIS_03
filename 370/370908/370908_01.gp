@@ -1,0 +1,1 @@
+my(N=30, x='x+O('x^N)); Vec(serlaplace(serreverse( 4*x/(3 + exp(4*x)) )/x))
