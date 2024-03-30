@@ -6,4 +6,3 @@ for(n=0, M, print1(a(n),", "))
 \\ a(n) = 2 * Sum_{k=0..n} binomial(5*k+2,k) * binomial(n-1,n-k)/(5*k+2).
 b(n) = 2 * sum(k=0, n, binomial(5*k+2, k) * binomial(n-1, n-k)/(5*k+2));
 for(n=0, 20, print1(a(n)-b(n), ", "))
-
