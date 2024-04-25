@@ -1,0 +1,1 @@
+my(N=20, x='x+O('x^N)); Vec(serlaplace( exp( x - 2/5 * lambertw(-5*x/2 * exp(5*x/2)) ) ))
