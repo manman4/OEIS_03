@@ -1,4 +1,3 @@
-\\ Coefficient of x^n in the expansion of (1+x+x^2)^(3*n).
 a(n) = polcoef( ( (1+x+x^2)^3 / (1+x + x*O(x^n)) )^n, n);
 for(n=0, 20, print1(a(n), ", "));
 
