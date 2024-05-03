@@ -39,9 +39,10 @@ def B(f_ary, n)
   b[1]
 end
 
-n = 200
+n = 22
 f_ary = [0] + (1..n).map{|i| i * i * 2 ** (i - 1)}
-p ary = B(f_ary, n)
+ary = B(f_ary, n)
+p ary.map(&:to_i)
 (0..n).each{|i|
   j = ary[i].numerator
   break if ary[i].denominator > 1
