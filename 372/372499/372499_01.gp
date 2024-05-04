@@ -1,5 +1,5 @@
-\\ If n<k, b(n,k) = 0, else if n=k, b(n,k) = 1, otherwise b(n,k) = 1/3 * (9^(n-k) * binomial(n+k-1,2*k-1) - Sum_{m=k+1..n-1} (b(n,m) + Sum_{j=m..n} b(n,j) * b(j,m)) * b(m,k)). a(n) = b(n,1).
-b(n, k) = if(n<k, 0, if(n==k, 1, 1/3 * (9^(n-k) * binomial(n+k-1, 2*k-1) - sum(m=k+1, n-1, (b(n, m) + sum(j=m, n, b(n, j) * b(j, m))) * b(m, k)))));
+\\ Define the sequence b(n,m) as follows. If n<m, b(n,m) = 0, else if n=m, b(n,m) = 1, otherwise b(n,m) = 1/3 * ( 9^(n-m) * binomial(n+m-1,2*m-1) - Sum_{l=m+1..n-1} (b(n,l) + Sum_{k=l..n} b(n,k) * b(k,l)) * b(l,m) ). a(n) = b(n,1).
+b(n, m) = if(n<m, 0, if(n==m, 1, 1/3 * (9^(n-m) * binomial(n+m-1, 2*m-1) - sum(l=m+1, n-1, (b(n, l) + sum(k=l, n, b(n, k) * b(k, l))) * b(l, m)))));
 a(n) = b(n, 1);
 for(n=0, 12, print1(a(n), ", "))
 
