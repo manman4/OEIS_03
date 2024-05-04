@@ -39,11 +39,11 @@ def B(f_ary, n)
   b[1]
 end
 
-n = 23
+n = 500
+m = 450
 f_ary = [0] + (1..n).map{|i| i * 4 ** (i - 1)}
 ary = B(B(f_ary, n), n)
-p ary.map(&:to_i)
-(0..n).each{|i|
+(0..m).each{|i|
   j = ary[i].numerator
   break if ary[i].denominator > 1
   break if j.to_s.size > 1000
