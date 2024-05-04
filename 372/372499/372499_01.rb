@@ -22,7 +22,7 @@ def A(f_ary, n)
 end
 
 # f_aryの1次の項は1であること
-def B(f_ary, n)
+def f3r(f_ary, n)
   a = A(f_ary, n)
   b = []
   (0..n).each{|i|
@@ -32,18 +32,18 @@ def B(f_ary, n)
   }
   (2..n).each{|i|
     # 計算の順に注意
-    (i - 1).downto(1){|k|
-      b[k][i] = (a[k][i] - (k + 1..i - 1).inject(0){|s, j| s + (j..i).inject(b[j][i]){|t, m| t + b[m][i] * b[j][m]} * b[k][j]}) / 3r
+    (i - 1).downto(1){|x|
+      b[x][i] = (a[x][i] - (x + 1..i - 1).inject(0){|s, j| s + (j..i).inject(b[j][i]){|t, k| t + b[k][i] * b[j][k]} * b[x][j]}) / 3r
     }
   }
   b[1]
 end
 
-n = 22
+n = 250
+m = 200 
 f_ary = [0] + (1..n).map{|i| i * 9 ** (i - 1)}
-p ary = B(f_ary, n)
-p ary.map(&:to_i)
-(0..n).each{|i|
+ary = f3r(f_ary, n)
+(0..m).each{|i|
   j = ary[i].numerator
   break if ary[i].denominator > 1
   break if j.to_s.size > 1000
@@ -51,4 +51,3 @@ p ary.map(&:to_i)
   print ' '
   puts j
 }
-
