@@ -44,9 +44,9 @@ def f(n)
   (1..n).inject(:*)
 end
 
-n = 19
-m = 19 
-f_ary = [0] + (1..n).map{|i| 3 ** (i - 1) / f(i - 1).to_r}
+n = 20
+m = 20 
+f_ary = [0] + (1..n).map{|i| 3 ** (i - 1) / i.to_r}
 ary = f3r(f_ary, n)
 a = [0] + (1..n).map{|i| f(i) * ary[i]}
 p [0] + (1..n).map{|i| (f(i) * ary[i]).numerator}
