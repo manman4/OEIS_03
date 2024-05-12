@@ -44,13 +44,15 @@ def f(n)
   (1..n).inject(:*)
 end
 
-n = 250
-m = 200 
-f_ary = [0] + (1..n).map{|i| i * 9 ** (i - 1)}
+n = 19
+m = 19 
+f_ary = [0] + (1..n).map{|i| 3 ** (i - 1) / f(i - 1).to_r}
 ary = f3r(f_ary, n)
+a = [0] + (1..n).map{|i| f(i) * ary[i]}
+p [0] + (1..n).map{|i| (f(i) * ary[i]).numerator}
 (0..m).each{|i|
-  j = ary[i].numerator
-  break if ary[i].denominator > 1
+  j = a[i].numerator
+  break if a[i].denominator > 1
   break if j.to_s.size > 1000
   print i
   print ' '
