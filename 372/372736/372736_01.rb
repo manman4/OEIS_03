@@ -39,13 +39,20 @@ def B(f_ary, n)
   b[1]
 end
 
-n = 520
-m = 510
-f_ary = [0, 1, 4, 16] + [0] * (n - 3)
+def f(n)
+  return 1 if n < 2
+  (1..n).inject(:*)
+end
+
+n = 18
+m = 18
+f_ary = [0] + (1..n).map{|i| 4 ** (i - 1) / f(i - 1).to_r}
 ary = B(B(f_ary, n), n)
+a = [0] + (1..n).map{|i| f(i) * ary[i]}
+p [0] + (1..n).map{|i| (f(i) * ary[i]).numerator}
 (0..m).each{|i|
-  j = ary[i].numerator
-  break if ary[i].denominator > 1
+  j = a[i].numerator
+  break if a[i].denominator > 1
   break if j.to_s.size > 1000
   print i
   print ' '
