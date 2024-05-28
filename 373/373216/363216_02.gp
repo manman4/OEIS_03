@@ -1,2 +1,1 @@
-a(n) = my(A=x); for(i=1, n, A = x/(1-x +x*O(x^n)) + subst(A, x, x^6) ); Vec(A);
-a(100)
+my(N=100, x='x+O('x^N)); Vec(sum(k=0, 5, x^(6^k) / (1 - x^(6^k)) ))
