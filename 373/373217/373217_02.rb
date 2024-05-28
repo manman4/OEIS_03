@@ -2,7 +2,7 @@ require 'prime'
 
 def A(n, prime)
   return 1 if n == 1
-  n.prime_division.inject(1){|s, (p, e)| p == prime ? s * (e + 1) : s}
+  n.prime_division.inject(1){|s, (p, e)| s * (p == prime ? e + 1 : 1)}
 end
 
 n = 10000
