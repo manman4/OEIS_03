@@ -7,4 +7,11 @@ def A(k, n)
   }
   ary[1..-1]
 end
-p A(4, 90)
+
+n = 10000
+ary = A(4, n)
+(1..n).each{|i|
+  print i
+  print ' '
+  puts ary[i - 1]
+}
