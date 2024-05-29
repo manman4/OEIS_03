@@ -1,0 +1,1 @@
+my(N=60, x='x+O('x^N)); Vec(prod(i=1, N, prod(j=0, 4, 1+x^(i*7^j) )))
