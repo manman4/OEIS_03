@@ -1,0 +1,20 @@
+def A(k, n)
+  ary = [0]
+  (1..n).each{|i|
+    j = i
+    j += ary[i / k] if i % k == 0
+    ary << j
+  }
+  ary[1..-1]
+end
+
+n = 10100
+m = 10000
+ary = A(7, n)
+(1..m).each{|i|
+  j = ary[i - 1]
+  break if j.to_s.size > 1000
+  print i
+  print ' '
+  puts j
+}
