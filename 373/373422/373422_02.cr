@@ -22,6 +22,7 @@ def a(n)
   ary[1..-1]
 end
 
+# n = 13で４時間くらいかかる
 n = 13
 ary = (1..n).map{|i| a(i)}.flatten
 (1..ary.size).each{|i|
