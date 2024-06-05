@@ -6,7 +6,7 @@ def ncr(n, r)
 end
 
 def a(n)
-  p a = (0..n - 1).map{|i| ncr(n - 1, i)}
+  a = (0..n - 1).map{|i| ncr(n - 1, i)}
   ary = [0] * (n + 1)
   if n == 3 || n == 4 || n == 6 || n == 8 || n == 12 || n == 14
     i0 = 1
@@ -38,7 +38,7 @@ end
 
 # n = 13で４時間くらいかかる
 n = 14
-p ary = (n..n).map{|i| a(i)}.flatten
+ary = (1..n).map{|i| a(i)}.flatten
 (1..ary.size).each{|i|
   print i
   print ' '
