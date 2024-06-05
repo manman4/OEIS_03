@@ -10,9 +10,9 @@ def a(n)
   ary = [0] * (n + 1)
   if n == 3 || n == 4 || n == 6 || n == 8 || n == 12 || n == 14
     i0 = 1
-    b = (1..n).to_a.reject{|x| x == i0}
+    b = (2..n - 1).to_a
     b.each_permutation{|i|
-      i = [i0] + i
+      i = [1] + i + [n]
       # iとaの交代和を計算
       if (0..n - 1).reduce(0){|s, j| s + (-1) ** (j % 2) * a[j] * i[j]} == 0
         ary[i0] += 1
@@ -37,8 +37,8 @@ def a(n)
 end
 
 # n = 13で４時間くらいかかる
-n = 14
-p ary = (n..n).map{|i| a(i)}.flatten
+n = 10
+p ary = (1..n).map{|i| a(i)}.flatten
 (1..ary.size).each{|i|
   print i
   print ' '
