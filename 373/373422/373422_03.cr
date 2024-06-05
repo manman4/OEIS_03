@@ -14,7 +14,7 @@ def a(n)
     b.each_permutation{|i|
       i = [i0] + i
       # iとaの交代和を計算
-      if (0..n - 1).reduce(BigInt.new(0)){|s, j| s + (-1) ** (j % 2) * a[j] * i[j]} == 0
+      if (0..n - 1).reduce(0){|s, j| s + (-1) ** (j % 2) * a[j] * i[j]} == 0
         ary[i0] += 1
       end
     }
@@ -26,7 +26,7 @@ def a(n)
       b.each_permutation{|i|
         i = [i0] + i
         # iとaの交代和を計算
-        if (0..n - 1).reduce(BigInt.new(0)){|s, j| s + (-1) ** (j % 2) * a[j] * i[j]} == 0
+        if (0..n - 1).reduce(0){|s, j| s + (-1) ** (j % 2) * a[j] * i[j]} == 0
           ary[i0] += 1
         end
       }
