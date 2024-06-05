@@ -37,8 +37,8 @@ def a(n)
 end
 
 # n = 13で４時間くらいかかる
-n = 10
-p ary = (1..n).map{|i| a(i)}.flatten
+n = 14
+p ary = (n..n).map{|i| a(i)}.flatten
 (1..ary.size).each{|i|
   print i
   print ' '
