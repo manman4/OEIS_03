@@ -1,0 +1,1 @@
+my(N=80, x='x+O('x^N)); concat(0, Vec( sum(k=1, 80, x^prime(k) / (1 - prime(k)*x^prime(k)) )))
