@@ -2,7 +2,7 @@ require "big"
 
 def ncr(n, r)
   return 1 if r == 0
-  ((n - r + 1)..n).reduce(BigInt.new(1)){|p, i| p * i} / (1..r).reduce(1){|p, i| p * i}
+  ((n - r + 1)..n).reduce(BigInt.new(1)){|p, i| p * i} // (1..r).reduce(1){|p, i| p * i}
 end
 
 def a(n)
