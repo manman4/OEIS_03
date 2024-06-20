@@ -1,0 +1,1 @@
+my(N=20, x='x+O('x^N)); concat(0, Vec(serlaplace(sum(k=1, N, (exp(k*x) - 1)^k / k^3 ))))
