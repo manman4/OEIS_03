@@ -1,0 +1,1 @@
+my(N=110, x='x+O('x^N)); Vec(sum(k=0, sqrtnint(N, 4), x^k^4))
