@@ -13,7 +13,8 @@ def A(n)
 end
 
 # p (1..119).map{|i| A(i)}
-n = 200
+# p (1..119).map{|i| A(i * i)}
+n = 10000
 (1..n).each{|i|
   print i
   print ' '
