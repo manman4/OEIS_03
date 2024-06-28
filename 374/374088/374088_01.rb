@@ -12,11 +12,13 @@ def A(n)
   ary
 end
 
-n = 11000
-m = 10000
-ary = A(n)
-(0..m).each{|i|
-  print i
-  print ' '
-  puts ary[i]
-}
+p A(93)
+
+# n = 11000
+# m = 10000
+# ary = A(n)
+# (0..m).each{|i|
+#   print i
+#   print ' '
+#   puts ary[i]
+# }
