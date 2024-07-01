@@ -15,7 +15,7 @@ def A(n)
   h.sort
 end
 
-n = 2 * 10 ** 9
+n = 10 ** 8
 ary = A(n)
 
 # h[k] = i の 最小のk を出力
