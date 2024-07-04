@@ -26,8 +26,10 @@ end
 prime_ary = Prime.take(1000).select{|i| i % 8 == 1 || i % 8 == 3}
 p prime_ary
 
-a = [1]
-(2..45).each{|i|
+N = 90
+
+a = [0, 1]
+(2..N).each{|i|
   min = 3 ** i
   find_factors(i).each{|ary|
      s = 1
@@ -39,6 +41,5 @@ a = [1]
   a << min
 }
 p a
-
 
 
