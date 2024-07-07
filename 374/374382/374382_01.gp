@@ -1,0 +1,1 @@
+my(N=101, x='x+O('x^N)); concat(0, Vec(sum(k=0, N, x^(k*(k+1)/2)) * sum(k=0, N, x^k^2) * sum(k=0, N, x^(2*k+1)^2)))
