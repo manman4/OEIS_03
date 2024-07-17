@@ -4,7 +4,6 @@ def A(n)
     (i..n).each{|j|
       (j..n).each{|k|
         ary << i ** 3 + j ** 3 + k ** 3 
-        
       }
     }
   }
