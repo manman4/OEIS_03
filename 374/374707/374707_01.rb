@@ -8,4 +8,11 @@ def A(n, k)
   ary.uniq.size
 end
 
-p ary = (0..100).map{|i| A(i, 3)}
+n = 1000
+(0..n).each{|i|
+  j = A(i, 3)
+  break if j.to_s.size > 1000
+  print i
+  print ' '
+  puts j
+}
