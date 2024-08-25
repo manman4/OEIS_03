@@ -1,1 +1,1 @@
-my(N=30, x='x+O('x^N)); Vec(serlaplace( 1 / sqrt(1 + x^2 * log(1 - x)) ))
+my(N=100, x='x+O('x^N)); Vec(serlaplace( 1 / sqrt(1 + x^2 * log(1 - x)) ))
