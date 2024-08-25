@@ -1,0 +1,1 @@
+my(N=100, x='x+O('x^N)); Vec(serlaplace( 1 / (1 - x^3 * (exp(x) - 1))^(1/3) ))
