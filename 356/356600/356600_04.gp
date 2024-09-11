@@ -1,1 +1,0 @@
-my(N=30, x='x+O('x^N)); concat(0, Vec(serlaplace(serreverse( (log(1 + 2 * x * exp(-x)))/2 ))))
