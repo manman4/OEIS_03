@@ -31,3 +31,4 @@ def A339798(n):
     return B(n, 4)
 
 print([A339798(n) for n in range(3, 8)])
+
