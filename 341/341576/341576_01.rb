@@ -28,3 +28,4 @@ n = 26
   print ' '
   puts j
 }
+
