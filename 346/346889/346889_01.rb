@@ -21,3 +21,4 @@ ary = A(3, n)
   puts j
 }
 
+
