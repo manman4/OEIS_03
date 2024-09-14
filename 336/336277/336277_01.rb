@@ -23,3 +23,4 @@ ary = [0] + mu_ary(m)
   puts j
 }
 
+
