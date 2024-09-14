@@ -17,3 +17,4 @@ n = 100
   print ' '
   puts j
 }
+
