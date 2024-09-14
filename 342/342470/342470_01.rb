@@ -32,3 +32,4 @@ ary = A(n)
   puts j
 }
 
+
