@@ -33,3 +33,4 @@ ary = A347227(n)
   print ' '
   puts j
 }
+
