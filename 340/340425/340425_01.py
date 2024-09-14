@@ -22,3 +22,4 @@ def A340425(n, k):
     return spanning_trees.len()
 
 print([A340425(n, n) for n in range(1, 6)])
+
