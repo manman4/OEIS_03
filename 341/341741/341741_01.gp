@@ -7,3 +7,4 @@ T(n, k) = a341533(n,k)/2 + a341738(n,k) + 2 * ((k+1)%2) * a341739(n,ceil(k/2));
 cnt = 1;
 M = 50;
 for(n=2, M+1, for(k=1, n-1, write("/Users/xxx/Desktop/b341741_1.txt", cnt, " ", T(k,n-k)); cnt++))
+
