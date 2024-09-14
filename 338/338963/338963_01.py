@@ -29,3 +29,4 @@ def A338963(n):
 
 for n in range(3, 7):
     print(A338963(n))
+    
