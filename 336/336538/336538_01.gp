@@ -1,2 +1,4 @@
 a(n) = my(A=1+x*O(x^n)); for(i=0, n, A=1+x*A^3*(2+A)); polcoeff(A, n); 
 for(n=0, 19, print1(a(n),", "))          
+
+
