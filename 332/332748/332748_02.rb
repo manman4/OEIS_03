@@ -23,3 +23,4 @@ ary.permutation{|i|
 }
 p b.uniq
 p b.uniq!.size
+
