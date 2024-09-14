@@ -19,3 +19,4 @@ n = 500
   print ' '
   puts j
 }
+
