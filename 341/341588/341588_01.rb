@@ -48,3 +48,4 @@ ary = B(2, 3, n)
   print ' '
   puts j
 }
+
