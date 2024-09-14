@@ -6,3 +6,4 @@
 isok(n) = sum(k=0, n, Mod(k, n)^(n-k))==0;
 for(n=1, 10^5, if(isok(n), print1(n, ", ")))
 
+
