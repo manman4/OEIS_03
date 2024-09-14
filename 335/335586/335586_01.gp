@@ -6,3 +6,4 @@ a(n) = if(n==0, 1, 4*b(n)+c(n)/2);
 
 M=50;
 for(n=0, M, i=a(n); if((i<0)+#digits(i)>1000, break); write("/Users/xxx/Desktop/b335586.txt", n, " ", i))
+
