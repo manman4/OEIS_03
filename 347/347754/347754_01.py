@@ -12,3 +12,4 @@ for n in range(1, N+1):
 
 for i in range(1, N+1):
     print(str(i) + ' ' + str(A347754_list[i-1])) 
+    
