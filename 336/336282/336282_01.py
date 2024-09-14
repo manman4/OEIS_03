@@ -38,3 +38,4 @@ def A(n):
 
 for k in range(16):
     print([k, A(k)])
+
