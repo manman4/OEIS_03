@@ -25,3 +25,4 @@ ary = B(n)
   print ' '
   puts j
 }
+
