@@ -13,3 +13,4 @@ ary = A(n)
   print ' '
   puts ary[i]
 }
+
