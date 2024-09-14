@@ -30,3 +30,4 @@ n = 50
 p q_ary = B(n)
 
 # p (1..n).map{|i| p_ary[i] / q_ary[i].to_r}
+
