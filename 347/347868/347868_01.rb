@@ -16,3 +16,4 @@ n = 50
   print ' '
   puts A(4, i)
 }
+
