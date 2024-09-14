@@ -31,3 +31,4 @@ def A339796(n):
 
 for n in range(3, 38):
     print(str(n) + " " + str(A339796(n)))
+    
