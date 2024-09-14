@@ -31,3 +31,4 @@ str.split(/\R/).each{|i|
   end
 }
 
+
