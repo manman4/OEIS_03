@@ -12,3 +12,4 @@ n = 10000
   print ' '
   puts j
 }
+
