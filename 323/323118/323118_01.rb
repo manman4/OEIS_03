@@ -18,3 +18,5 @@ n = 400
   print ' '
   puts j
 }
+
+
