@@ -6,3 +6,5 @@ T(n, k) = a341533(n, k)/2 + a341738(n, k) + 2 * ((k+1)%2) * a341739(n, ceil(k/2)
 
 M=500;
 for(n=3, M, i=T(6, n); if((i<0)+#digits(i)>1000, break); write("/Users/xxx/Desktop/b309018_1.txt", n, " ", i))
+
+
