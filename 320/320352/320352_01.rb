@@ -34,3 +34,4 @@ ary = A(n)
   print ' '
   puts j
 }
+
