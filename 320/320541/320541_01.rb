@@ -25,3 +25,5 @@ ary = A320541(n)
   print ' '
   puts ary[i - 1]
 }
+
+
