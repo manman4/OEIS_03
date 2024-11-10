@@ -24,3 +24,5 @@ ary = A(m)
   print ' '
   puts j
 }
+
+
