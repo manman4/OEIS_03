@@ -46,3 +46,5 @@ ary = A324484(m)
   print ' '
   puts j
 }
+
+
