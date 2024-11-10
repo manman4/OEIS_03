@@ -30,3 +30,4 @@ ary = B(12, n)
   print ' '
   puts j
 }
+
