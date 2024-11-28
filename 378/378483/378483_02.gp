@@ -1,5 +1,3 @@
-a005809(n) = binomial(3*n, n);
-
-\\ 4*a(n) - 27*a(n-1) = 3*A005809(n) for n > 0.
-a(n) = if(n==0, 1, (3*a005809(n) + 27*a(n-1))/4);
+\\ a(n) = Sum_{i+j+k=n, i,j,k >= 0} binomial(3*i,i) * binomial(3*j,j) * binomial(3*k,k).
+a(n) = sum(i=0, n, sum(j=0, n-i, binomial(3*i,i) * binomial(3*j,j) * binomial(3*(n-i-j),n-i-j)));
 for(n=0, 21, print1(a(n), ", "));
