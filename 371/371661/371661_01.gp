@@ -2,4 +2,6 @@
 a(n) = if(n==0, 1, sum(k=0, (n-1)\2, 4^(n-k) * binomial(n,k) * binomial(4*n-k,n-1-2*k))/n);
 for(n=0, 16, print1(a(n),", ")) 
 
+\\ a(n) = 2^n * A371669(n).
+for(n=0, 19, print1(a(n)/2^n, ", "))
 
