@@ -1,8 +1,10 @@
+M=17;
+
 a004211(n) = sum(k=0, n, 2^(n-k)*stirling(n, k, 2));
 
 \\ a(n) = Sum_{k=0..n} 4^(n-k) * |Stirling1(n,k)| * A004211(k) 
 a(n) = sum(k=0, n, 4^(n-k) * abs(stirling(n, k, 1)) * a004211(k));
-for(n=0, 17, print1(a(n), ", "));
+for(n=0, M, print1(a(n), ", "));
 
 bell(n, x) = sum(k=0, n, x^k * stirling(n, k, 2));
 
