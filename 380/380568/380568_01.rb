@@ -5,12 +5,11 @@ def A(a, b)
   result = []
   ans = []
 
-  # 100個の数字を作る
   while queue.max < 10 ** 13
     # キューから最小の値を取り出す
     current = queue.shift
 
-    # 数字が 7 と 9 の両方を含む場合だけ結果に追加
+    # 数字が a と b の両方を含む場合だけ結果に追加
     if current.to_s.include?(a.to_s) && current.to_s.include?(b.to_s)
       result << current
       if current % (a * b) == 0
