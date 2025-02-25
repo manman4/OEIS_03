@@ -1,5 +1,3 @@
-require 'set'
-
 def A(a, b)
   queue = [a, b]
   result = []
