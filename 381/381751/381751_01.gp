@@ -1,0 +1,1 @@
+my(N=100, x='x+O('x^N)); Vec(exp(sum(k=1, N, binomial(8*k-1, 2*k-1)*x^k/k)))
