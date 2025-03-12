@@ -6,5 +6,9 @@ a(n, s, t) = {
     for(i=1, n, A=exp(x + x*O(x^(n+1))) * subst(B, x, x*A^t) ); 
     Vec(serlaplace(A)); 
 }
-b(M, 4, 2)
+a(M, 4, 2)
+
+\\ Let F(x) be the e.g.f. of A382001.
+\\ E.g.f.: F(x) = B(x*A(x)^2) = exp( 1/4 * Sum_{k>=1} binomial(4*k,k) * (x*A(x)^2)^k/k ).
+
 
