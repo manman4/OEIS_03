@@ -1,7 +1,7 @@
 M=43;
 
 \\ a(n) = Sum_{k=0..floor(n/3)} (k+1) * binomial(2*k,2*n-6*k).
-b(n) = sum(k=0, n\2, (k+1)*binomial(2*k,2*n-6*k));
+b(n) = sum(k=0, n\3, (k+1)*binomial(2*k,2*n-6*k));
 for(n=0, M, print1(b(n),", "))     
 
 \\ signature (0,0,4,4,0,-6,-4,-6,4,-4,-4,3,4,-6,4,-1).
