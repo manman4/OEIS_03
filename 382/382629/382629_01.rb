@@ -21,4 +21,6 @@ end
 n = 20
 ary = A(n)
 p ary.flatten
+# (2/3)^n * Sum_{k=0..n} T(n,k)/2^k = A098830(n).
+p (0..n).map{|i| ((0..i).inject(0){|s, j| s + ary[i][j] / 2r ** j} * (2 / 3r) ** i).to_i}
 p (0..n).map{|i| ary[i].sum}
