@@ -18,9 +18,17 @@ def A(n)
   (0..n).map{|i| (0..i).map{|j| ary[i][j]}}
 end
 
-n = 20
-ary = A(n)
-p ary.flatten
+n = 139
+# ary = A(n)
+# p ary.flatten
 # (2/3)^n * Sum_{k=0..n} T(n,k)/2^k = A098830(n).
-p (0..n).map{|i| ((0..i).inject(0){|s, j| s + ary[i][j] / 2r ** j} * (2 / 3r) ** i).to_i}
-p (0..n).map{|i| ary[i].sum}
+# p (0..n).map{|i| ((0..i).inject(0){|s, j| s + ary[i][j] / 2r ** j} * (2 / 3r) ** i).to_i}
+# p (0..n).map{|i| ary[i].sum}
+ary = A(n).flatten
+(0..ary.size - 1).each{|i|
+  j = ary[i]
+  break if j.to_s.size > 1000
+  print i
+  print ' '
+  puts j
+}
