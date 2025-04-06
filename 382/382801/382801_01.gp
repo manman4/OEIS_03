@@ -6,5 +6,3 @@ for(n=1, M, for(k=1, n, print1(a(k, n-k+1)", ")));
 
 
 
-
-
