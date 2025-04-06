@@ -7,7 +7,7 @@ b(n) = sum(k=0, n, (k!*stirling(n, k, 1))^2);
 for(n=0, M, print1(b(n), ", "));
 
 \\ Main diagonal of A379821.
-for(n=0, 100, print1(a(n, n)-b(n), ", "));
+for(n=0, 50, print1(a(n, n)-b(n), ", "));
 
 
 
