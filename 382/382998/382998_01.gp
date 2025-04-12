@@ -4,6 +4,10 @@ M=19;
 b(n) = sumdiv(n, d, eulerphi(n/d)*(-n)^(d-1));
 for(n=1, M, print1(b(n), ", "));
 
+\\ a(n) = Sum_{k=1..n} (-n)^(gcd(n,k) - 1).
+d(n) = sum(k=1, n, (-n)^(gcd(n,k) - 1));
+for(n=1, M, print1(b(n)-d(n), ", "));
+
 \\ Main diagonal of A382993.
 a(n, k) = -sumdiv(n, d, eulerphi(n/d)*(-k)^d)/n;
 for(n=1, M, print1(b(n)-a(n, n), ", "));  
