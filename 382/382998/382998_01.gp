@@ -12,6 +12,6 @@ for(n=1, M, print1(b(n)-a(n, n), ", "));
 a(n, k) = sumdiv(n, d, eulerphi(n/d)*(-k)^(d-1));
 for(n=1, M, print1(b(n)-a(n, n), ", "));  
 
-\\ a(n) = [x^n] Sum_{k>=1} mu(k) * log(1 + n*x^k) / k.
-c(n) = polcoef(sum(k=1, n, moebius(k) * log(1 + n*x^k + x*O(x^n)) / k), n);
+\\ a(n) = [x^n] Sum_{k>=1} phi(k) * log(1 + n*x^k) / k.
+c(n) = polcoef(sum(k=1, n, eulerphi(k) * log(1 + n*x^k + x*O(x^n)) / k), n);
 for(n=1, M, print1(b(n)-c(n), ", "));
