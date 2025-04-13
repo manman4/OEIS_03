@@ -1,7 +1,7 @@
 M=19;
 
-\\ a(n) = Sum_{d|n} phi(n/d) * (-n)^(d-1).
-b(n) = sumdiv(n, d, eulerphi(n/d)*(-n)^(d-1));
+\\ a(n) = -Sum_{d|n} phi(n/d) * (-n)^d.
+b(n) = -sumdiv(n, d, eulerphi(n/d)*(-n)^d);
 for(n=1, M, print1(b(n), ", "));
 
 \\ a(n) = Sum_{k=1..n} (-n)^(gcd(n,k) - 1).
