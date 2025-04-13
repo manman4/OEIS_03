@@ -1,7 +1,7 @@
-M=11;
+M=10;
 
-\\ A(n,k) = Sum_{d|n} phi(n/d) * (-k)^(d-1).
-a(n, k) = sumdiv(n, d, eulerphi(n/d)*(-k)^(d-1));
+\\ A(n,k) = -Sum_{d|n} phi(n/d) * (-k)^d.
+a(n, k) = -sumdiv(n, d, eulerphi(n/d)*(-k)^d);
 for(n=1, M, for(k=1, n, print1(a(k, n-k+1), ", ")));  
 
 \\ A(n,k) = Sum_{j=1..n} (-k)^(gcd(n,j) - 1).
