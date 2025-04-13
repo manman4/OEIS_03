@@ -20,24 +20,9 @@
   concat(0,A)
 };
 
-M=20;
+M=11;
 
-print("A168246 Inverse Weigh transform of n!.")
-f(n) = n!;
-a_vector(n) = my(A=vector(n+1, k, f(k-1))); trv_i_weigh(A);
-a_vector(M)
-
-print("A306156 Inverse Weigh transform of 2^n.")
-f(n) = 2^n;
-a_vector(n) = my(A=vector(n+1, k, f(k-1))); trv_i_weigh(A);
-a_vector(M)
-
-print("A306157 Inverse Weigh transform of 3^n.")
-f(n) = 3^n;
-a_vector(n) = my(A=vector(n+1, k, f(k-1))); trv_i_weigh(A);
-a_vector(M) 
-
-print("A306152 Inverse Weigh transform of n^n.")
-f(n) = n^n;
-a_vector(n) = my(A=vector(n+1, k, f(k-1))); trv_i_weigh(A);
-a_vector(M) 
+\\ Product_{n>=1} (1 + x^n)^A(n,k) = 1/(1 - k*x).
+f(n, k) = k^n;
+a(n, k) = my(A=vector(n+1, j, f(j-1, k))); trv_i_weigh(A)[n+1];
+for(n=1, M, for(k=1, n, print1(a(k, n-k+1), ", "))); 
