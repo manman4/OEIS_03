@@ -20,7 +20,7 @@
 
 M=11;
 
-\\ Product_{n>=1} (1 + x^n)^A(n,k) = (1 - (k-1)*x)/(1 - k*x).
+\\ Product_{n>=1} 1/(1 - x^n)^A(n,k) = (1 - (k-1)*x)/(1 - k*x).
 f(n, k) = k^(n-1);
 a(n, k) = my(A=vector(n+1, j, f(j-1, k))); trv_i_euler(A)[n+1];
 for(n=1, M, for(k=1, n, print1(a(k, n-k+1), ", "))); 
