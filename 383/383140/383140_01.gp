@@ -8,3 +8,4 @@ for(n=0, 30, print1(sum(k=0, n, T(n, k)), ", "));
 
 \\ Alternating row sums give A212846.
 for(n=0, 21, print1(sum(k=0, n, (-1)^k*T(n, k)), ", "));
+
