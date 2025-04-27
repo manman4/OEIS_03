@@ -1,11 +1,4 @@
-M=22;
-
-\\ a(n) = (n^2 * a(n-1) - 2)/(n-1) for n > 2.
-a(n) = my(v=[1,4]); if(n<3, v[n], (n^2*a(n-1) - 2)/(n-1));
-for(n=1, M, print1(a(n),", "))
-
-\\ for n > 1はダメ
-a(n) = my(v=[1,4]); if(n<2, v[n], (n^2*a(n-1) - 2)/(n-1));
-for(n=1, M, print1(a(n),", "))
-
+\\ a(n) = -9*n/2 * n! + 2 * Sum_{k=0..n} (k+1)! * binomial(n,k) for n > 1.
+a(n) = -9*n/2 * n! + 2 * sum(k=0, n, (k+1)! * binomial(n,k));
+for(n=1, 20, print1(a(n),", "))
 
