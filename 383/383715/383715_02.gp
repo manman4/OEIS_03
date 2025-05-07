@@ -1,10 +1,15 @@
+\\ Cf. A055870
+
+pell(n) = ([2, 1; 1, 0]^n)[2, 1];
+
 \\ n行目の係数を求める
-\\ Sum_{k=0..n} T(n,k) * x^k = exp( -Sum_{k>=1} Fibonacci(n*k)/Fibonacci(k) * x^k/k ).
-v(n) = my(x='x+O('x^(n+10))); Vec( exp( -sum(k=1, n+10, fibonacci(n*k)/fibonacci(k) * x^k/k )) );
+\\ Let f(n, x) be defined as f(n, x) = Sum_{k=0..n} T(n,k) * x^k.
+\\ f(n, x) = exp( -Sum_{k>=1} Pell(n*k)/Pell(k) * x^k/k ).
+v(n) = my(x='x+O('x^(n+10))); Vec( exp( -sum(k=1, n+10, pell(n*k)/pell(k) * x^k/k )) );
 for(n=0, 10, print(v(n)));
 
 
 \\ 0行目は1
 a = [1];
-for(n=1, 10, a = concat(a, v(n)[1..n+1]));
+for(n=1, 9, a = concat(a, v(n)[1..n+1]));
 print(a);
