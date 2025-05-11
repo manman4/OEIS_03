@@ -3,6 +3,7 @@
 from graphillion import GraphSet
 import graphillion.tutorial as tl
 
+
 def A333758(n, k):
     universe = tl.grid(n - 1, k - 1)
     GraphSet.set_universe(universe)
@@ -12,8 +13,10 @@ def A333758(n, k):
         cycles = cycles.including(i)
     return cycles.len()
 
+
 def A358698(n):
     return A333758(n, 7)
 
+
 for i in range(2, 51):
-    print(str(i) + ' ' + str(A358698(i)))
+    print(str(i) + " " + str(A358698(i)))
