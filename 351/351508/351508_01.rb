@@ -43,11 +43,11 @@ end
 def A(n)
   return 1 if n == 0
   # n列目の第二種スターリング数を求める
-  s2n = stirling(2*n, n, 2)
+  s2_n = stirling(2*n, n, 2)
   sum = 0
   (0..n).to_a.repeated_permutation(n){|perm|
     if perm.inject(:+) == n
-      sum += perm.inject(1){|s, i| s * s2n[i + n]}
+      sum += perm.inject(1){|s, i| s * s2_n[i + n]}
     end
   }
   sum
