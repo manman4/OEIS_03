@@ -1,5 +1,5 @@
-M=17;
+M=16;
 
-\\ a(n) = (3/4) * A061924(n) for n > 0.
-a(n) = if(n==0, 1, (3/4) * n! * binomial(4*n,n));
+\\ a(n) = n! * [x^n] 1/(1 - x)^(3*n).
+a(n) = my(x='x+O('x^(n+1))); n! * polcoef( 1/(1 - x)^(3*n), n);
 for(n=0, M, print1(a(n),", "));
