@@ -8,12 +8,12 @@ print([a(k, n - k) for n in range(N + 1) for k in range(n + 1)])
 
 def b(n, k): return QQ(q_binomial(2*n, n, k))/QQ(q_binomial(n + 1, 1, k))
 print([b(k, n - k) for n in range(N + 1) for k in range(n + 1)])
-print([b(k, n - k) - a(k, n - k) for n in range(N + 1) for k in range(n + 1)])
+print([b(k, n - k) - a(k, n - k) for n in range(M + 1) for k in range(n + 1)])
 
 print("The following calculations contain bugs.")
 def c(n, k): return QQ(q_binomial(2*n, n, k)/q_binomial(n + 1, 1, k))
 print([c(k, n - k) for n in range(N + 1) for k in range(n + 1)])
-print([c(k, n - k) - a(k, n - k) for n in range(N + 1) for k in range(n + 1)])
+print([c(k, n - k) - a(k, n - k) for n in range(N+ 1) for k in range(n + 1)])
 
 
 
