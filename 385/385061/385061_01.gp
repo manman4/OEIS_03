@@ -5,3 +5,5 @@ b(n, k) = if(n*k==0, 0^n, (-1)^n*k*sum(j=1, n, (-n+k)^(j-1)*binomial(n,j)*b(n-j,
 a(n, k) = b(n, -k);
 for(n=0, M, for(k=0, n, print1(a(k, n-k),", ")));
 
+print(a(10, 1));
+
