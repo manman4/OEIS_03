@@ -10,4 +10,4 @@ diff_n(f, x, n) = {
 \\ G.f. A(x) satisfies A(x) = 1/( 1 - x*A(x) - x*Sum_{k=1..6} Stirling2(6,k) * x^k * (d^k/dx^k A(x)) ).
 my(A=1, n=M); for(i=1, n, A= 1/(1 - x*A - x*sum(k=1, 6, stirling(6, k, 2) * x^k * diff_n(A, x, k)) + x*O(x^n)) ); Vec(A)
 
-    
+my(A=1, n=M); for(i=1, n, A= 1/(1 - x*A - x*sum(k=1, 6, stirling(6, k, 2) * x^k * diff_n(A, x, k)) + x*O(x^n)) ); Vec(1/(1 - x*A - x*sum(k=1, 6, stirling(6, k, 2) * x^k * diff_n(A, x, k))))
