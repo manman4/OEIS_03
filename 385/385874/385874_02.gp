@@ -7,6 +7,9 @@ diff_n(f, x, n) = {
   return(res);
 }
 
+\\ G.f. A(x) satisfies A(x) = 1/( (1 - x) * ( 1 - x^2 * (d/dx A(x)) - x^3/2 * (d^2/dx^2 A(x)) ) ).
+my(A=1, n=M); for(i=1, n, A= 1/( (1 - x) * ( 1 - x^2 * diff_n(A, x, 1) - x^3/2 * diff_n(A, x, 2) + x*O(x^n)) ) ); Vec(A)
+
 \\ G.f. A(x) satisfies A(x) = 1/( (1 - x) * ( 1 - x*Sum_{k=1..2} x^k/k! * (d^k/dx^k A(x)) ) ).
 my(A=1, n=M); for(i=1, n, A= 1/( (1 - x) * ( 1 - x*sum(k=1, 2, x^k/k! * diff_n(A, x, k)) + x*O(x^n)) ) ); Vec(A)
 
