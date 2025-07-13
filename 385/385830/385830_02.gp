@@ -12,4 +12,4 @@ my(A=1, n=M); for(i=1, n, A= 1/(1 - x*A - x^2*diff_n(A, x, 1) - x^3*diff_n(A, x,
 
 \\ G.f. A(x) satisfies A(x) = 1/( 1 - x*A(x) - x*Sum_{k=1..2} Stirling2(2,k) * x^k * (d^k/dx^k A(x)) ).
 my(A=1, n=M); for(i=1, n, A= 1/(1 - x*A - x*sum(k=1, 2, stirling(2, k, 2) * x^k * diff_n(A, x, k)) + x*O(x^n)) ); Vec(A)
-    
+
