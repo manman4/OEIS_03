@@ -1,4 +1,4 @@
-# OEIS\_03
+# OEIS_03
 
 * [日本語 (Japanese)](README_ja.md)
 * [English](README.md)
