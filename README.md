@@ -17,8 +17,8 @@ Over the years, I have accumulated various scripts and tools used in the editing
 
 ## Repository Structure and Sequence Coverage
 
-| Sequence Range    | Corresponding Repository                       |
-| ----------------- | ---------------------------------------------- |
+| Sequence Range    | Corresponding Repository                      |
+| ----------------- | --------------------------------------------- |
 | A000001 – A099999 | [OEIS_00](https://github.com/manman4/OEIS_00) |
 | A100000 – A199999 | [OEIS_01](https://github.com/manman4/OEIS_01) |
 | A200000 – A299999 | [OEIS_02](https://github.com/manman4/OEIS_02) |
