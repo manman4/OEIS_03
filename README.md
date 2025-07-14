@@ -68,4 +68,4 @@ In this repository, the scripts are saved as PARI/GP files.
 
 ---
 
-Thank you for your interest in this collection! Feel free to explore and contribute.
+
