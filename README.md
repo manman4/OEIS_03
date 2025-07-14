@@ -19,10 +19,10 @@ Over the years, I have accumulated various scripts and tools used in the editing
 
 | Sequence Range    | Corresponding Repository                       |
 | ----------------- | ---------------------------------------------- |
-| A000001 – A099999 | [OEIS\_00](https://github.com/manman4/OEIS_00) |
-| A100000 – A199999 | [OEIS\_01](https://github.com/manman4/OEIS_01) |
-| A200000 – A299999 | [OEIS\_02](https://github.com/manman4/OEIS_02) |
-| A300000 – A399999 | [OEIS\_03](https://github.com/manman4/OEIS_03) |
+| A000001 – A099999 | [OEIS_00](https://github.com/manman4/OEIS_00) |
+| A100000 – A199999 | [OEIS_01](https://github.com/manman4/OEIS_01) |
+| A200000 – A299999 | [OEIS_02](https://github.com/manman4/OEIS_02) |
+| A300000 – A399999 | [OEIS_03](https://github.com/manman4/OEIS_03) |
 
 *Please note:* Sequences numbered from A310xxx to A315xxx are currently not included (as of 2021/02/15). Among the edited sequences, A309990 is immediately followed by A316083.
 
@@ -52,9 +52,9 @@ for(n=0, M,
 
 ---
 
-## PARI/GP Script Files
+## .gp files
 
-All scripts in this repository are stored as PARI/GP (`.gp`) files, facilitating reproducibility and ease of use within the OEIS community.
+In this repository, the scripts are saved as PARI/GP files.
 
 ---
 
@@ -64,7 +64,7 @@ All scripts in this repository are stored as PARI/GP (`.gp`) files, facilitating
   [https://github.com/oeis/oeisdata/](https://github.com/oeis/oeisdata/)
 
 * My personal thematic repositories related to OEIS studies can be found here:
-  [https://github.com/manman4/study\_OEIS](https://github.com/manman4/study_OEIS)
+  [https://github.com/manman4/study_OEIS](https://github.com/manman4/study_OEIS)
 
 ---
 
