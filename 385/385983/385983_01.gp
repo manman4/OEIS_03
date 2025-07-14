@@ -9,10 +9,10 @@ a_vector(M)
 
 print("------------------");
 
-\\ E.g.f. A(x) satisfies A'(x) = A(x) * A(-2*x).
+\\ E.g.f. A(x) satisfies A'(x) = A(x) * A(3*x).
 v = sum(k=0, M, a(k) * x^k/k!) + x*O(x^M);
 deriv_v = deriv(v);
-u = v * subst(v, x, -2*x);
+u = v * subst(v, x, 3*x);
 print(deriv_v)
 print(u)
 print(deriv_v - u)
