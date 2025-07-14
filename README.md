@@ -24,7 +24,7 @@ Over the years, I have accumulated various scripts and tools used in the editing
 | A200000 – A299999 | [OEIS\_02](https://github.com/manman4/OEIS_02) |
 | A300000 – A399999 | [OEIS\_03](https://github.com/manman4/OEIS_03) |
 
-*Please note:* Sequences numbered from A000310 to A000315 are currently not included (as of 2021/02/15). Among the edited sequences, A309990 is immediately followed by A316083.
+*Please note:* Sequences numbered from A310xxx to A315xxx are currently not included (as of 2021/02/15). Among the edited sequences, A309990 is immediately followed by A316083.
 
 ---
 
