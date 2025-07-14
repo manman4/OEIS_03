@@ -1,4 +1,4 @@
-# OEIS\_03
+# OEIS_03
 
 * [日本語](README_ja.md)
 * [English](README.md)
@@ -12,14 +12,14 @@
 
 ## 管理されている整数列番号と対応リポジトリ
 
-| 数列番号範囲          | 対応リポジトリ                                        |
-| --------------- | ---------------------------------------------- |
-| A000001–A099999 | [OEIS\_00](https://github.com/manman4/OEIS_00) |
-| A100000–A199999 | [OEIS\_01](https://github.com/manman4/OEIS_01) |
-| A200000–A299999 | [OEIS\_02](https://github.com/manman4/OEIS_02) |
-| A300000–A399999 | [OEIS\_03](https://github.com/manman4/OEIS_03) |
+| 数列番号範囲      | 対応リポジトリ                                  |
+| --------------- | --------------------------------------------- |
+| A000001–A099999 | [OEIS_00](https://github.com/manman4/OEIS_00) |
+| A100000–A199999 | [OEIS_01](https://github.com/manman4/OEIS_01) |
+| A200000–A299999 | [OEIS_02](https://github.com/manman4/OEIS_02) |
+| A300000–A399999 | [OEIS_03](https://github.com/manman4/OEIS_03) |
 
-※ 2021年2月15日現在、310番から315番までは未収録です。
+※ 2021年2月15日現在、A310xxxからA315xxxまでは未収録です。
 編集済みの中では、A309990の次はA316083となっています。
 
 ---
