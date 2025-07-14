@@ -61,7 +61,7 @@ for(n=0, M,
   [https://github.com/oeis/oeisdata/](https://github.com/oeis/oeisdata/)
 
 * **私がテーマ別に作成したOEIS関連リポジトリ群**
-  [https://github.com/manman4/study\_OEIS](https://github.com/manman4/study_OEIS)
+  [https://github.com/manman4/study_OEIS](https://github.com/manman4/study_OEIS)
 
 ---
 
