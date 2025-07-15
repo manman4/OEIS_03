@@ -13,7 +13,7 @@ print("------------------");
 w = exp(2*Pi*I/3);
 v = sum(k=0, M, a(k) * x^k/k!) + x*O(x^M);
 deriv_v = deriv(v);
-vv = sum(k=0, M, a(k) * (x^k + (w*x)^k + (w^2*x)^k)/(3*k!)) + x*O(x^M);
+vv = sum(k=0, M, a(k) * round(1 + w^k + w^(2*k))/3 * x^k/k!) + x*O(x^M);
 u = v * vv;
 print(deriv_v)
 print(u)
