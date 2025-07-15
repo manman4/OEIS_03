@@ -9,10 +9,12 @@ a_vector(M)
 
 print("------------------");
 
-\\ E.g.f. A(x) satisfies A'(x) = A(x) * (A(x) + A(i*x) + A(-x) + A(-i*x))/4, where i is the imaginary unit.
+\\ E.g.f. A(x) satisfies A'(x) = A(x) * (A(x) + A(w*x) + A(w^2*x))/3, where w = exp(2*Pi*i/3).
+w = exp(2*Pi*I/3);
 v = sum(k=0, M, a(k) * x^k/k!) + x*O(x^M);
 deriv_v = deriv(v);
-u = v * (v + subst(v, x, I*x) + subst(v, x, -I*x) + subst(v, x, -x))/4;
+vv = sum(k=0, M, a(k) * (x^k + (w*x)^k + (w^2*x)^k)/(3*k!)) + x*O(x^M);
+u = v * vv;
 print(deriv_v)
 print(u)
 print(deriv_v - u)
