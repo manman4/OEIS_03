@@ -1,0 +1,10 @@
+\\ a(n) = binomial(n+2,2) + n * Sum_{k=0..n-1} a(k) * a(n-1-k).
+a(n) = binomial(n+2,2) + n * sum(k=0, n-1, a(k) * a(n-1-k));
+for(n=0, 15, print1(a(n),", "))
+
+\\ a(n) = binomial(n+2,2) + Sum_{k=0..n-1} (1 + 2*k) * a(k) * a(n-1-k).
+a(n) = binomial(n+2,2) + sum(k=0, n-1, (1 + 2*k) * a(k) * a(n-1-k));
+for(n=0, 15, print1(a(n),", "))
+
+a_vector(n) = my(v=vector(n+1)); for(i=0, n, v[i+1]=binomial(i+2, 2)+i*sum(j=0, i-1, v[j+1]*v[i-j])); v;
+a_vector(18)
