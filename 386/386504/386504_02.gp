@@ -7,7 +7,6 @@ diff_n(f, x, n) = {
   return(res);
 }
 
-
 \\ E.g.f. A(x) satisfies A(x) = exp(x + x^6*A'''''(x)).
 my(A=1, n=M); for(i=1, n, A= exp( x + x^6*diff_n(A, x, 5) + x*O(x^n)) ); Vec(serlaplace(A))
 
