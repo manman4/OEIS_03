@@ -36,16 +36,12 @@ The numerical data is limited to 1000 digits, including the sign, to maintain ma
 
 An example PARI/GP snippet used for generating sequence data is shown below:
 
-```pari
+```PARI:
 \\ A336975
-v(n) = { x = 'x + O('x^(n+10)); 1 / prod(k=1, n, 1 - x^k * (k + x)) };
-M = 1000;
-v = v(M);
-for(n=0, M,
-    i = polcoef(v, n);
-    if ((i < 0) + #digits(i) > 1000, break);
-    write("/Users/xxx/Desktop/b336975_gp_test.txt", n, " ", i)
-)
+v(n)={x='x+O('x^(n+10)); 1/prod(k=1, n, 1-x^k*(k+x))};
+M=1000;
+v=v(M);
+for(n=0, M, i=polcoef(v, n); if((i<0)+#digits(i)>1000, break); write("/Users/xxx/Desktop/b336975_gp_test.txt", n, " ", i))
 ```
 
 *Note:* Calculations are performed for a slightly larger range than required (e.g., calculating up to 10,100 terms but displaying only 10,000) to ensure accuracy.
