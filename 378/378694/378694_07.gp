@@ -1,2 +1,3 @@
-\\ G.f.: 1 + Series_Reversion( x / ((1+x)^6 * (1+2*x)) ).
-my(N=40, x='x+O('x^N)); Vec(1 + serreverse( x / ((1+x)^6 * (1+2*x)) ))  
+\\ a(n) = (1/n) * Sum_{k=0..n-1} binomial(n,k) * binomial(7*n-k,n-1-k) for n > 0.
+a(n) = if(n==0, 1, sum(k=0, n-1, binomial(n,k) * binomial(7*n-k,n-1-k) )/n);
+for(n=0, 20, print1(a(n),", "));
