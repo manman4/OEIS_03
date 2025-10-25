@@ -1,4 +1,4 @@
 M=21;
 
 a(n) = local(A=1); for(i=1, n, A=exp( 1/(1-x/A+x*O(x^n)) -1 )); n!*polcoeff(A, n); 
-for(n=0, M, print1(a(n),", "))
+for(n=0, M, print1(a(n),", "));
