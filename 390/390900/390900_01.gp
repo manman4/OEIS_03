@@ -7,3 +7,6 @@ a_vector(14)
 a(n) = if(n==0, 1, -4*a(n-1) + 8*sum(k=0, n-1, binomial(n+1,k+1) * a(k) * a(n-1-k)) );
 for(n=0, M, print1(a(n),", "));
 
+\\ a(n) = (4/3)^n * A390902(n+1).
+for(n=0, M, print1(a(n)/(4/3)^n,", "));
+
