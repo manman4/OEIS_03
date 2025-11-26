@@ -2,3 +2,6 @@
 my(N=M, x='x+O('x^N), g=sum(k=0, N, binomial(2*k, k)/(k+1)*x^k)); Vec( g ) 
 my(N=M, x='x+O('x^N), g=sum(k=0, N, binomial(2*k, k)/(k+1)*x^k)); Vec( 1+x*g^2 - g ) 
 my(N=M, x='x+O('x^N), g=sum(k=0, N, binomial(2*k, k)/(k+1)*x^k)); Vec( g/(1 - x^2*g^5) ) 
+
+\\ G.f.: 1/(2 - B(x)), where B(x) is the g.f. of A071738.
+my(N=M, x='x+O('x^N), g=sum(k=0, N, binomial(2*k, k)/(k+1)*x^k)); Vec( 1/(2 - (1+x^3*g^4)*g) )
