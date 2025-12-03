@@ -1,0 +1,19 @@
+def ncr(n, r)
+  return 1 if r == 0
+  (n - r + 1..n).inject(:*) / (1..r).inject(:*)
+end
+
+# a(n) = Sum_{k=0..n} (k+1) * binomial(k+2,2) * binomial(4*n-2*k+2,n-k)/(2*n-k+1).
+def a(n)
+  (0..n).inject(0){|s, k| s + (k + 1) * ncr(k + 2, 2) * ncr(4 * n - 2 * k + 2, n - k) / (2 * n - k + 1r)}.to_i
+end
+
+n = 1000
+(0..n).each{|i|
+  j = a(i)
+  break if j.to_s.size > 1000
+  print i
+  print ' '
+  puts j
+}
+  
