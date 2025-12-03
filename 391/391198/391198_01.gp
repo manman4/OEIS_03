@@ -1,0 +1,6 @@
+\\ a(n) = Sum_{k=0..n} (2*k+1) * binomial(k+2,2) * binomial(4*n-2*k+1,n-k)/(4*n-2*k+1).
+a(n) = sum(k=0, n, (2*k+1) * binomial(k+2,2) * binomial(4*n-2*k+1, n-k)/(4*n-2*k+1));
+for(n=0, 21, print1(a(n), ", "));
+
+
+
