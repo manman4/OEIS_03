@@ -7,6 +7,6 @@ for(n=0, M, print1(a(n),", "));
 
 \\ a(n) = (A391462(n) - A006013(n-1))/2 for n > 0.
 a391462(n) = if(n==0, 1, sum(k=1, n, k*(pell(k)+pell(k+1))*binomial(3*n, n-k))/n);
-a006613(n) = binomial(3*n+1,n)/(n+1);
-b(n) = if(n==0, 1, (a391462(n) - a006613(n-1))/2);
+a006013(n) = binomial(3*n+1,n)/(n+1);
+b(n) = if(n==0, 1, (a391462(n) - a006013(n-1))/2);
 for(n=0, 100, print1(a(n)-b(n),", "));
