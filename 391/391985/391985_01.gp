@@ -4,4 +4,4 @@ M=30;
 my(N=M, x='x+O('x^N)); Vec( ((1-3*x)^4 - 24*x^4*(1-3*x)^2 + 216*x^8) / ((1-3*x)^2 - 24*x^4)^(5/2) )
 
 a098473(n, k) = binomial(n, k)*binomial(2*k, k);
-my(A=2, B=3, C=A*B, N=2, M=30, x='x+O('x^M), X=1-B*x, Y=4); Vec(sum(k=0, N, (-C)^k*a098473(N, k)*X^(2*N-2*k)*x^(Y*k))/(X^2-4*C*x^Y)^(N+1/2))
+my(A=2, B=3, C=A*B, N=1, M=30, x='x+O('x^M), X=1-B*x, Y=4); Vec(sum(k=0, N, (-C)^k*a098473(N, k)*X^(2*N-2*k)*x^(Y*k))/(X^2-4*C*x^Y)^(N+1/2))
