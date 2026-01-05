@@ -6,3 +6,8 @@ for(n=0, 45, print1(b(n), ", "));
 a(n) = if(n<10, b(n), 4*a(n-2) - 6*a(n-4) + 2*a(n-5) + 4*a(n-6) - 4*a(n-7) - a(n-8) + 2*a(n-9) - a(n-10));
 for(n=0, 25, print1(a(n)-b(n), ", "));
 
+\\ a(n) = Sum_{k=0..n} (k+1) * binomial(k,4*(n-k)).
+a392076(n) = sum(k=0, n, (k+1) * binomial(k, 4*(n-k)));
+
+\\ a(2*n) = A392076(n).
+for(n=0, 25, print1(b(2*n)-a392076(n), ", "));
