@@ -1,0 +1,8 @@
+\\ a(n) = Sum_{k=0..floor(n/3)} binomial(k,3*n-9*k).
+b(n) = sum(k=0, n\3, binomial(k, 3*n-9*k));
+for(n=0, 59, print1(b(n), ", "));
+
+\\ a(n) = 3*a(n-3) - 3*a(n-6) + a(n-9) + a(n-10).
+a(n) = if(n<10, b(n), 3*a(n-3) - 3*a(n-6) + a(n-9) + a(n-10));
+for(n=0, 25, print1(a(n)-b(n), ", "));
+
