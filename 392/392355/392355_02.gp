@@ -10,3 +10,8 @@ for(n=0, 20, print1(a(n)-b(n), ", "));
 a373913(n) = sum(k=0, n\7, binomial(n+k, n-7*k));
 \\ a(2*n) = A373913(n).
 for(n=0, 100, print1(b(2*n)-a373913(n), ", "));
+
+\\ a(n) = Sum_{k=0..floor(4*n/7)} binomial(k+1,4*n-7*k).
+a390218(n) = sum(k=0, (4*n)\7, binomial(k+1, 4*n-7*k));
+\\ a(n) = A390218(n) - A390218(n-2).
+for(n=0, 100, print1(a390218(n) - a390218(n-2) - b(n), ", "));
