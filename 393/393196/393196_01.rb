@@ -1,4 +1,4 @@
-# a(2*n) = a(n) and a(2*n+1) = -Sum_{i,j,k>=0 and i+j+k=n} a(i) * a(j) * a(k) with a(0)=1.
+# a(0) = 1, a(2*n) = a(n), a(2*n+1) = -Sum_{i,j,k>=0 and i+j+k=n} a(i) * a(j) * a(k).
 def A393196(n)
   ary = [1]
   (1..n).each{|i|
