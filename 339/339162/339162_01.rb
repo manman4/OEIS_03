@@ -9,7 +9,7 @@ def list_a_for_fixed_m(max_n, m)
 
   # m+1 以上のパーツを使って DP テーブルを構築
   # このループは 1 回で済む
-  ((m + 1)..max_n).each{|val|
+  (m + 1..max_n).each{|val|
     max_n.downto(val).each{|i|
       (1..max_n).each{|k|
         dp[i][k] += dp[i - val][k - 1]
