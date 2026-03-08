@@ -28,7 +28,7 @@ def a304430(n)
   f(n, n + 1, 0)
 end
 
-n =100
+n = 100
 (0..n).each{|i|
   print i
   print ' '
