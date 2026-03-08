@@ -151,13 +151,33 @@ class A304405DP
   end
 end
 
+
+# m>0
+def s(f_ary, g_ary, n, m)
+  s = 0
+  (m..n).each{|i| s += i * f_ary[i] * g_ary[i] ** (n / i) if n % i == 0}
+  s
+end
+
+def A(ary, n, m = 1)
+  a_ary = [1]
+  a = [0] + (1..n).map{|i| ary.inject(0){|s, j| s + s(j[0], j[1], i, m)}}
+  (1..n).each{|i| a_ary << (1..i).inject(0){|s, j| s + a[j] * a_ary[-j]} / i}
+  a_ary
+end
+
 n = 5000
 digit_limit = 1000
 
+ary1 = Array.new(n + 1, 1)
+# Product_{k>0} 1/(1 - x^k)
+p_ary = A([[ary1, ary1]], n)
+
 solver = A304405DP.new(n)
 solver.each_value{|i, v|
-  break if v.to_s.size > digit_limit
+  j = p_ary[i] - v
+  break if j.to_s.size > digit_limit
   print i
   print ' '
-  puts v
+  puts j
 }
