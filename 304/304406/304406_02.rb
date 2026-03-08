@@ -13,25 +13,25 @@ def a304406(max_n)
     count = 0
 
     # パーツ d を d_min から順に試す
-    (d_min..n).each do |d|
+    (d_min..n).each{|d|
       # パーツ d を k 個使う（和 s = d * k）
-      (1..(n / d)).each do |k|
+      (1..(n / d)).each{|k|
         s = d * k
         
         # 条件：今回の成分和 s が直前の和 s_limit 以下であること
         if s <= s_limit
           count += f(n - s, s, d + 1)
         end
-      end
-    end
+      }
+    }
 
     @memo[state] = count
   end
 
-  (0..max_n).map do |i|
+  (0..max_n).map{|i|
     @memo = {}
     f(i, i, 1) # 最初は s_limit を i (最大値) に設定
-  end
+  }
 end
 
 # 実行
