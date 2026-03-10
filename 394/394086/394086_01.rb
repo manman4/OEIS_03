@@ -7,7 +7,7 @@ def A(n)
   cnt = 0
   partition(n, 1, n).each{|ary|
     m = ary.min
-    if ary.all?{|i| i % m == 0} && ary.count(m) <= 2 && ary.select{|i| i > m}.uniq.size == ary.count{|i| i > m}
+    if ary.all?{|i| i % m == 0} && ary.group_by{|x| x}.all?{|k, v| v.size <= (k == m ? 2 : 1)}
       # p ary
       cnt += 1
     end
