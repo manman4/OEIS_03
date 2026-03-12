@@ -7,14 +7,14 @@ def A(n)
   cnt = 0
   partition(n, 1, n).each{|ary|
     if ary.group_by{|x| x}.size < ary.group_by{|x| x}.values.map(&:size).min
-      # p ary
+      p ary
       cnt += 1
     end
   }
   cnt
 end
-def A394188(n)
+def A394189(n)
   (1..n).map{|i| A(i)}
 end
-p A394188(50)
+p A394189(15)
 
