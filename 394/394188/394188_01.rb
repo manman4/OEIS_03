@@ -14,7 +14,7 @@ def A(n)
   cnt
 end
 def A394188(n)
-  (1..n).map{|i| A(i)}
+  [1] + (1..n).map{|i| A(i)}
 end
 p A394188(50)
 
