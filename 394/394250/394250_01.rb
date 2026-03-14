@@ -7,14 +7,22 @@ def A(n, k)
   cnt = 0
   partition(n, 1, n).each{|ary|
     if ary.group_by{|x| x}.values.map(&:size).max <= k * ary.group_by{|x| x}.size
-      p ary
+      # p ary
       cnt += 1
     end
   }
   cnt
 end
-def A394250(n, k)
+def A_array(n, k)
   [1] + (1..n).map{|i| A(i, k)}
 end
-p A394250(10, 2)
+n = 40
+ary = A_array(n, 2)
+(0..n).each{|i|
+  j = ary[i]
+  break if j.to_s.size > 1000
+  print i
+  print ' '
+  puts j
+}
 
