@@ -18,7 +18,7 @@ end
 def A394322(n)
   [0] + (1..n).map{|i| A(i, 1)}
 end
-n = 10
+n = 40
 p ary = A394322(n)
 (1..n).each{|i|
   j = ary[i]
