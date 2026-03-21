@@ -1,0 +1,2 @@
+\\ G.f.: Sum_{j>=1} Product_{k>=1} (-delta(j,k) + (1-q^((j+1)*k))/(1-q^k)) - Product_{k>=1} (-delta(j,k) + (1-q^(j*k))/(1-q^k)), where delta(j,k) is the Kronecker delta. 
+my(N=50, q='q+O('q^N)); concat(0, Vec(sum(j=1, N, prod(k=1, N, -(j==k)+(1-q^((j+1)*k))/(1-q^k)) - prod(k=1, N, -(j==k)+(1-q^(j*k))/(1-q^k)))))
