@@ -418,6 +418,24 @@ static void poly_print_all_max_terms(FILE *out, Poly *p, int max_var) {
         fprintf(out, "maxterms: (none)\n");
         return;
     }
+    // verification: recompute max_abs from scratch and compare
+    {
+        mpz_t max2;
+        mpz_init(max2);
+        mpz_set_ui(max2, 0);
+        for (size_t i = 0; i < p->size; i++) {
+            if (mpz_sgn(p->coeffs[i]) == 0) continue;
+            if (mpz_cmpabs(p->coeffs[i], max2) > 0) {
+                mpz_abs(max2, p->coeffs[i]);
+            }
+        }
+        if (mpz_cmp(max2, p->max_abs) != 0) {
+            fprintf(stderr, "Verification failed: max_abs mismatch\n");
+            mpz_clear(max2);
+            exit(1);
+        }
+        mpz_clear(max2);
+    }
     size_t max_cnt = 0;
     fprintf(out, "maxterms:\n");
     // first pass: monomial format
