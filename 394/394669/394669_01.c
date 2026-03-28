@@ -1,3 +1,8 @@
+////////////////////////////////////////
+// A394669 allocated for Seiichi Manyama.
+// @author Seiichi Manyama
+////////////////////////////////////////
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
