@@ -1,0 +1,141 @@
+// monic polynomial: x^n + a1*x^(n-1) + ... + a_n
+// outputs: terms, max|coeff|, maxterms (sign + monomial + exp vector)
+
+ring r = (0),(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17),lp;
+
+list v = 1,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17;
+
+// print monic polynomial
+proc print_monic(int n)
+{
+  string s;
+  s = "f(x)=x^";
+  s = s + string(n);
+
+  int i;
+  int pow;
+  for (i=1; i<=n; i++)
+  {
+    pow = n - i;
+
+    if (pow == 1)
+    {
+      s = s + " + a" + string(i) + "*x";
+    }
+    else
+    {
+      if (pow == 0)
+      {
+        s = s + " + a" + string(i);
+      }
+      else
+      {
+        s = s + " + a" + string(i) + "*x^" + string(pow);
+      }
+    }
+  }
+
+  print(s);
+}
+
+// compute max abs coefficient
+proc poly_max_abs(poly p)
+{
+  number m = 0;
+  poly q = p;
+  number c;
+  while (q != 0)
+  {
+    c = leadcoef(q);
+    if (c < 0) { c = -c; }
+    if (c > m) { m = c; }
+    q = q - leadcoef(q) * leadmonom(q);
+  }
+  return(m);
+}
+
+// count terms with max abs only
+proc print_maxterms_count(poly p)
+{
+  number m;
+  m = poly_max_abs(p);
+  if (m == 0)
+  {
+    print("maxterms count: 0");
+    return;
+  }
+
+  int count;
+  count = 0;
+
+  poly q;
+  q = p;
+
+  number c;
+  number a;
+  while (q != 0)
+  {
+    c = leadcoef(q);
+    a = c;
+    if (a < 0) { a = -a; }
+
+    if (a == m)
+    {
+      count++;
+    }
+
+    q = q - leadcoef(q) * leadmonom(q);
+  }
+
+  print("maxterms count: " + string(count));
+}
+
+int max_n = 14;
+print("RUN START");
+
+// init discriminant for n=2: a1^2 - 4 a2
+poly s = v[2]^2 - 4*v[3];
+poly t0;
+poly u0;
+
+int n, j, k;
+for (n=2; n<=max_n; n++)
+{
+  print("START n=" + string(n));
+  if (n==2)
+  {
+    print_monic(2);
+    print("n=2 terms: " + string(size(s)) + " max|coeff|=" + string(poly_max_abs(s)));
+    print_maxterms_count(s);
+  }
+  else
+  {
+    // D0 = a_{n-1}^2 * s
+    t0 = v[n]^2 * s;
+    s = t0;
+
+    for (k=1; k<n; k++)
+    {
+      u0 = n*diff(t0, v[2]);
+      for (j=2; j<n; j++)
+      {
+        u0 = u0 + (n+1-j)*v[j]*diff(t0, v[j+1]);
+      }
+      t0 = -u0/(k*v[n]);
+      s = s + t0*v[n+1]^k;
+    }
+
+    print_monic(n);
+    print("n=" + string(n) + " terms: " + string(size(s)) + " max|coeff|=" + string(poly_max_abs(s)));
+    print_maxterms_count(s);
+  }
+}
+print("RUN END");
+quit;
+
+
+
+
+
+
+
