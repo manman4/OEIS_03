@@ -1,3 +1,4 @@
+// 240582_singular.sing
 // monic polynomial: x^n + a1*x^(n-1) + ... + a_n
 // outputs: terms, max|coeff|, maxterms (sign + monomial + exp vector)
 
@@ -55,10 +56,8 @@ proc poly_max_abs(poly p)
 }
 
 // count terms with max abs only
-proc print_maxterms_count(poly p)
+proc print_maxterms_count(poly p, number m)
 {
-  number m;
-  m = poly_max_abs(p);
   if (m == 0)
   {
     print("maxterms count: 0");
@@ -99,14 +98,16 @@ poly t0;
 poly u0;
 
 int n, j, k;
+number m;
 for (n=2; n<=max_n; n++)
 {
   print("START n=" + string(n));
   if (n==2)
   {
+    m = poly_max_abs(s);
     print_monic(2);
-    print("n=2 terms: " + string(size(s)) + " max|coeff|=" + string(poly_max_abs(s)));
-    print_maxterms_count(s);
+    print("n=2 terms: " + string(size(s)) + " max|coeff|=" + string(m));
+    print_maxterms_count(s, m);
   }
   else
   {
@@ -125,15 +126,14 @@ for (n=2; n<=max_n; n++)
       s = s + t0*v[n+1]^k;
     }
 
+    m = poly_max_abs(s);
     print_monic(n);
-    print("n=" + string(n) + " terms: " + string(size(s)) + " max|coeff|=" + string(poly_max_abs(s)));
-    print_maxterms_count(s);
+    print("n=" + string(n) + " terms: " + string(size(s)) + " max|coeff|=" + string(m));
+    print_maxterms_count(s, m);
   }
 }
 print("RUN END");
 quit;
-
-
 
 
 
