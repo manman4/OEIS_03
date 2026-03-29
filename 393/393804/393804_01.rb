@@ -48,9 +48,13 @@ def max_coefficient(n)
   dp[n + 1]
 end
 
-# テスト実行
-# (0..20).each{|n|
-#   puts "n = #{n.to_s.rjust(2)} : 最大係数 = #{max_coefficient(n)}"
-# }
-p (0..30).map{|n| max_coefficient(n)}
-p max_coefficient(18) / max_coefficient(17).to_r
+n = 200
+(0..n).each{|i|
+  j = max_coefficient(i)
+  break if j.to_s.size > 1000
+  print i
+  print ' '
+  puts j
+}
+# p (0..30).map{|n| max_coefficient(n)}
+# p max_coefficient(18) / max_coefficient(17).to_r
