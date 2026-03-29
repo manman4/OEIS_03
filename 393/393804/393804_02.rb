@@ -12,7 +12,7 @@ end
 def precompute_tables(limit)
   max_total = limit + 1
   facts = [1]
-  (1..max_total + 1).each { |i| facts << facts.last * i }
+  (1..max_total + 1).each{|i| facts << facts.last * i}
 
   # sizes[t] for t=0..limit
   sizes = Array.new(limit + 1, 0)
@@ -24,7 +24,7 @@ def precompute_tables(limit)
   end
 
   # penalty[t][occ] precompute up to max_total
-  penalty = Array.new(limit + 1) { Array.new(max_total + 1, 1) }
+  penalty = Array.new(limit + 1){Array.new(max_total + 1, 1)}
   t = 0
   while t <= limit
     occ = 0
@@ -127,4 +127,4 @@ end
 # 5) よって「時刻ごとの使用回数 occ_t」を DP で全探索すれば、
 #    最大係数が厳密に求められる（全て整数演算）。
 
-solve_a393804(600)
+solve_a393804(20)
