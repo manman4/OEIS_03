@@ -53,3 +53,4 @@ end
 #   puts "n = #{n.to_s.rjust(2)} : 最大係数 = #{max_coefficient(n)}"
 # }
 p (0..30).map{|n| max_coefficient(n)}
+p max_coefficient(18) / max_coefficient(17).to_r
