@@ -83,4 +83,4 @@ def solve(limit, profile = false)
   }
 end
 
-solve(30, false)
+solve(26, false)
