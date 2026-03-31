@@ -3,3 +3,6 @@ my(N=30, x='x+O('x^N)); Vec(serlaplace(exp(sqrt(1-x^2)-1+x*asin(x))))
 
 a(n) = my(x='x+O('x^(2*n+1))); (2*n)!*polcoef(exp(sqrt(1-x^2)-1+x*asin(x)), 2*n);
 for(n=0, 16, print1(a(n), ", "));
+
+\\ E.g.f. A(x) satisfies A'(x)/A(x) = arcsin(x).
+my(N=30, x='x+O('x^N), A=exp(sqrt(1-x^2)-1+x*asin(x))); Vec(serlaplace(deriv(A)/A - asin(x)))
