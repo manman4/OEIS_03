@@ -1,0 +1,3 @@
+\\ a(0) = 1; a(n) = Sum_{i=0..n-1} (i^2+2*n-1) * binomial(n-1,i) * a(i)*a(n-1-i) + Sum_{i, j, k>=0 and i+j+k=n-2} (i*j+i-j^2-2*j) * (n-1)!/(i!*j!*k!) * a(i)*a(j)*a(k).
+a_vector(n) = my(v=vector(n+1)); v[1]=1; for(i=1, n, v[i+1]=sum(j=0, i-1, (j^2+2*i-1)*binomial(i-1, j)*v[j+1]*v[i-j])+sum(j=0, i-2, sum(k=0, i-2-j, (j*k+j-k^2-2*k)*(i-1)!/(j!*k!*(i-2-j-k)!)*v[j+1]*v[k+1]*v[i-1-j-k]))); v;
+a_vector(17)
