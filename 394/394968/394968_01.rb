@@ -1,23 +1,24 @@
 # a(n)   =   n^(n-1) + (1/n) * Sum_{k=1..n-1} k * b_n(k) * e_n(n-k)
 # b_n(k) =   n^(k-1) - a(k)
 # e_n(0) = 1; e_n(k) = (n/k) * Sum_{j=1..k}   j * b_n(j) * e_n(k-j)
-def A394(n)
+def A394968(n)
   a = [0]
   (1..n).each{|i|
     b = (0..i - 1).map{|k| i ** (k - 1) - a[k]}
     e = [1]
-    (1..i - 1).each{|k| e << (i.to_r / k) * (1..k).inject(0){|s, j| s + j * b[j] * e[k - j]}}
-    p e
-    a << i ** (i - 1) + (1r / i) * (1..(i - 1)).inject(0){|s, k| s + k * b[k] * e[i - k]}
+    (1..i - 1).each{|k| e << i.to_r / k * (1..k).inject(0){|s, j| s + j * b[j] * e[k - j]}}
+    a << i ** (i - 1) + (1..i - 1).inject(0){|s, k| s + k * b[k] * e[i - k]}.to_i / i
   }
   a[1..-1]
 end
 
-n = 20
-p ary = A394(n)
-(1..n).each{|i|
-  j = ary[i - 1].denominator
-  if j > 1
-    puts i
-  end
-}
+p A394968(20)
+
+# n = 20
+# p ary = A394(n)
+# (1..n).each{|i|
+#   j = ary[i - 1].denominator
+#   if j > 1
+#     puts i
+#   end
+# }
