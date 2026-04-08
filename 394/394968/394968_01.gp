@@ -21,3 +21,14 @@
   for(n = 1, N, printf("%d, ", v[n]));
   print();
 }
+
+\\ 確認用
+a = [1, 2, 9, 72, 865, 13803, 271789, 6318840, 168569145, 5058300495, 168251893645, 6134532696534, 243013370253329, 10384740636942483]
+\\ exp( n*x/(1-n*x) - n*A(x) )を出力
+print(Vec(exp(1 * x/(1 - 1*x) - 1*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(2 * x/(1 - 2*x) - 2*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(3 * x/(1 - 3*x) - 3*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(4 * x/(1 - 4*x) - 4*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(5 * x/(1 - 5*x) - 5*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(6 * x/(1 - 6*x) - 6*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+
