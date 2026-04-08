@@ -12,13 +12,17 @@
   for(n = 1, N,
     my(An = sum(i=1, N, v[i]*x^i));
     my(En = exp(n * (x/(1 - n*x) - An) + O(x^(N+1))));
-    for(k = 0, N, printf("%d, ", polcoeff(En, k)));
+    
+    \\ 【修正箇所】 printf("%d, ", ...) を print1(..., ", ") に変更
+    for(k = 0, N, print1(polcoeff(En, k), ", "));
     print();
   );
 
   \\ 最後に a(n) を出力
   print("--- a(n) ---");
-  for(n = 1, N, printf("%d, ", v[n]));
+  
+  \\ 【修正箇所】 ここも念のため print1 に統一
+  for(n = 1, N, print1(v[n], ", "));
   print();
 }
 
