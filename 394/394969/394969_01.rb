@@ -12,6 +12,7 @@ def A394969(n)
   a[1..-1]
 end
 p A394969(20)
+
 # p (1..n).map{|i| ary[i - 1] / i.to_r}
 # (1..n).each{|i|
 #   j = ary[i - 1].denominator
