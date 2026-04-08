@@ -1,5 +1,5 @@
 {
-  my(N = 11);
+  my(N = 382);
   my(v = vector(N), x = 'x);
 
   for(n = 1, N,
@@ -10,7 +10,7 @@
 
   
   \\ 【修正箇所】 ここも念のため print1 に統一
-  for(n = 1, N, 
-    print(n, " ", v[n]);
+  for(n = 1, N,
+    write("b394968_1.txt", n, " ", v[n]);
   );
 }
