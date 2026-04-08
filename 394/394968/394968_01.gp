@@ -35,4 +35,7 @@ print(Vec(exp(3 * x/(1 - 3*x) - 3*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
 print(Vec(exp(4 * x/(1 - 4*x) - 4*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
 print(Vec(exp(5 * x/(1 - 5*x) - 5*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
 print(Vec(exp(6 * x/(1 - 6*x) - 6*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(7 * x/(1 - 7*x) - 7*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(8 * x/(1 - 8*x) - 8*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(9 * x/(1 - 9*x) - 9*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
 
