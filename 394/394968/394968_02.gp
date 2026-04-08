@@ -10,6 +10,7 @@
 
   
   \\ 【修正箇所】 ここも念のため print1 に統一
-  for(n = 1, N, print1(v[n], ", "));
-  print();
+  for(n = 1, N, 
+    print(n, " ", v[n]);
+  );
 }
