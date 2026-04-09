@@ -2,6 +2,7 @@
 # where c_n(k) = n^(k-1) - a(k) for 1 <= k <= n-1,
 # and e_n(0) = 1, e_n(k) = (n/k) * Sum_{j=1..k} j * c_n(j) * e_n(k-j) for 1 <= k <= n-1.
 
+
 def A394968(n)
   a = [0]
   (1..n).each{|i|
@@ -11,9 +12,7 @@ def A394968(n)
     a << i ** (i - 1) + (1..i - 1).inject(0){|s, k| s + k * c[k] * e[i - k]}.to_i / i
   }
   a[1..-1]
-
 end
-
 p A394968(20)
 
 # n = 20
