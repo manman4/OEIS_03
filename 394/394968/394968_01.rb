@@ -2,7 +2,6 @@
 # where c_n(k) = n^(k-1) - a(k) for 1 <= k <= n-1,
 # and e_n(0) = 1, e_n(k) = (n/k) * Sum_{j=1..k} j * c_n(j) * e_n(k-j) for 1 <= k <= n-1.
 
-
 def A394968(n)
   a = [0]
   (1..n).each{|i|
