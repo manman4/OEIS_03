@@ -1,0 +1,37 @@
+{
+  my(N = 11);
+  my(v = vector(N), x = 'x);
+
+  for(n = 1, N,
+    my(An_prev = sum(i=1, n-1, v[i]*x^i));
+    my(Q_prev = n*x*(1+n^2*x+(n^2*x)^2) - n*An_prev + O(x^(n+1)));
+    v[n] = polcoeff(exp(Q_prev), n) / n;
+  );
+
+  \\ 表の各行を出力
+  for(n = 1, N,
+    my(An = sum(i=1, N, v[i]*x^i));
+    my(En = exp(n*x*(1+n^2*x+(n^2*x)^2) - n*An + O(x^(N+1))));
+    \\ 【修正箇所】 printf("%d, ", ...) を print1(..., ", ") に変更
+    for(k = 0, N, print1(polcoeff(En, k), ", "));
+    print();
+  );
+
+  \\ 最後に a(n) を出力
+  print("--- a(n) ---");
+  for(n = 1, N, print1(v[n], ", "));
+  print();
+}
+
+\\ 確認用
+a = [1, 4, 81, 288, 57120, 4569987, 92431080, 27166178016, 3676973778000, 183140029933200, 70886914008958080]
+\\ exp( n*x*(1+n^2*x+(n^2*x)^2) - n*A(x) )を出力
+print(Vec(exp(1 * x*(1+1^2*x+(1^2*x)^2) - 1*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(2 * x*(1+2^2*x+(2^2*x)^2) - 2*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(3 * x*(1+3^2*x+(3^2*x)^2) - 3*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(4 * x*(1+4^2*x+(4^2*x)^2) - 4*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(5 * x*(1+5^2*x+(5^2*x)^2) - 5*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(6 * x*(1+6^2*x+(6^2*x)^2) - 6*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(7 * x*(1+7^2*x+(7^2*x)^2) - 7*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(8 * x*(1+8^2*x+(8^2*x)^2) - 8*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(9 * x*(1+9^2*x+(9^2*x)^2) - 9*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
