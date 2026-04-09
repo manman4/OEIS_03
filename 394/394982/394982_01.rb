@@ -1,3 +1,8 @@
+# a(n) = b_n(n) + (1/n) * Sum_{k=1..n-1} k * c_n(k) * e_n(n-k),
+# where b_n(k) = n^(k-1) for 1 <= k <= 3, and b_n(k) = 0 for k > 3,
+# c_n(k) = b_n(k) - a(k) for 1 <= k <= n-1,
+# and e_n(0) = 1, e_n(k) = (n/k) * Sum_{j=1..k} j * c_n(j) * e_n(k-j) for 1 <= k <= n-1.
+
 def A394982(n)
   a = [0]
   (1..n).each{|i|
@@ -9,5 +14,4 @@ def A394982(n)
   }
   a[1..-1]
 end
-
 p A394982(21)
