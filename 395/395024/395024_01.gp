@@ -29,13 +29,13 @@
 \\ 確認用
 a = [1, 17, 1575, 363246, 154382680, 104049305139, 101707429423586, 135888860833475576, 237844016039201137308, 528153729820573548263540];
 \\ exp( -n*log(1-n^2*x) - n*A(x) )を出力
-print(Vec(exp(1 * (-log(1 - 1^2*x)) - 1*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
-print(Vec(exp(2 * (-log(1 - 2^2*x)) - 2*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
-print(Vec(exp(3 * (-log(1 - 3^2*x)) - 3*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
-print(Vec(exp(4 * (-log(1 - 4^2*x)) - 4*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
-print(Vec(exp(5 * (-log(1 - 5^2*x)) - 5*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
-print(Vec(exp(6 * (-log(1 - 6*x)) - 6*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
-print(Vec(exp(7 * (-log(1 - 7*x)) - 7*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
-print(Vec(exp(8 * (-log(1 - 8*x)) - 8*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
-print(Vec(exp(9 * (-log(1 - 9*x)) - 9*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(-1*log(1 - 1^2*x) - 1*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(-2*log(1 - 2^2*x) - 2*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(-3*log(1 - 3^2*x) - 3*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(-4*log(1 - 4^2*x) - 4*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(-5*log(1 - 5^2*x) - 5*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(-6*log(1 - 6^2*x) - 6*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(-7*log(1 - 7^2*x) - 7*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(-8*log(1 - 8^2*x) - 8*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
+print(Vec(exp(-9*log(1 - 9^2*x) - 9*sum(i=1, #a, a[i]*x^i)) + O(x^10)));
 
