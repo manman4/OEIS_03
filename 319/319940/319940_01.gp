@@ -4,14 +4,14 @@
 
   for(n = 1, N,
     my(An_prev = sum(i=1, n-1, v[i]*x^i));
-    my(Q_prev = n * (-log(1 - n*x) - An_prev) + O(x^(n+1)));
-    v[n] = polcoeff(exp(Q_prev), n) / n;
+    my(Q_prev = -n * An_prev + O(x^(n+1)));
+    v[n] = polcoeff(exp(Q_prev)/(1-n*x)^n, n) / n;
   );
 
   \\ 表の各行を出力
   for(n = 1, N,
     my(An = sum(i=1, N, v[i]*x^i));
-    my(En = exp(n * (-log(1 - n*x) - An) + O(x^(N+1))));
+    my(En = exp(-n * An)/(1-n*x + O(x^(N+1)))^n);
     
     \\ 【修正箇所】 printf("%d, ", ...) を print1(..., ", ") に変更
     for(k = 0, N, print1(polcoeff(En, k), ", "));
