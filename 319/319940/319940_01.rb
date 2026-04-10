@@ -12,10 +12,11 @@ def A319940(n)
   }
   a[1..-1]
 end
+
 p A319940(20)
 
 # n = 20
-# p ary = A319938(n)
+# p ary = A319940(n)
 # (1..n).each{|i|
 #   j = ary[i - 1].denominator
 #   if j > 1
