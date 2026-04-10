@@ -2,7 +2,7 @@
 # where c_n(k) = n^(2*k)/k - a(k) for 1 <= k <= n-1,
 # and e_n(0) = 1, e_n(k) = (n/k) * Sum_{j=1..k} j * c_n(j) * e_n(k-j) for 1 <= k <= n-1.
 
-def A395024(n)
+def A395074(n)
   a = [0]
   (1..n).each{|i|
     c = [0] + (1..i - 1).map{|k| i ** (2 * k - 2) / k.to_r - a[k]}
@@ -13,7 +13,7 @@ def A395024(n)
   a[1..-1]
 end
 n = 100
-ary = A395024(n)
+ary = A395074(n)
 (1..n).each{|i|
   j = ary[i - 1]
   if j.denominator > 1
