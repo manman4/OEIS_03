@@ -8,21 +8,17 @@ def A395074(n)
     c = [0] + (1..i - 1).map{|k| i ** (2 * k - 2) / k.to_r - a[k]}
     e = [1]
     (1..i - 1).each{|k| e << i.to_r / k * (1..k).inject(0){|s, j| s + j * c[j] * e[k - j]}}
-    a << i ** (2 * i - 3) + (1..i - 1).inject(0){|s, k| s + k * c[k] * e[i - k]} / i
+    a << i ** (2 * i - 3) + (1..i - 1).inject(0){|s, k| s + k * c[k] * e[i - k]}.to_i / i
   }
   a[1..-1]
 end
-n = 300
-ary = A395074(n)
-(1..n).each{|i|
-  j = ary[i - 1]
-  if j.denominator > 1
-    puts "a(#{i}) is not an integer."
-    break
-  end
-  j = j.to_i.to_s
-  break if j.size > 1000
-  print i
-  print ' '
-  puts j
-}
+p A395074(20)
+
+# n = 20
+# p ary = A395074(n)
+# (1..n).each{|i|
+#   j = ary[i - 1].denominator
+#   if j > 1
+#     puts i
+#   end
+# }
