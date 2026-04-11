@@ -1,5 +1,5 @@
-# a(n) = n^(2*n-1) + (1/n) * Sum_{k=1..n-1} k * c_n(k) * e_n(n-k),
-# where c_n(k) = n^(2*k)/k - a(k) for 1 <= k <= n-1,
+# a(n) = n^(3*n-4) + (1/n) * Sum_{k=1..n-1} k * c_n(k) * e_n(n-k),
+# where c_n(k) = n^(3*k-3)/k - a(k) for 1 <= k <= n-1,
 # and e_n(0) = 1, e_n(k) = (n/k) * Sum_{j=1..k} j * c_n(j) * e_n(k-j) for 1 <= k <= n-1.
 
 def A395075(n)
@@ -12,5 +12,5 @@ def A395075(n)
   }
   a[1..-1]
 end
-
 p A395075(20)
+
