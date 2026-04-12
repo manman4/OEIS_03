@@ -7,12 +7,13 @@ def A300617(n)
   (1..n).each{|i|
     c = [0] + (1..i - 1).map{|k| a[k] - i ** (2 * k - 1) / k.to_r}
     e = [1]
-    (1..i - 1).each{|k| e << i.to_r / k * (1..k).inject(0){|s, j| s + j * c[j] * e[k - j]}}
+    (1..i - 1).each{|k| e << i / k.to_r * (1..k).inject(0){|s, j| s + j * c[j] * e[k - j]}}
     a << i ** (2 * i - 2) - (1..i - 1).inject(0){|s, k| s + k * c[k] * e[i - k]}.to_i / i
   }
   a[1..-1]
 end
-p A300617(20)
+
+p A300617(20) 
 
 # n = 20
 # p ary = A300617(n)
