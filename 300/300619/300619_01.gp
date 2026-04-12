@@ -29,22 +29,15 @@
 \\ 確認用
 a = [1, 7, 207, 14226, 1852800, 409408077, 142286748933, 73448832515952, 53835885818473473, 54041298732304775000, 72129250579997923194091];
 \\ exp( n*A(x) )*(1-n^3*x)
-print(Vec(serlaplace( exp( 1*sum(i=1, #a, a[i]*x^i) )*(1 - 1^3*x + O(x^10)))));
-print(Vec(serlaplace( exp( 2*sum(i=1, #a, a[i]*x^i) )*(1 - 2^3*x + O(x^10)))));
-print(Vec(serlaplace( exp( 3*sum(i=1, #a, a[i]*x^i) )*(1 - 3^3*x + O(x^10)))));
-print(Vec(serlaplace( exp( 4*sum(i=1, #a, a[i]*x^i) )*(1 - 4^3*x + O(x^10)))));
-print(Vec(serlaplace( exp( 5*sum(i=1, #a, a[i]*x^i) )*(1 - 5^3*x + O(x^10)))));
-print(Vec(serlaplace( exp( 6*sum(i=1, #a, a[i]*x^i) )*(1 - 6^3*x + O(x^10)))));
-print(Vec(serlaplace( exp( 7*sum(i=1, #a, a[i]*x^i) )*(1 - 7^3*x + O(x^10)))));
-print(Vec(serlaplace( exp( 8*sum(i=1, #a, a[i]*x^i) )*(1 - 8^3*x + O(x^10)))));
-print(Vec(serlaplace( exp( 9*sum(i=1, #a, a[i]*x^i) )*(1 - 9^3*x + O(x^10)))));
+print(Vec( exp( 1*sum(i=1, #a, a[i]*x^i) )*(1 - 1^3*x + O(x^10))));
+print(Vec( exp( 2*sum(i=1, #a, a[i]*x^i) )*(1 - 2^3*x + O(x^10))));
+print(Vec( exp( 3*sum(i=1, #a, a[i]*x^i) )*(1 - 3^3*x + O(x^10))));
+print(Vec( exp( 4*sum(i=1, #a, a[i]*x^i) )*(1 - 4^3*x + O(x^10))));
+print(Vec( exp( 5*sum(i=1, #a, a[i]*x^i) )*(1 - 5^3*x + O(x^10))));
+print(Vec( exp( 6*sum(i=1, #a, a[i]*x^i) )*(1 - 6^3*x + O(x^10))));
+print(Vec( exp( 7*sum(i=1, #a, a[i]*x^i) )*(1 - 7^3*x + O(x^10))));
+print(Vec( exp( 8*sum(i=1, #a, a[i]*x^i) )*(1 - 8^3*x + O(x^10))));
+print(Vec( exp( 9*sum(i=1, #a, a[i]*x^i) )*(1 - 9^3*x + O(x^10))));
 
-\\ exp( -n*A(x) )*(1-n^3*x)
-print(Vec(serlaplace( exp( -1*sum(i=1, #a, a[i]*x^i) )*(1 - 1^3*x + O(x^10)))));
-print(Vec(serlaplace( exp( -2*sum(i=1, #a, a[i]*x^i) )*(1 - 2^3*x + O(x^10)))));
-print(Vec(serlaplace( exp( -3*sum(i=1, #a, a[i]*x^i) )*(1 - 3^3*x + O(x^10)))));
-print(Vec(serlaplace( exp( -4*sum(i=1, #a, a[i]*x^i) )*(1 - 4^3*x + O(x^10)))));
-print(Vec(serlaplace( exp( -5*sum(i=1, #a, a[i]*x^i) )*(1 - 5^3*x + O(x^10)))));
-print(Vec(serlaplace( exp( -6*sum(i=1, #a, a[i]*x^i) )*(1 - 6^3*x + O(x^10)))));
-print(Vec(serlaplace( exp( -7*sum(i=1, #a, a[i]*x^i) )*(1 - 7^3*x + O(x^10)))));
+
 
