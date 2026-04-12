@@ -7,11 +7,12 @@ def A395024(n)
   (1..n).each{|i|
     c = [0] + (1..i - 1).map{|k| i ** (2 * k) / k.to_r - a[k]}
     e = [1]
-    (1..i - 1).each{|k| e << i.to_r / k * (1..k).inject(0){|s, j| s + j * c[j] * e[k - j]}}
+    (1..i - 1).each{|k| e << i / k.to_r * (1..k).inject(0){|s, j| s + j * c[j] * e[k - j]}}
     a << i ** (2 * i - 1) + (1..i - 1).inject(0){|s, k| s + k * c[k] * e[i - k]}.to_i / i
   }
   a[1..-1]
 end
+
 p A395024(20)
 
 # n = 20
