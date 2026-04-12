@@ -7,11 +7,12 @@ def A319938(n)
   (1..n).each{|i|
     c = [0] + (1..i - 1).map{|k| i ** (k - 1) / k.to_r - a[k]}
     e = [1]
-    (1..i - 1).each{|k| e << i.to_r / k * (1..k).inject(0){|s, j| s + j * c[j] * e[k - j]}}
+    (1..i - 1).each{|k| e << i / k.to_r * (1..k).inject(0){|s, j| s + j * c[j] * e[k - j]}}
     a << i ** (i - 2) + (1..i - 1).inject(0){|s, k| s + k * c[k] * e[i - k]}.to_i / i
   }
   a[1..-1]
 end
+
 p A319938(30)
 
 # n = 20
