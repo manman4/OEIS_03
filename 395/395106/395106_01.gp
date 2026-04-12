@@ -39,4 +39,3 @@ print(Vec( exp( 7*sum(i=1, #a, a[i]*x^i) )*(1 - 7^2*x + O(x^10))^(1/7)));
 print(Vec( exp( 8*sum(i=1, #a, a[i]*x^i) )*(1 - 8^2*x + O(x^10))^(1/8)));
 print(Vec( exp( 9*sum(i=1, #a, a[i]*x^i) )*(1 - 9^2*x + O(x^10))^(1/9)));
 
-
