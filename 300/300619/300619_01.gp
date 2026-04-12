@@ -1,3 +1,4 @@
+\\ G.f. A(x) satisfies [x^n] exp(n*A(x)) * (1 - n^3*x) = 0, for n >= 1.
 {
   my(N = 11);
   my(v = vector(N), x = 'x);
