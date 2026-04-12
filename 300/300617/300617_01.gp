@@ -1,3 +1,4 @@
+\\ O.g.f. A(x) satisfies: [x^n] exp(n*A(x)) * (1 - n^2*x) = 0, for n > 0. 
 {
   my(N = 11);
   my(v = vector(N), x = 'x);
@@ -27,24 +28,17 @@
 }
 
 \\ 確認用
-a = [1, 3, 30, 550, 15375, 601398, 31299268, 2093655600, 175312873125, 17987972309725, 2221603804365924];
+a = [1, 3, 30, 550, 15375, 601398, 31299268, 2093655600, 175312873125, 17987972309725, 2221603804365924, 325310016974127276, 55749742122979646105, 11056914755618659399500, 2513208049272148754203200, 649086459674801585681092992];
 \\ exp( n*A(x) )*(1-n^2*x)
-print(Vec(serlaplace( exp( 1*sum(i=1, #a, a[i]*x^i) )*(1 - 1^2*x + O(x^10)))));
-print(Vec(serlaplace( exp( 2*sum(i=1, #a, a[i]*x^i) )*(1 - 2^2*x + O(x^10)))));
-print(Vec(serlaplace( exp( 3*sum(i=1, #a, a[i]*x^i) )*(1 - 3^2*x + O(x^10)))));
-print(Vec(serlaplace( exp( 4*sum(i=1, #a, a[i]*x^i) )*(1 - 4^2*x + O(x^10)))));
-print(Vec(serlaplace( exp( 5*sum(i=1, #a, a[i]*x^i) )*(1 - 5^2*x + O(x^10)))));
-print(Vec(serlaplace( exp( 6*sum(i=1, #a, a[i]*x^i) )*(1 - 6^2*x + O(x^10)))));
-print(Vec(serlaplace( exp( 7*sum(i=1, #a, a[i]*x^i) )*(1 - 7^2*x + O(x^10)))));
-print(Vec(serlaplace( exp( 8*sum(i=1, #a, a[i]*x^i) )*(1 - 8^2*x + O(x^10)))));
-print(Vec(serlaplace( exp( 9*sum(i=1, #a, a[i]*x^i) )*(1 - 9^2*x + O(x^10)))));
+print(Vec( exp( 1*sum(i=1, #a, a[i]*x^i) )*(1 - 1^2*x + O(x^10))));
+print(Vec( exp( 2*sum(i=1, #a, a[i]*x^i) )*(1 - 2^2*x + O(x^10))));
+print(Vec( exp( 3*sum(i=1, #a, a[i]*x^i) )*(1 - 3^2*x + O(x^10))));
+print(Vec( exp( 4*sum(i=1, #a, a[i]*x^i) )*(1 - 4^2*x + O(x^10))));
+print(Vec( exp( 5*sum(i=1, #a, a[i]*x^i) )*(1 - 5^2*x + O(x^10))));
+print(Vec( exp( 6*sum(i=1, #a, a[i]*x^i) )*(1 - 6^2*x + O(x^10))));
+print(Vec( exp( 7*sum(i=1, #a, a[i]*x^i) )*(1 - 7^2*x + O(x^10))));
+print(Vec( exp( 8*sum(i=1, #a, a[i]*x^i) )*(1 - 8^2*x + O(x^10))));
+print(Vec( exp( 9*sum(i=1, #a, a[i]*x^i) )*(1 - 9^2*x + O(x^10))));
 
-\\ exp( -n*A(x) )*(1-n^2*x)
-print(Vec(serlaplace( exp( -1*sum(i=1, #a, a[i]*x^i) )*(1 - 1^2*x + O(x^10)))));
-print(Vec(serlaplace( exp( -2*sum(i=1, #a, a[i]*x^i) )*(1 - 2^2*x + O(x^10)))));
-print(Vec(serlaplace( exp( -3*sum(i=1, #a, a[i]*x^i) )*(1 - 3^2*x + O(x^10)))));
-print(Vec(serlaplace( exp( -4*sum(i=1, #a, a[i]*x^i) )*(1 - 4^2*x + O(x^10)))));
-print(Vec(serlaplace( exp( -5*sum(i=1, #a, a[i]*x^i) )*(1 - 5^2*x + O(x^10)))));
-print(Vec(serlaplace( exp( -6*sum(i=1, #a, a[i]*x^i) )*(1 - 6^2*x + O(x^10)))));
-print(Vec(serlaplace( exp( -7*sum(i=1, #a, a[i]*x^i) )*(1 - 7^2*x + O(x^10)))));
+
 
