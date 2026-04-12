@@ -1,6 +1,6 @@
-# a(n) = n^(2*n-3) + (1/n) * Sum_{k=1..n-1} k * c_n(k) * e_n(n-k),
-# where c_n(k) = n^(2*k-2)/k - a(k) for 1 <= k <= n-1,
-# and e_n(0) = 1, e_n(k) = (n/k) * Sum_{j=1..k} j * c_n(j) * e_n(k-j) for 1 <= k <= n-1.
+# a(n) = n^(2*n-2) - (1/n) * Sum_{k=1..n-1} k * c_n(k) * e_n(n-k),
+# where c_n(k) = a(k) - n^(2*k-1)/k for 1 <= k <= n-1,
+# and e_n(0) = 1, e_n(k) = (n/k) * Sum_{j=1..k} j * c_n(j) * e_n(k-j) for 1 <= k <= n-1. 
 
 def A300617(n)
   a = [0]
@@ -12,7 +12,6 @@ def A300617(n)
   }
   a[1..-1]
 end
-
 p A300617(20)
 
 # n = 20
