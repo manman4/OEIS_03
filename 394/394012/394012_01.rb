@@ -8,7 +8,7 @@ def compute_all_d_values(limit)
   a = [1]
   ary = [[1]]
   
-  (1..limit).each{|n|
+  (2..limit).each{|n|
     # n ステップ目の全係数 d_{n, k} を表示
     # puts "--- n = #{n} ---"
     a.each_with_index do |val, k|
@@ -18,16 +18,16 @@ def compute_all_d_values(limit)
     # puts "a(#{n}) = #{d[0]}" # これが求める一般項
     # puts ""
 
-    next_a = Array.new(n + 1, 0)
-    (0..n).each{|k|
+    next_a = Array.new(n, 0)
+    (0..n-1).each{|k|
       # 1. α係数: d_{n, k+1} からの寄与
       alpha_term = (k + 1 < a.size) ? 2 * (k + 1) * (2 * k + 1) * a[k + 1] : 0
       
       # 2. β係数: d_{n, k} からの寄与
-      beta_term = (k < a.size) ? 4 * ((4 * k + 1) * n + 2 * k**2 + k) * a[k] : 0
+      beta_term = (k < a.size) ? 4 * ((4 * k + 1) * n + 2 * k**2 - 3 * k - 1) * a[k] : 0
       
       # 3. γ係数: d_{n, k-1} からの寄与
-      gamma_term = (k > 0) ? 2 * (4 * n + 2 * k + 1) * (2 * n + k - 1) * a[k - 1] : 0
+      gamma_term = (k > 0) ? 2 * (4 * n + 2 * k - 3) * (2 * n + k - 3) * a[k - 1] : 0
       
       next_a[k] = alpha_term + beta_term + gamma_term
     }
