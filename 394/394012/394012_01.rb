@@ -19,17 +19,17 @@ def compute_all_d_values(limit)
     # puts ""
 
     next_a = Array.new(m + 1, 0)
-    (0..m).each do |j|
-      # 1. α係数: d_{m, j+1} からの寄与
-      alpha_term = (j + 1 < a.size) ? 2 * (j + 1) * (2 * j + 1) * a[j + 1] : 0
+    (0..m).each do |k|
+      # 1. α係数: d_{m, k+1} からの寄与
+      alpha_term = (k + 1 < a.size) ? 2 * (k + 1) * (2 * k + 1) * a[k + 1] : 0
       
-      # 2. β係数: d_{m, j} からの寄与
-      beta_term = (j < a.size) ? 4 * (4 * m * j + 2 * j**2 + m + j) * a[j] : 0
+      # 2. β係数: d_{m, k} からの寄与
+      beta_term = (k < a.size) ? 4 * (4 * m * k + 2 * k**2 + m + k) * a[k] : 0
       
-      # 3. γ係数: d_{m, j-1} からの寄与
-      gamma_term = (j > 0) ? 2 * (4 * m + 2 * j + 1) * (2 * m + j - 1) * a[j - 1] : 0
+      # 3. γ係数: d_{m, k-1} からの寄与
+      gamma_term = (k > 0) ? 2 * (4 * m + 2 * k + 1) * (2 * m + k - 1) * a[k - 1] : 0
       
-      next_a[j] = alpha_term + beta_term + gamma_term
+      next_a[k] = alpha_term + beta_term + gamma_term
     end
     a = next_a
   end
