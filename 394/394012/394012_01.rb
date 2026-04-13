@@ -25,7 +25,7 @@ def compute_all_d_values(limit)
       alpha_term = (k + 1 < a.size) ? 2 * (k + 1) * (2 * k + 1) * a[k + 1] : 0
       
       # 2. β係数: d_{n, k} からの寄与
-      beta_term = (k < a.size) ? 4 * (4 * n * k + 2 * k**2 + n + k) * a[k] : 0
+      beta_term = (k < a.size) ? 4 * ((4 * k + 1) * n + 2 * k**2 + k) * a[k] : 0
       
       # 3. γ係数: d_{n, k-1} からの寄与
       gamma_term = (k > 0) ? 2 * (4 * n + 2 * k + 1) * (2 * n + k - 1) * a[k - 1] : 0
