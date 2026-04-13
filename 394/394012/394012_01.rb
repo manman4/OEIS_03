@@ -10,7 +10,7 @@ def compute_all_d_values(limit)
   ary = [[1]]
   
   (1..limit).each{|n|
-    # m ステップ目の全係数 d_{m, j} を表示
+    # n ステップ目の全係数 d_{n, k} を表示
     # puts "--- n = #{n} ---"
     a.each_with_index do |val, k|
       # puts "d(#{n}, #{k}) = #{val}"
