@@ -37,5 +37,12 @@ def compute_all_d_values(limit)
   ary
 end
 
-ary = compute_all_d_values(7)
-p ary
+n = 140
+ary = compute_all_d_values(n).flatten
+(1..ary.size).each{|i|
+  j = ary[i - 1]
+  break if j.to_s.size > 1000
+  print i
+  print " "
+  puts j
+}
