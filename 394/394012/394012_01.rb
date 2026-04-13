@@ -37,5 +37,5 @@ def compute_all_d_values(limit)
   ary
 end
 
-ary =compute_all_d_values(7)
+ary = compute_all_d_values(7)
 p ary
