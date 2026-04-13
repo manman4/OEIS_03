@@ -2,5 +2,8 @@
 a(n) = my(S=x); S = serreverse( intformal( 1/(1 + x^2 +x*O(x^(2*n)))^2)); (2*n-1)!*polcoeff(2*S*(1+S^2)^3 - x*(1+S^2)^2 - S, 2*n-1);
 for(n=1, 30, print1(a(n), ", "));
 
+a(n) = my(S=x); S = serreverse( intformal( 1/(1 + x^2 +x*O(x^(2*n)))^2)); S;
+a(10)
+
 a(n) = my(S=x); S = serreverse( intformal( 1/(1 + x^2 +x*O(x^(2*n)))^2)); 2*S*(1+S^2)^3 - x*(1+S^2)^2 - S;
 a(10)
