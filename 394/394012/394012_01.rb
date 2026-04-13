@@ -1,7 +1,6 @@
 # T(1,0) = 1;
-# T(n,k) = s(k) * T(n-1,k+1) + t_{n-1}(k) * T(n-1,k) + u_{n-1}(k) * T(n-1,k-1);
-# T(n,k) = 0 if k < 0 or k >= n, 
-# where s(k) = 2*(k+1)*(2*k+1), t_n(k) = 4*(4*n*k + 2*k^2 + n + k), u_n(k) = 2*(4*n + 2*k + 1)*(2*n + k - 1).
+# T(n,k) = 2*(k+1)*(2*k+1) * T(n-1,k+1) + 4*((4*k + 1)*n + 2*k^2 - 3*k - 1) * T(n-1,k) + 2*(4*n + 2*k - 3)*(2*n + k - 3) * T(n-1,k-1);
+# T(n,k) = 0 if k < 0 or k >= n.
 
 def compute_all_d_values(limit)
   # d[j] は現在の m における d_{m, j}
