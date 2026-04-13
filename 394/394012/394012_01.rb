@@ -7,13 +7,14 @@ def compute_all_d_values(limit)
   # d[j] は現在の m における d_{m, j}
   # 初期条件 d_{1, 0} = 1
   a = [1]
+  ary = [[1]]
   
   (1..limit).each do |m|
     # m ステップ目の全係数 d_{m, j} を表示
     # puts "--- m = #{m} ---"
     a.each_with_index do |val, j|
       # puts "d(#{m}, #{j}) = #{val}"
-      print("#{val}, ")
+      # print("#{val}, ")
     end
     # puts "a(#{m}) = #{d[0]}" # これが求める一般項
     # puts ""
@@ -32,7 +33,10 @@ def compute_all_d_values(limit)
       next_a[k] = alpha_term + beta_term + gamma_term
     end
     a = next_a
+    ary << a
   end
+  ary
 end
 
-compute_all_d_values(7)
+ary =compute_all_d_values(7)
+p ary
