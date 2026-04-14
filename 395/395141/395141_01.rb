@@ -24,15 +24,21 @@ def compute_rows(max_n)
   rows
 end
 
-max_n = 9
+max_n = 139
 rows = compute_rows(max_n)
 
 # Output read by rows: for n=0..max_n, for k=0..n, print A(k, n-k)
-out = []
+ary = []
 (0..max_n).each{|n|
   (0..n).each{|k|
-    out << rows[k][n - k]
+    ary << rows[k][n - k]
   }
 }
 
-puts out.join(", ")
+(0..ary.size - 1).each{|i|
+  j = ary[i]
+  break if j.to_s.size > 1000
+  print i
+  print ' '
+  puts j
+}
