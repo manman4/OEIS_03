@@ -1,4 +1,4 @@
-\\ a(n) = (2*n)! * [x^(2*n)] C(x)^k, where e.g.f. C(x) satisfies
+\\ a(n) = (2*n)! * [x^(2*n)] C(x)^k, where C(x) satisfies
 \\ C(x) = cosh( Integral C(x)^3 dx ).
 \\ Speedup: compute C(x) once to max degree, then reuse powers C^k.
 
@@ -23,3 +23,4 @@ for(k=1, maxN, powC[k+1] = powC[k]*C);
 
 cnt = 0;
 for(n=0, maxN, for(k=0, n, n0=k; k0=n-k; write("b395141_1.txt", cnt, " ", (2*n0)! * polcoef(powC[k0+1], 2*n0)); cnt++));
+
