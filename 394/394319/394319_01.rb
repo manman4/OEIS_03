@@ -33,3 +33,4 @@ ary = [0] + (1..n).map{|i| rows[i][1]}
   print " "
   puts j
 }
+
