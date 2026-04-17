@@ -6,4 +6,5 @@ for(n=0, 9, for(k=0, n, print1(a(k, n-k),", ")));
 
 for(n=0, 15, print1(a(n, 1), ", "));
 for(n=0, 15, print1(a(n, 2), ", "));
-for(n=0, 15, print1(a(n, 3), ", "));
+
+for(n=0, 15, print1(3*a(n, 2), ", "));
