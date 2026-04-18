@@ -1,0 +1,5 @@
+\\ a(n) = (2*n)! * [x^(2*n)] cos(3*x) * cos(sqrt(2)*x) / cos(3*sqrt(2)*x).
+a(n) = my(x = 'x + O('x^(2*n+1))); (2*n)!*polcoef(cos(3*x) * cos(sqrt(2)*x) / cos(3*sqrt(2)*x), 2*n);
+for(n=0, 15, print1(a(n),", "));   
+for(n=0, 15, print1(round(a(n)),", "));   
+
