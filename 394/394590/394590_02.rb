@@ -86,7 +86,9 @@ if ENV["VERIFY"] == "1"
     raise "mismatch n=#{n}: fast=#{fast}, slow=#{slow}" if fast != slow
   }
 end
-
+b=[]
 0.upto(n_max){|n|
+  b << a(n)
   puts "#{n} #{a(n)}"
 }
+p b
