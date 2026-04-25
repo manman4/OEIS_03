@@ -29,7 +29,7 @@ end
 puts
 
 # vector(13, n, T(n-1,0..3))
-(0..3).each{|k|
-  arr = (1..13).map{|n| t(n - 1, k)}
+(0..5).each{|k|
+  arr = (1..23).map{|n| t(n - 1, k)}
   p arr
 }
