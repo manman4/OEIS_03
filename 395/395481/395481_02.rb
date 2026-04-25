@@ -30,6 +30,6 @@ puts
 
 # vector(13, n, T(n-1,0..3))
 (0..5).each{|k|
-  arr = (1..23).map{|n| t(n - 1, k)}
+  arr = (1..33).map{|n| t(n - 1, k)}
   p arr
 }
