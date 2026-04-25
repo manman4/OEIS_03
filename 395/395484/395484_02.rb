@@ -29,11 +29,14 @@ end
 #   arr = (1..33).map{|n| t(n - 1, k)}
 #   p arr
 # }
-n = 1000
+b=[]
+n = 100
 (0..n).each{|i|
   j = t(i, 5)
   break if j.to_s.length > 1000
   print i
   print " "
   puts j
+  b<<j
 }
+p b
