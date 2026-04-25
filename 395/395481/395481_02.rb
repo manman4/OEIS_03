@@ -1,7 +1,3 @@
-# PARI/GP版
-# T(n, k) = if(n==0, k==0, (k+1)*T(n-1, k)+(n-k)*T(n-1, k-1)+(-1)^n*(k==n-1));
-# を Ruby に移植
-
 $memo = {}
 
 def t(n, k)
@@ -21,15 +17,23 @@ def t(n, k)
 end
 
 # for(n=0, 12, for(k=0, n, print1(T(n,k),", ")));
-(0..12).each{|n|
-  (0..n).each{|k|
-    print "#{t(n, k)}, "
-  }
-}
-puts
+# (0..12).each{|n|
+#   (0..n).each{|k|
+#     print "#{t(n, k)}, "
+#   }
+# }
+# puts
 
 # vector(13, n, T(n-1,0..3))
-(0..5).each{|k|
-  arr = (1..33).map{|n| t(n - 1, k)}
-  p arr
+# (0..5).each{|k|
+#   arr = (1..33).map{|n| t(n - 1, k)}
+#   p arr
+# }
+n = 100
+(0..n).each{|i|
+  j = t(i, 2)
+  break if j.to_s.length > 1000
+  print i
+  print " "
+  puts j
 }
