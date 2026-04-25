@@ -36,4 +36,4 @@ def count_derangements_with_n_descents(n)
   count
 end
 
-p (0..5).map{|i| count_derangements_with_n_descents(i)}
+p (0..6).map{|i| count_derangements_with_n_descents(i)}
