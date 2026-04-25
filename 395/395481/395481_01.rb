@@ -47,6 +47,7 @@ def t(n, k)
 end
 
 n = 12
+p (0..10).map{|i| (0..i).map{|k| t(i, k)}}.flatten
 p (0..n).map{|i| t(i, 2)}
 p (0..n).map{|i| t(i, 3)}
 p (0..n).map{|i| t(i, 4)}
