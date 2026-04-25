@@ -9,14 +9,14 @@ def count_derangements_with_n_descents(n)
   perm = Array.new(m, 0)
   count = 0
 
-  dfs = lambda do |pos, desc|
+  dfs = lambda{|pos, desc|
     # pos: 0-based index in perm
     if pos == m
       count += 1 if desc == n
       return
     end
 
-    1.upto(m) do |x|
+    1.upto(m){|x|
       next if used[x]
       next if x == pos + 1 # fixed point禁止（1-based位置）
 
@@ -28,11 +28,11 @@ def count_derangements_with_n_descents(n)
       perm[pos] = x
       dfs.call(pos + 1, new_desc)
       used[x] = false
-    end
-  end
+  }
+  }
 
   dfs.call(0, 0)
   count
 end
 
-p (0..6).map{|i| count_derangements_with_n_descents(i)}
+p (0..5).map{|i| count_derangements_with_n_descents(i)}
