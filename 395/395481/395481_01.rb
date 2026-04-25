@@ -3,8 +3,8 @@
 # 例: ruby 219836_01.rb 8  => T(8,3)
 
 def t(n, k)
-  return 0 if k < 0 || k >= n
   return (k == 0 ? 1 : 0) if n == 0
+  return 0 if k < 0 || k >= n
 
   dp = Hash.new{|h, key| h[key] = Array.new(k + 1, 0)}
 
@@ -52,4 +52,3 @@ p (0..n).map{|i| t(i, 2)}
 p (0..n).map{|i| t(i, 3)}
 p (0..n).map{|i| t(i, 4)}
 p (0..n).map{|i| t(i, 5)}
-
