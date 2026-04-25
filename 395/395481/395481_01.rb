@@ -6,21 +6,21 @@ def t(n, k)
   return 0 if k < 0 || k >= n
   return (k == 0 ? 1 : 0) if n == 0
 
-  dp = Hash.new { |h, key| h[key] = Array.new(k + 1, 0) }
+  dp = Hash.new{|h, key| h[key] = Array.new(k + 1, 0)}
 
   # pos = 1
-  (1..n).each do |x|
+  (1..n).each{|x|
     next if x == 1
     mask = 1 << (x - 1)
     dp[[mask, x]][0] = 1
-  end
+  }
 
   # pos = 2..n
-  (2..n).each do |pos|
-    ndp = Hash.new { |h, key| h[key] = Array.new(k + 1, 0) }
+  (2..n).each{|pos|
+    ndp = Hash.new{|h, key| h[key] = Array.new(k + 1, 0)}
 
-    dp.each do |(mask, last), arr|
-      (1..n).each do |x|
+    dp.each{|(mask, last), arr|
+      (1..n).each{|x|
         bit = 1 << (x - 1)
         next if (mask & bit) != 0
         next if x == pos # fixed point禁止
@@ -30,19 +30,19 @@ def t(n, k)
         tgt = ndp[key]
 
         max_d = k - inc
-        0.upto(max_d) do |d|
+        0.upto(max_d){|d|
           c = arr[d]
           next if c == 0
           tgt[d + inc] += c
-        end
-      end
-    end
+        }
+      }
+    }
 
     dp = ndp
-  end
+  }
 
   ans = 0
-  dp.each_value { |arr| ans += arr[k] }
+  dp.each_value{|arr| ans += arr[k]}
   ans
 end
 
