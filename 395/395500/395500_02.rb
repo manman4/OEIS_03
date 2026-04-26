@@ -9,7 +9,7 @@ def t(n, k)
   else
     term1 = (k + 1) * t(n - 1, k)
     term2 = (n - k) * t(n - 1, k - 1)
-    term3 = ((-1) ** n) * (k == n - 1 ? 1 : 0)
+    term3 = ((-1) ** n) * (k == 0 ? 1 : 0)
     term1 + term2 + term3
   end
 
@@ -29,15 +29,13 @@ end
 #   arr = (1..33).map{|n| t(n - 1, k)}
 #   p arr
 # }
-def a395500(n)
-  # a(n) = A219836(2*n,n-1).
-  [1] + (1..n).map{|k| t(2 * k, k - 1)}
+def a(n)
+  t(2 * n, n)
 end
 
 n = 300
-ary = a395500(n)
 (0..n).each{|i|
-  j = ary[i]
+  j = a(i)
   break if j.to_s.length > 1000
   print i
   print " "
