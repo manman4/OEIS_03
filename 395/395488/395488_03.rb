@@ -30,11 +30,12 @@ end
 #   p arr
 # }
 
-n = 500
-(0..n).each{|i|
-  j = t(2 * i, i)
-  break if j.to_s.length > 1000
-  print i
-  print " "
-  puts j
-}
+# n = 500
+# (0..n).each{|i|
+#   j = t(2 * i, i)
+#   break if j.to_s.length > 1000
+#   print i
+#   print " "
+#   puts j
+# }
+p (0..15).map{|n| t(2 * n, n)}
