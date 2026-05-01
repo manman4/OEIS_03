@@ -13,16 +13,16 @@ shifted_zeilberger_coeffs(F_expr, k, n) := block(
 
 
 Z : shifted_zeilberger_coeffs(binomial(n, k) * binomial(5*n, n+k), k, n)$
-print("A005809 coefficients:", Z)$
+print("A coefficients:", Z)$
 
 Z : shifted_zeilberger_coeffs(binomial(n, k) * binomial(4*n, n+2*k), k, n)$
-print("A005809 coefficients:", Z)$
+print("A395612 coefficients:", Z)$
 
 Z : shifted_zeilberger_coeffs(binomial(n, k) * binomial(3*n, n+3*k), k, n)$
-print("A005809 coefficients:", Z)$
+print("A395613 coefficients:", Z)$
 
 Z : shifted_zeilberger_coeffs(binomial(n, k) * binomial(2*n, n+4*k), k, n)$
-print("A005809 coefficients:", Z)$
+print("A395614 coefficients:", Z)$
 
 
 Z : shifted_zeilberger_coeffs(binomial(n, k) * binomial(n, n+4*k), k, n)$
@@ -38,5 +38,4 @@ Z : shifted_zeilberger_coeffs(binomial(n, k) * binomial(4*n, n+4*k), k, n)$
 print("A coefficients:", Z)$
 
 
-Z : shifted_zeilberger_coeffs((-1)^k * binomial(n, k) * binomial(4*n-2*k, 2*n-k), k, n)$
-print("A coefficients:", Z)$
+
