@@ -24,6 +24,17 @@ print("A395613 coefficients:", Z)$
 Z : shifted_zeilberger_coeffs(binomial(n, k) * binomial(2*n, n+4*k), k, n)$
 print("A395614 coefficients:", Z)$
 
+print("Now testing the same pattern with n+2*k instead of n+k...")$
+
+Z : shifted_zeilberger_coeffs(binomial(n, k) * binomial(n, n+2*k), k, n)$
+print("A coefficients:", Z)$
+
+Z : shifted_zeilberger_coeffs(binomial(n, k) * binomial(2*n, n+2*k), k, n)$
+print("A coefficients:", Z)$
+
+Z : shifted_zeilberger_coeffs(binomial(n, k) * binomial(3*n, n+2*k), k, n)$
+print("A coefficients:", Z)$
+
 print("Now testing the same pattern with n+3*k instead of n+k...")$
 
 Z : shifted_zeilberger_coeffs(binomial(n, k) * binomial(n, n+3*k), k, n)$
