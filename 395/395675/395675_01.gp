@@ -1,8 +1,8 @@
 \\ a(n) = ((n+1)/2) * (binomial(2*n+1,n) + 2^(2*n)).
 a(n) = ((n+1)/2) * (binomial(2*n+1,n) + 2^(2*n));
-for(n=0, 20, print1(a(n), ", "));
+for(n=0, 24, print1(a(n), ", "));
 
-\\ a(n) = ((n+1)/4) * (binomial(2*n+1,n) + Sum_{k=0..n+1} binomial(2*n+2,k))
+\\ a(n) = ((n+1)/4) * (binomial(2*n+1,n) + Sum_{k=0..n+1} binomial(2*n+2,k)) 
 b(n) = ((n+1)/4) * (binomial(2*n+1,n) + sum(k=0, n+1, binomial(2*n+2,k)));
 for(n=0, 20, print1(a(n)-b(n), ", "));
 
