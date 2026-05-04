@@ -1,0 +1,2 @@
+\\ G.f.: (Sum_{k>=0} (4*k+1)/(3*k+1) * binomial(3*k+1,k) * x^k) * (Sum_{k>=0} binomial(3*k,k) * x^k)^3.
+my(N=30, x='x+O('x^N)); Vec(sum(k=0, N, (4*k+1)/(3*k+1) * binomial(3*k+1, k) * x^k) * sum(k=0, N, binomial(3*k, k)*x^k)^3)
