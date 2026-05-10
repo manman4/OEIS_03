@@ -15,9 +15,9 @@ def count_tails(sum_left, max_column, memo)
   return memo[key] if memo.key?(key)
 
   total = (sum_left == 0 ? 1 : 0)
-  build_columns(sum_left, max_column, 0, max_column[0], [], memo) do |column, rest|
+  build_columns(sum_left, max_column, 0, max_column[0], [], memo){|column, rest|
     total += count_tails(rest, column, memo)
-  end
+  }
 
   memo[key] = total
 end
@@ -47,12 +47,10 @@ def t(n, k)
 end
 
 def triangle(rows)
-  1.upto(rows).flat_map do |n|
-    1.upto(n).map { |k| t(n, k) }
-  end
+  1.upto(rows).flat_map{|n|
+    1.upto(n).map{|k| t(n, k)}
+  }
 end
 
-if __FILE__ == $PROGRAM_NAME
-  rows = (ARGV[0] || 12).to_i
-  p triangle(rows)
-end
+p triangle(12)
+
