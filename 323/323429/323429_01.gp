@@ -1,0 +1,2 @@
+\\ G.f.: 1 + Sum_{k>=1, l>=1} q^(k*l) * Product_{i=1..k} Product_{j=1..l} 1/(1 - q^(i+j-1)).
+my(N=50, q='q+O('q^N)); Vec(1+sum(k=1, N, sum(l=1, N\k, q^(k*l)*prod(i=1, k, prod(j=1, l, 1/(1-q^(i+j-1))))))) 
