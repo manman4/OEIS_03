@@ -29,5 +29,12 @@ def a(n)
   (1..n).map{|i| (1..i).map{|j| T(i, j)}}.flatten
 end
 
-rows = 12
-p ary = a(rows)
+rows = 140
+ary = a(rows)
+(1..ary.size).each{|i|
+  j = ary[i - 1]
+  break if j.to_s.size > 1000
+  print i
+  print ' '
+  puts j
+}
