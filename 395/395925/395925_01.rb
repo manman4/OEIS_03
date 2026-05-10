@@ -39,5 +39,5 @@ def sequence(length)
   0.upto(length).map { |n| t(n) }
 end
 
-p sequence(30)
+p sequence(49)
 
