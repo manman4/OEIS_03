@@ -52,12 +52,12 @@ end
 
 def triangle(rows)
   kmax = row_kmax(rows)
-  columns = 1.upto(kmax).map { |k| strict_column_gf(rows, k) }
+  columns = 1.upto(kmax).map{|k| strict_column_gf(rows, k)}
 
-  1.upto(rows).flat_map do |n|
+  1.upto(rows).flat_map{|n|
     kmax = row_kmax(n)
-    1.upto(kmax).map { |k| columns[k - 1][n] }
-  end
+    1.upto(kmax).map{|k| columns[k - 1][n]}
+  }
 end
 
 n = 500
