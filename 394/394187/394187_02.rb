@@ -60,7 +60,7 @@ def triangle(rows)
   end
 end
 
-n = 50
+n = 500
 ary = triangle(n)
 (1..ary.size).each{|i|
   j = ary[i - 1]
