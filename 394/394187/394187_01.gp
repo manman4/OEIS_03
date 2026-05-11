@@ -24,7 +24,7 @@ row_kmax(n) =
   k
 };
 
-M = 140;
+M = 500;
 cols = vector(row_kmax(M), k, column_gf(M, k));
 cnt = 1;
 for(n = 1, M, for(k = 1, row_kmax(n), write("b394187_1.txt", cnt, " ", polcoef(cols[k], n)); cnt++));
