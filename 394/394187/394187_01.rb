@@ -58,7 +58,15 @@ def triangle(rows)
   }
 end
 
-p triangle(50)
+n = 50
+ary = triangle(n)
+(1..ary.size).each{|i|
+  j = ary[i - 1]
+  break if j.to_s.size > 1000
+  print i
+  print ' '
+  puts j
+}
 
 # n列のT(n,k)合計を出力
 # p (1..30).map{|n| (1..n).map{|k| t(n, k)}.sum}
