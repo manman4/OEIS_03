@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# Triangle T(n,k), n >= 1, 1 <= k <= floor((sqrt(8*n+1)-1)/2), read by rows,
+# Triangle T(n,k), n >= 1, 1 <= k <= kmax(n), read by rows,
 # where T(n,k) is the number of rectangular plane partitions of n
 # with exactly k rows and with rows and columns strictly decreasing.
 #
@@ -9,16 +9,22 @@
 
 def shift_series(series, shift, max_n)
   shifted = Array.new(max_n + 1, 0)
-  0.upto(max_n - shift) do |i|
+  0.upto(max_n - shift){|i|
     shifted[i + shift] = series[i]
-  end
+  }
   shifted
 end
 
 def multiply_by_geometric(series, power, max_n)
-  power.upto(max_n) do |i|
+  power.upto(max_n){|i|
     series[i] += series[i - power]
-  end
+  }
+end
+
+def row_kmax(n)
+  k = 0
+  k += 1 while (k + 1) * (k + 2) / 2 <= n
+  k
 end
 
 def strict_column_gf(max_n, k)
@@ -32,12 +38,12 @@ def strict_column_gf(max_n, k)
 
     shift = k * (k + 2 * l - 1) / 2
     rect = shift_series(rect, shift, max_n)
-    1.upto(k) do |i|
+    1.upto(k){|i|
       multiply_by_geometric(rect, l + i - 1, max_n)
-    end
-    min_sum.upto(max_n) do |n|
+    }
+    min_sum.upto(max_n){|n|
       coeffs[n] += rect[n]
-    end
+    }
     l += 1
   end
 
@@ -45,16 +51,21 @@ def strict_column_gf(max_n, k)
 end
 
 def triangle(rows)
-  kmax = ((Math.sqrt(8 * rows + 1) - 1) / 2).floor
+  kmax = row_kmax(rows)
   columns = 1.upto(kmax).map { |k| strict_column_gf(rows, k) }
 
   1.upto(rows).flat_map do |n|
-    row_kmax = ((Math.sqrt(8 * n + 1) - 1) / 2).floor
-    1.upto(row_kmax).map { |k| columns[k - 1][n] }
+    kmax = row_kmax(n)
+    1.upto(kmax).map { |k| columns[k - 1][n] }
   end
 end
 
-if __FILE__ == $PROGRAM_NAME
-  rows = (ARGV[0] || 50).to_i
-  p triangle(rows)
-end
+n = 50
+ary = triangle(n)
+(1..ary.size).each{|i|
+  j = ary[i - 1]
+  break if j.to_s.size > 1000
+  print i
+  print ' '
+  puts j
+}
