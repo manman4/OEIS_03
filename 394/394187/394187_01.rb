@@ -58,8 +58,8 @@ def triangle(rows)
   }
 end
 
-n = 50
-ary = triangle(n)
+n = 21
+p ary = triangle(n)
 (1..ary.size).each{|i|
   j = ary[i - 1]
   break if j.to_s.size > 1000
