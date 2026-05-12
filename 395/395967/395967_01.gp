@@ -39,8 +39,5 @@ ASym(k, nmax)=
   x*s + x*O(x^nmax)
 };
 
-M = 1050;
-N = 1000;
-v=ASym(3, M);
-for(n=0, N, write("b000600.txt", n, " ", polcoef(v, n)));
-
+\\ T(n,k) = [x^n] x*cycle_index(S_k, B(x)-1), where B(x) is g.f. for A000598.
+for(n=1, 12, for(k=0, n-1, print1(polcoef(ASym(k, n), n), ", ")));
