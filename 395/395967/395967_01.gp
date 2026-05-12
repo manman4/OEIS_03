@@ -40,4 +40,8 @@ ASym(k, nmax)=
 };
 
 \\ T(n,k) = [x^n] x*cycle_index(S_k, B(x)-1), where B(x) is g.f. for A000598.
-for(n=1, 12, for(k=0, n-1, print1(polcoef(ASym(k, n), n), ", ")));
+T(n, k) = polcoef(ASym(k, n), n);
+for(n=1, 12, for(k=0, n-1, print1(T(n,k), ", ")));
+
+a(n) = T(2*n+1, n);
+for(n=0, 12, print1(a(n), ", "));
