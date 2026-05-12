@@ -10,20 +10,7 @@ Balkyl(nmax)=
   B
 };
 
-\\ z_lambda for a partition lambda = [lambda_1, lambda_2, ...]
-zpart(lambda)=
-{
-  my(v = Vec(lambda), z = 1, i = 1, j, m, part);
-  while(i <= #v,
-    part = v[i];
-    m = 1;
-    j = i + 1;
-    while(j <= #v && v[j] == part, m++; j++);
-    z *= part^m * m!;
-    i = j;
-  );
-  z
-};
+
 
 
 
