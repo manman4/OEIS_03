@@ -25,27 +25,7 @@ zpart(lambda)=
   z
 };
 
-\\ x * cycle_index(S_k, B(x)-1)
-ASym(k, nmax)=
-{
-  my(B = Balkyl(nmax), s = 0, lambda, v, i, part, term);
 
-  forpart(lambda = k,
-    v = Vec(lambda);              \\ partition in nonincreasing order
-    term = 1;
-    for(i = 1, #v,
-      part = v[i];
-      term *= subst(B, x, x^part) - 1;
-    );
-    s += term / zpart(lambda);
-  );
-
-  x*s + x*O(x^nmax)
-};
-
-Vec(ASym(3, 30))
-Vec(ASym(4, 30))
-Vec(ASym(5, 30))
 
 SlimLimit(nmax)=
 {
