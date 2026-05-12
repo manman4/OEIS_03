@@ -1,38 +1,3 @@
-\\ B(x) を使って二級アルコールの母関数 A(x) を計算する
-A_secondary_series(N)=
-{
-  my(x = 'x);
-  my(B = 1 + O(x^(N+1)));
-
-  \\ B(x) = 1 + x/6*(B^3 + 3*B*B(x^2) + 2*B(x^3))
-  for(i = 1, N,
-    B = 1 + x/6 * (B^3 + 3*B*subst(B, x, x^2) + 2*subst(B, x, x^3)) + O(x^(N+1));
-  );
-
-  \\ A(x) = x/2 * ((B(x)-1)^2 + (B(x^2)-1))
-  x/2 * ((B - 1)^2 + (subst(B, x, x^2) - 1)) + O(x^(N+1))
-}
-A_secondary_coeffs(N)=
-{
-  my(S = A_secondary_series(N));
-  Vec(S)
-}
-A_secondary_coeffs(20)
-
-
-my(N=30, B=1); for(i=1, N, B=1+x/6*(B^3+3*B*subst(B, x, x^2)+2*subst(B, x, x^3))+x*O(x^N)); x/2*((B - 1)^2+subst(B, x, x^2)-1)
-
-nmax = 30;
-B = 1;
-for(i=1, nmax, B = 1 + x/6*(B^3 + 3*B*subst(B,x,x^2) + 2*subst(B,x,x^3)) + x*O(x^nmax));
-A = x/6*((B - 1)^3 + 3*(B - 1)*(subst(B,x,x^2) - 1) + 2*(subst(B,x,x^3) - 1)) + x*O(x^nmax);
-A
-
-
-
-
-
-
 
 
 \\ Alkyl radicals B(x) = A000598
