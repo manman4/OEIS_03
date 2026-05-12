@@ -1,7 +1,5 @@
-
-
 \\ Alkyl radicals B(x) = A000598
-Balkyl(nmax) = my(B=1); for(i=1, nmax, B = 1 + x/6*(B^3 + 3*B*subst(B,x,x^2) + 2*subst(B,x,x^3)) + x*O(x^nmax)); B;
+Balkyl(n) = my(B=1); for(i=1, n, B=1+x/6*(B^3+3*B*subst(B, x, x^2)+2*subst(B, x, x^3))+x*O(x^n)); B;
 
 
 
