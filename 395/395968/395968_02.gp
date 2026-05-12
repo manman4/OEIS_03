@@ -29,6 +29,7 @@ L = SlimLimit(30)
 SlimLimit_prod(nmax)=
 {
   my(B=Balkyl(nmax+1), P=1 + x*O(x^nmax));
+  print(B);
   for(m=1, nmax,
     \\ print(polcoef(B, m+1));
     P *= (1 - x^m + x*O(x^nmax))^(-polcoef(B, m+1))
