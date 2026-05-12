@@ -44,4 +44,4 @@ T(n, k) = polcoef(ASym(k, n), n);
 for(n=1, 12, for(k=0, n-1, print1(T(n,k), ", ")));
 
 a(n) = T(2*n+1, n);
-for(n=0, 40, print1(a(n), ", "));
+for(n=0, 32, print1(a(n), ", "));
