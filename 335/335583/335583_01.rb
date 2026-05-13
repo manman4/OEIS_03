@@ -32,4 +32,5 @@ p (0..n).map{|i| A(i, 3)}
 p (0..n).map{|i| A(i, 4)}
 
 p (1..20).map{|i| (1..i).map{|j| A(i, j)}}
+p (1..20).map{|i| (1..i).map{|j| A(i, j)}}.flatten
 p (0..20).map{|i| (0..20).map{|j| A(i, j)}.sum}
