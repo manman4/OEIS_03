@@ -36,5 +36,10 @@ n = 62
 # p (0..20).map{|i| A(2*i, i)}
 
 # p (1..20).map{|i| (1..i).map{|j| A(i, j)}}
-p (1..50).map{|i| (1..i).map{|j| A(i, j)}}.flatten
+ary = (1..70).map{|i| (1..i).map{|j| A(i, j)}}.flatten
+(1..ary.size).each{|i|
+  print i
+  print ' '
+  puts ary[i - 1]
+}
 # p (0..20).map{|i| (0..20).map{|j| A(i, j)}.sum}
