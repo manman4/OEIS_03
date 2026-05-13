@@ -1,4 +1,4 @@
-# Number of 1's in the partitions of n into k parts.
+# Number of 1's in the partitions of n into exactly k parts.
 def A(n, k)
   # Returns [total_ones, partition_count] for partitions of `remaining`
   # into `parts_left` parts each >= min_val (non-decreasing order).
