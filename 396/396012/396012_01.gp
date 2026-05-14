@@ -10,4 +10,7 @@ G_kr(k, r, N) = {
 res = G_kr(5, 3, 100);
 for(n=0, 90, print1(polcoef(res, n), ", "));
 
+\\ G.f.: x^5 * Sum_{j=1..5} x^(2*j) / Product_{k=1..5-j} (1 - x^k).
+my(N=70, x='x+O('x^N)); concat([0, 0, 0, 0, 0, 0, 0], Vec(x^5*sum(j=1, 5, x^(2*j)/prod(k=1, 5-j, 1-x^k))))
+
 
