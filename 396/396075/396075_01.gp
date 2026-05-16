@@ -21,6 +21,11 @@ my(N=70, q='q+O('q^N)); Vec(sum(j=1, 6, (-1)^(j-1) * q^(j*(j-1)/2+3) / prod(k=1,
 
 my(N=70, q='q+O('q^N)); Vec(sum(j=1, 6, q^(j*(j-1)+3) * q_binomial(5, j-1) / prod(k=1, j-1, (1-q^k))))
 
+
+my(N=70, q='q+O('q^N)); Vec(sum(j=1, 8, (-1)^(j-1) * q^(j*(j-1)/2+4) / prod(k=1, 8-j, (1-q^k))))
+
+my(N=70, q='q+O('q^N)); Vec(sum(j=1, 8, q^(j*(j-1)+4) * q_binomial(7, j-1) / prod(k=1, j-1, (1-q^k))))
+
 print("Table");
 
 T(n,k) = my(q='q+O('q^(n+1))); polcoef(sum(i=1, 2*k, (-1)^(i-1) * q^(i*(i-1)/2+k) / prod(j=1, 2*k-i, (1-q^j))), n);
