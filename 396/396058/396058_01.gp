@@ -24,6 +24,6 @@ print("一般");
 \\ Let b(n,k,m) be the number of partitions of n into k distinct parts containing the part m.
 b(n, k, m) = polcoef(G(k, m) + q*O(q^M), n);
 
-\\ d(n,k,m) = [x^n] G(k,m) = [x^n] q^(k*(k+1)/2) * Sum_{i=1..min(k,m)} q^((k-i+1)*(m-i)) * q_binomial(m-1,i-1) / Product_{j=1..k-i} (1-q^j).
-d(n, k, m) = polcoef(G(k, m) + q*O(q^M), n);
-for(k=0, 10, for(m=0, 10, for(n=0, 50, if(b(n, k, m) != d(n, k, m), print1("Error: ", n, " ", k, " ", m, "\n")))));
+\\ d(n,k,m) = [x^n] G(k,m) = [x^n] Sum_{i=1..k} (-1)^(i-1) * q^(m*i) * Product_{j=1..k-i} q^j/(1-q^j).
+d(n, k, m) = polcoef(sum(i=1, k, (-1)^(i-1) * q^(m*i) * prod(j=1, k-i, q^j/(1-q^j))) + q*O(q^M), n);
+for(k=0, 10, for(m=1, 10, for(n=0, 50, if(b(n, k, m) != d(n, k, m), print1("Error: ", n, " ", k, " ", m, "\n")))));
