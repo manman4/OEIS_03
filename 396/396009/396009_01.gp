@@ -10,4 +10,5 @@ G_kr(k, r, N) = {
 res = G_kr(4, 2, 100);
 for(n=0, 90, print1(polcoef(res, n), ", "));
 
-
+\\ G.f.: q^4 * Sum_{j=1..4} q^j / Product_{k=1..4-j} (1 - q^k).
+my(N=70, q='q+O('q^N)); concat([0, 0, 0, 0, 0], Vec(q^4*sum(j=1, 4, q^j/prod(k=1, 4-j, 1-q^k))))
