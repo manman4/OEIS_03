@@ -15,10 +15,10 @@ def count_ways(total, parts, min_part, forbidden)
   return @memo[key] = 0 if min_sum > total
 
   count = 0
-  min_part.upto(total) do |part|
+  min_part.upto(total){|part|
     next if part == forbidden
     count += count_ways(total - part, parts - 1, part + 1, forbidden)
-  end
+  }
   @memo[key] = count
 end
 
