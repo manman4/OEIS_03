@@ -29,7 +29,7 @@ def build_table(max_n)
   }
 end
 
-ary = build_table(20).flatten
+ary = build_table(139).flatten
 (0...ary.size).each{|i|
   j = ary[i]
   break if j.to_s.size > 1000
