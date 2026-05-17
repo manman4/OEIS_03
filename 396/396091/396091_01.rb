@@ -33,17 +33,17 @@ max_n = 50
 
 ary = build_table(max_n)
 
-column_k = 0
-p seq = (0..max_n).map{|n| column_k <= n ? ary[n][column_k] : 0}
+# column_k = 0
+# p seq = (0..max_n).map{|n| column_k <= n ? ary[n][column_k] : 0}
 
-column_k = 1
-p seq = (0..max_n).map{|n| column_k <= n ? ary[n][column_k] : 0}
+# column_k = 1
+# p seq = (0..max_n).map{|n| column_k <= n ? ary[n][column_k] : 0}
 
-column_k = 2
-p seq = (0..max_n).map{|n| column_k <= n ? ary[n][column_k] : 0}
+# column_k = 2
+# p seq = (0..max_n).map{|n| column_k <= n ? ary[n][column_k] : 0}
 
-column_k = 3
-p seq = (0..max_n).map{|n| column_k <= n ? ary[n][column_k] : 0}
+# column_k = 3
+# p seq = (0..max_n).map{|n| column_k <= n ? ary[n][column_k] : 0}
 
 column_k = 4
 p seq = (0..max_n).map{|n| column_k <= n ? ary[n][column_k] : 0}
