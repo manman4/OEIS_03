@@ -15,10 +15,10 @@ def count_ways(total, parts, min_part, forbidden)
   return @memo[key] = 0 if min_sum > total
 
   count = 0
-  min_part.upto(total) do |part|
+  min_part.upto(total){|part|
     next if part == forbidden
     count += count_ways(total - part, parts - 1, part + 1, forbidden)
-  end
+  }
   @memo[key] = count
 end
 
@@ -34,7 +34,7 @@ def t(n, k)
   count_ways(remaining, 2 * k - 1, 1, fixed)
 end
 
-ary = (0..30).map{|n| (0..n).map{|k| t(n, k)}}.flatten
+p ary = (0..30).map{|n| (0..n).map{|k| t(n, k)}}.flatten
 (0..ary.size - 1).each{|i|
   j = ary[i]
   break if j.to_s.size > 1000
