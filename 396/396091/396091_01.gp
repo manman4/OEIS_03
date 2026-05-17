@@ -1,0 +1,2 @@
+\\ G.f.: (Product_{k>0} 1/(1-q^k)) * B(q), where B(q) is the g.f. of A396075.
+my(N=50, q='q+O('q^N)); concat([0, 0, 0, 0], Vec(1/prod(k=1, N, 1-q^k)*sum(j=1, 8, (-1)^(j-1)*q^(j*(j-1)/2+4)/prod(k=1, 8-j, 1-q^k))))
