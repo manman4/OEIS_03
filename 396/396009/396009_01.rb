@@ -48,11 +48,11 @@ p ary = (1..20).map{|i| (1..i).map{|j| A(i, j, m)}}.flatten
 p (0..20).map{|i| (0..20).map{|j| A(i, j, m)}.sum}
 
 
-puts("k=3")
+# puts("k=3")
 
-p (0..n).map{|i| A(i, 3, 1)}
-p (0..n).map{|i| A(i, 3, 2)}
-p (0..n).map{|i| A(i, 3, 3)}
+# p (0..n).map{|i| A(i, 3, 1)}
+# p (0..n).map{|i| A(i, 3, 2)}
+# p (0..n).map{|i| A(i, 3, 3)}
 
 puts("k=4")
 
@@ -61,10 +61,10 @@ p (0..n).map{|i| A(i, 4, 2)}
 p (0..n).map{|i| A(i, 4, 3)}
 p (0..n).map{|i| A(i, 4, 4)}
 
-puts("k=5")
+# puts("k=5")
 
-p (0..n).map{|i| A(i, 5, 1)}
-p (0..n).map{|i| A(i, 5, 2)}
-p (0..n).map{|i| A(i, 5, 3)}
-p (0..n).map{|i| A(i, 5, 4)}
-p (0..n).map{|i| A(i, 5, 5)}
+# p (0..n).map{|i| A(i, 5, 1)}
+# p (0..n).map{|i| A(i, 5, 2)}
+# p (0..n).map{|i| A(i, 5, 3)}
+# p (0..n).map{|i| A(i, 5, 4)}
+# p (0..n).map{|i| A(i, 5, 5)}
