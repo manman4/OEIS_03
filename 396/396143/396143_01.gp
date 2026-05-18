@@ -10,7 +10,7 @@ M=13;
 \\ for(n=0, M, for(k=0, n, print1(S(n, k),", ")));
 \\ for(n=0, M, for(k=0, n, print1(T(n, k),", ")));
 
-\\A152146
+\\ T(n,k) + A344649(n,k) = A152146(n,k), except when n = k = 0.
 E(n,k) = if(n==0 && k==0, 1, S(n,k) + T(n,k));
 M=50;
 cnt = 0;
