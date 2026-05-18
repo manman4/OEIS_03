@@ -25,7 +25,7 @@ def column_sequence(max_n, column_k)
   (0..max_n).map{|n| dp[2 * n][target + offset]}
 end
 
-max_n = 50
+max_n = 70
 
 column_k = 1
 p ary = column_sequence(max_n, column_k)
