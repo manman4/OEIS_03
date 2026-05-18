@@ -39,7 +39,7 @@ def count_partitions_with_rev_alt_sum(n)
     end
 
     count = 0
-    ((last + 1)..remaining_sum).each do |x|
+    ((last + 1)..remaining_sum).each{|x|
       break if remaining_sum - x < 0
       
       next_len = len + 1
@@ -48,7 +48,7 @@ def count_partitions_with_rev_alt_sum(n)
       next_rev_alt = current_rev_alt + (next_len.odd? ? x : -x)
       
       count += solve_final(x, remaining_sum - x, next_rev_alt, next_len)
-    end
+    }
 
     @memo[state] = count
   end
