@@ -17,12 +17,12 @@ def count_partitions_with_rev_alt_sum(n)
     end
 
     count = 0
-    ((last + 1)..remaining_sum).each do |x|
+    ((last + 1)..remaining_sum).each{|x|
       break if remaining_sum - x < 0
       
       # 次に選ぶパーツ（x）が何番目のパーツか（奇数番目か偶数番目か）を
       # 厳密に追跡するために、引数に len を追加します。
-    end
+    }
   end
 
   # --- スコープ問題とロジックを完璧に整えた決定版 ---
