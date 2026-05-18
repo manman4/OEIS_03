@@ -12,6 +12,6 @@ M=13;
 
 \\A152146
 E(n,k) = if(n==0 && k==0, 1, S(n,k) + T(n,k));
-M=80;
+M=50;
 cnt = 0;
 for(n=0, M, for(k=0, n, write("b152146_1.txt", cnt, " ", E(n, k)); cnt++));
