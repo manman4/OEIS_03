@@ -7,8 +7,11 @@ S(n,k) = if(k==0, 0^n, my(q='q+O('q^(n+1))); polcoef(sum(i=1, 2*k, (-1)^(i-1) * 
 T(n,k) = if(k==0, 0^n, my(q='q+O('q^(n+1))); polcoef(sum(i=1, 2*k, q^(i^2+k) * q_binomial(2*k-1,i-1) / prod(j=1, i, (1-q^j))), n));
 
 M=13;
-for(n=0, M, for(k=0, n, print1(S(n, k),", ")));
-for(n=0, M, for(k=0, n, print1(T(n, k),", ")));
+\\ for(n=0, M, for(k=0, n, print1(S(n, k),", ")));
+\\ for(n=0, M, for(k=0, n, print1(T(n, k),", ")));
 
+\\A152146
 E(n,k) = if(n==0 && k==0, 1, S(n,k) + T(n,k));
-for(n=0, M, for(k=0, n, print1(E(n, k),", ")));
+M=80;
+cnt = 0;
+for(n=0, M, for(k=0, n, write("b152146_1.txt", cnt, " ", E(n, k)); cnt++));
