@@ -38,5 +38,15 @@ triangle(N) =
   v;
 }
 
+write_triangle_data(N, filename) =
+{
+  my(v = triangle(N));
+  system(Str("rm -f ", filename));
+  for(i = 1, #v,
+    write(filename, Str(i - 1, " ", v[i]))
+  );
+}
+
 \\ example
-print(triangle(4));
+N = 8;
+write_triangle_data(N, "b396276_2.txt");
