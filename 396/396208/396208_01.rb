@@ -7,7 +7,7 @@ def a(n)
   ary
 end
 
-n = 500
+n = 1000
 ary = a(n)
 (0..n).each{|i|
   print i
