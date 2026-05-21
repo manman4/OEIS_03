@@ -1,3 +1,5 @@
+default(parisize, 120000000);
+
 \\ T(n,k) = [x^k] (F_n(x)/x)^(1/2),
 \\ where F_0(x) = x and F_{n+1}(x) = F_n(x) * (1 + F_n(x))^2.
 \\ Using
@@ -34,5 +36,15 @@ triangle(N) =
   v;
 }
 
+write_triangle_data(N, filename) =
+{
+  my(v = triangle(N));
+  system(Str("rm -f ", filename));
+  for(i = 1, #v,
+    write(filename, Str(i - 1, " ", v[i]))
+  );
+}
+
 \\ example
-print(triangle(4));
+N = 8;
+write_triangle_data(N, "b396276_1.txt");
