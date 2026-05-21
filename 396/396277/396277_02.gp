@@ -1,5 +1,5 @@
 \\ Example 
-N=50;
+N=68;
 B(v) = v * (1 + v)^3; 
 A0 = x + x*O(x^N);
 A1 = B(x + x*O(x^N));
