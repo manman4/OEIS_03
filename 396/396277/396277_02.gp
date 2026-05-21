@@ -5,6 +5,7 @@ A0 = x + x*O(x^N);
 A1 = B(x + x*O(x^N));
 A2 = B(B(x + x*O(x^N)));
 A3 = B(B(B(x + x*O(x^N))));
+A4 = B(B(B(B(x + x*O(x^N)))));
 
 print(A0);
 print(A1);
@@ -15,3 +16,4 @@ Vec((A0/x)^(1/3))
 Vec((A1/x)^(1/3))
 Vec((A2/x)^(1/3))
 Vec((A3/x)^(1/3))
+Vec((A4/x)^(1/3))
