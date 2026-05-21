@@ -1,0 +1,17 @@
+\\ Example 
+N=100;
+B(v) = v * (1 + v)^2; 
+A0 = x + x*O(x^N);
+A1 = B(x + x*O(x^N));
+A2 = B(B(x + x*O(x^N)));
+A3 = B(B(B(x + x*O(x^N))));
+
+print(A0);
+print(A1);
+print(A2);
+print(A3);
+
+print((A0/x)^(1/2));
+print((A1/x)^(1/2));
+print((A2/x)^(1/2));
+print((A3/x)^(1/2));
