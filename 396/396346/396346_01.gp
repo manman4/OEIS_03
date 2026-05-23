@@ -22,7 +22,7 @@ a_naive_vector(N) = {
   return(res);
 };
 
-M=20;
+M=8970 - 1;
 v=a_naive_vector(M);
 for(n=0, M, write("b396346.txt", n, " ", v[n+1]));
 
