@@ -22,4 +22,7 @@ a_naive_vector(N) = {
   return(res);
 };
 
-print(a_naive_vector(20));
+M=20;
+v=a_naive_vector(M);
+for(n=0, M, write("b396346.txt", n, " ", v[n+1]));
+
