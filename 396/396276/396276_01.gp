@@ -17,3 +17,4 @@ FussCatalan_B(steps) = {
 
 for(s = 0, 4, print(FussCatalan_B(s) + x*O(x^((4^s-1)/3))));
 for(s = 0, 4, print(Vec(FussCatalan_B(s) + x*O(x^((4^s-1)/3)))));
+
