@@ -37,3 +37,4 @@ write_triangle_data(N, filename) =
 \\ example
 N = 7;
 write_triangle_data(N, "b396277.txt");
+
