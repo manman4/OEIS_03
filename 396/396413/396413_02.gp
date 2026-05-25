@@ -43,4 +43,5 @@ S4(n,k) = {my(N = n+1, x = 'x + O('x^(N+1)), C = sum(k=0, N, binomial(3*k, k)/(2
   for(i=1, k, H_n = subst(H_n, 'x, H));
   polcoef(serreverse(H_n)/x, n)
 };
+for(n=0, 10, for(k=0, n, print1(S4(k, n-k)-T4(k, n-k),", ")));
 for(k=0, 4, for(n=0, 20, print1(S4(n, k)-T4(n, k),", ")); print);
