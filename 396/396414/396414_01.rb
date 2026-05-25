@@ -15,8 +15,8 @@
 #       ((x_j + 1) / (m*x_{j+1} - (m - 1)*x_j + 1))
 #       * binomial(m*x_{j+1} - (m - 1)*x_j + 1, x_{j+1} - x_j)
 
-DEFAULT_N = 15
-DEFAULT_K = 3
+DEFAULT_N = 22
+DEFAULT_K = 2
 DEFAULT_M = 3
 
 def binomial(n, r)
@@ -189,4 +189,4 @@ end
 
 puts f_k_div_x_direct(DEFAULT_N, DEFAULT_K, DEFAULT_M).inspect
 puts closed_form_zero_to_n(DEFAULT_N, DEFAULT_K, DEFAULT_M).inspect
-validate_parameter_ranges(22, 2, 3)
+validate_parameter_ranges(DEFAULT_N, DEFAULT_K, DEFAULT_M)
