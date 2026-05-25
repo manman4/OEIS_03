@@ -47,7 +47,7 @@ for(k=0, 4, for(n=0, 20, print1(T4(n, k),", ")); print);
 
 \\ G.f. of column k: (1/x) * Series_Reversion( H_k(x) ), where H_k(x) is the k-th iteration of x*(1 - x*G3(x)^2) with G3(x) = 1 + x*G3(x)^3.
 S4(n,k) = {
-  my(N = n+1, x = 'x + O('x^(N+1)), C = sum(k=0, N, binomial(3*k, k)/(2*k+1) * 'x^k), H = x - x^2 * C^2);
+  my(N = n+1, x = 'x + O('x^(N+1)), C = sum(k=0, N, binomial(3*k, k)/(2*k+1) * 'x^k), H = x*(1 - x*C^2));
   my(H_n = x);
   for(i=1, k, H_n = subst(H_n, 'x, H));
   polcoef(serreverse(H_n)/x, n)
