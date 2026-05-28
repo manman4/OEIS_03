@@ -13,11 +13,12 @@ Egen(n,k) = {
 matrix(6, 6, n, k, Egen(n-1, k-1))
 for(n=0, 9, for(k=0, n, print1(Egen(k, n-k),", ")));
 
-\\ E.g.f. of column k: (1/x) * Series_Reversion(H_k(x)), where H_k(x) is the k-th iterate of x * sqrt(-2*x / LambertW(-2*x)).
+\\ E.g.f. of column k: (1/x) * Series_Reversion( H_k(x) ), where H_k(x) is the k-th iterate of U(x)*exp(-3*U(x)) and U(x) = -LambertW(-2*x)/2.
 Tgen(n,k) = {
   my(N = n+1, x = 'x + O('x^(N+1)));
   \\ U = -LambertW(-(p-s)*x)/(p-s), or U = x when p = s
-  my(Finv = x * sqrt(-2*x / lambertw(-2*x)));
+  my(U = -lambertw(-2*x)/2);
+  my(Finv = U*exp(-3*U));
   my(Finv_k = x);
 
   for(i = 1, k, Finv_k = subst(Finv, 'x, Finv_k));
