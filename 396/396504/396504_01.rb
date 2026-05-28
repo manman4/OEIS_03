@@ -10,15 +10,13 @@ def weight(x, n)
   Rational(2 * (x + 1) * ncr(n, x), base) * base**(n - x)
 end
 
-def a(n, k, memo = Hash.new { |h, key| h[key] = {} })
+def a(n, k, memo = Hash.new{|h, key| h[key] = {}})
   return n.zero? ? 1 : 0 if k.zero?
   return memo[k][n] if memo[k].key?(n)
-
   sum = 0
-  0.upto(n) do |x|
+  0.upto(n){|x|
     sum += a(x, k - 1, memo) * weight(x, n)
-  end
-
+  }
   memo[k][n] = sum.to_i
 end
 
