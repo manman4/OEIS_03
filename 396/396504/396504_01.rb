@@ -6,8 +6,7 @@ def ncr(n, r)
 end
 
 def weight(x, n)
-  base = 4 * n - 2 * x + 2
-  Rational(2 * (x + 1) * ncr(n, x), base) * base**(n - x)
+  2r * (x + 1) * ncr(n, x) * (4 * n - 2 * x + 2)**(n - x - 1)
 end
 
 def a(n, k, memo = Hash.new{|h, key| h[key] = {}})
