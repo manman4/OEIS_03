@@ -1,25 +1,8 @@
-#!/usr/bin/env ruby
-# frozen_string_literal: true
-
-# Square array A(n,k), read by antidiagonals downward.
-# A(n,k) = sum over 0 = x_0 <= x_1 <= ... <= x_{k-1} <= x_k = n of
-#          product over j = 0..k-1 of
-#            2 * (x_j + 1) * (4*x_{j+1} - 2*x_j + 2)^(x_{j+1} - x_j - 1)
-#            * binomial(x_{j+1}, x_j)
-#
-# This version uses the simple recursion:
-#   a(n, k) = sum_{x=0..n} a(x, k-1) * weight(x, n)
-# with a(n, 0) = 1 if n = 0, otherwise 0.
-
-DEFAULT_N = 15
-DEFAULT_K = 3
+# A(n,k) = Sum_{0 = x_0 <= x_1 <= ... <= x_{k-1} <= x_k = n} Product_{j=0..k-1} 2 * (x_j + 1) * (4*x_{j+1} - 2*x_j + 2)^(x_{j+1} - x_j - 1) * binomial(x_{j+1}, x_j).
 
 def ncr(n, r)
-  return 0 if r.negative? || r > n
-  return 1 if r == 0 || r == n
-
-  r = [r, n - r].min
-  (1..r).inject(1){|acc, i| acc * (n - r + i) / i}
+  return 1 if r == 0
+  (n - r + 1..n).inject(:*) / (1..r).inject(:*)
 end
 
 def weight(x, n)
