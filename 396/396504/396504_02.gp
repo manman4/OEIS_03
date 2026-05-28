@@ -13,21 +13,16 @@ Egen(n,k) = {
 matrix(7, 7, n, k, Egen(n-1, k-1))
 for(n=0, 10, for(k=0, n, print1(Egen(k, n-k),", ")));
 
-\\ E.g.f. of column k:
-\\ Sum_{n>=0} A(n,k) * x^n / n! = (Series_Reversion(H_k(x)) / x)^(r/s),
-\\ where H_k(x) is the k-th iterate of F^(-1)(x) = U(x)*exp(-p*U(x)),
-\\ and
-\\   U(x) = -LambertW(-(p-s)*x) / (p-s)   if p != s,
-\\   U(x) = x                               if p = s.
-Tgen(n,k,p=4,s=2,r=2) = {
+\\ E.g.f. of column k: (1/x) * Series_Reversion( H_k(x) ), where H_k(x) is the k-th iterate of -2*x^2 / LambertW(-2*x).
+Tgen(n,k) = {
   my(N = n+1, x = 'x + O('x^(N+1)));
   \\ U = -LambertW(-(p-s)*x)/(p-s), or U = x when p = s
-  my(U = if(p == s, x, -lambertw(-(p-s)*x)/(p-s)));
-  my(Finv = U * exp(-p*U));
+  my(Finv =  -2*x^2/lambertw(-2*x));
   my(Finv_k = x);
 
   for(i = 1, k, Finv_k = subst(Finv, 'x, Finv_k));
 
-  n! * polcoef((serreverse(Finv_k)/x)^(r/s), n)
+  n! * polcoef(serreverse(Finv_k)/x, n)
 };
 matrix(7, 7, n, k, Tgen(n-1, k-1))
+for(n=0, 10, for(k=0, n, print1(Tgen(k, n-k)-Egen(k, n-k),", ")));
