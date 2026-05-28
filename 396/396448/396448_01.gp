@@ -1,6 +1,6 @@
 \\ A(n,k) = Sum_{0 = x_0 <= x_1 <= ... <= x_{k-1} <= x_k = n} Product_{j=0..k-1} (3*x_j + 1) * binomial(4*x_{j+1} - x_j + 1,x_{j+1} - x_j)/(4*x_{j+1} - x_j + 1).
-a(n, k, l=4, p=3, r=1) = {
-  my(T=matrix(n+1, n+1, row, col, my(xr=row-1, xc=col-1); if(xc<xr, 0, (p*xr+r)*binomial(l*xc-(l-p)*xr+r, xc-xr)/(l*xc-(l-p)*xr+r))));
+a(n, k, p=3, s=2, r=1) = {
+  my(T=matrix(n+1, n+1, row, col, my(xr=row-1, xc=col-1); if(xc<xr, 0, (s*xr+r)*binomial(p*xc-(p-s)*xr+r, xc-xr)/(p*xc-(p-s)*xr+r))));
   my(TK=T^k);
   TK[1, n+1];
 };
