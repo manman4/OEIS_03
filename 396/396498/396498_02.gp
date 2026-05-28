@@ -26,3 +26,17 @@ Tgen(n,k) = {
 };
 matrix(6, 6, n, k, Tgen(n-1, k-1))
 for(n=0, 9, for(k=0, n, print1(Tgen(k, n-k)-Egen(k, n-k),", ")));
+
+
+\\ E.g.f. of column k: -W_k(-x)/x, where W_k(x) is the k-th iterate of LambertW(x).
+T1(n,k) = {
+  my(N = n+1, x = 'x + O('x^(N+1)));
+  my(Finv = lambertw(x));
+  my(Finv_k = x);
+
+  for(i = 1, k, Finv_k = subst(Finv, 'x, Finv_k));
+
+  n! * polcoef(-subst(Finv_k, 'x, -x)/x, n)
+};
+matrix(6, 6, n, k, T1(n-1, k-1))
+for(n=0, 9, for(k=0, n, print1(T1(k, n-k)-Egen(k, n-k),", ")));
