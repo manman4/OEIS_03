@@ -1,5 +1,5 @@
-\\ A(n,k) = Sum_{0 = x_0 <= x_1 <= ... <= x_{k-1} <= x_k = n} Product_{j=0..k-1} 2 * (x_j + 1) * (4*x_{j+1} - 2*x_j + 2)^(x_{j+1} - x_j - 1) * binomial(x_{j+1}, x_j).
-a(n, k, p=4, s=2, r=2) = {
+\\ A(n,k) = n! * [x^n] F_k(x)/x and F_k(x) is the k-th iteration of x*G(x) with G(x) = exp(x*G(x)^4).
+a(n, k, p=4, s=1, r=1) = {
   my(T=matrix(n+1, n+1, row, col, my(xr=row-1, xc=col-1); if(xc<xr, 0, (s*xr+r)*(p*xc-(p-s)*xr+r)^(xc-xr-1)*binomial(xc, xr))));
   my(TK=T^k);
   TK[1, n+1];
