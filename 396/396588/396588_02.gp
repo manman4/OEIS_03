@@ -28,4 +28,3 @@ Tgen(n,k) = {
 matrix(6, 6, n, k, Tgen(n-1, k-1))
 for(n=0, 9, for(k=0, n, print1(Tgen(k, n-k)-Egen(k, n-k),", ")));
 
-
