@@ -3,16 +3,10 @@ def ncr(n, r)
   (n - r + 1..n).inject(:*) / (1..r).inject(:*)
 end
 
-# a(n) = Sum_{k=0..n} (2*k+1) * binomial(3*k+1,k) * binomial(3*n-k+1,n-k)/((3*k+1) * (3*n-k+1)).
+# a(n) = Sum_{k=0..n} (k+1) * (4*k+1)^(k-1) * (4*n-3*k+1)^(n-k-1) * binomial(n,k).
 def a(n)
-  (0..n).inject(0){|s, k| s + (2*k + 1r) * ncr(3*k + 1, k) * ncr(3*n - k + 1, n - k) / ((3*k + 1) * (3*n - k + 1))}.to_i
+  (0..n).inject(0){|s, k| s + (k + 1) * (4*k + 1)**(k - 1) * (4*n - 3*k + 1)**(n - k - 1) * ncr(n, k)}.to_i
 end
 
-n = 1000
-(0..n).each{|i|
-  j = a(i)
-  break if j.to_s.size > 1000
-  print i
-  print ' '
-  puts j
-}
+n = 17
+p (0..n).map{|i| a(i)}
