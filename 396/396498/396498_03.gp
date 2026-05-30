@@ -52,6 +52,6 @@ matrix(7, 7, n, k, a(n - 1, k - 1))
 
 for(n = 0, 10, for(k = 0, n, print1(a(k, n - k), ", ")));
 
-
-a(n,k) = if(k==0, 0^n, sum(x=0, n, (x+1) * (n+1)^(n-x-1) * binomial(n,x) * a(x,k-1)));
+\\ A(n,0) = 0^n; A(n,k) = Sum_{j=0..n} (j+1) * (n+1)^(n-j-1) * binomial(n,j) * A(j,k-1) for k > 0.
+a(n,k) = if(k==0, 0^n, sum(j=0, n, (j+1) * (n+1)^(n-j-1) * binomial(n,j) * a(j,k-1)));
 for(n=0, 10, for(k=0, n, print1(a(k, n-k), ", ")));
