@@ -6,7 +6,7 @@ def ncr(n, r)
 end
 
 def weight(x, n)
-  (x + 1r) * ncr(n, x) * (4 * n - 3 * x + 1)**(n - x - 1)
+  (x + 1r) * ncr(n, x) * (4 * n - 3 * x + 1) ** (n - x - 1)
 end
 
 def a(n, k, memo = Hash.new{|h, key| h[key] = {}})
@@ -19,7 +19,7 @@ def a(n, k, memo = Hash.new{|h, key| h[key] = {}})
   memo[k][n] = sum.to_i
 end
 
-n = 10
+n = 9
 (0..n).each{|i|
   (0..i).each{|j|
     print a(j, i - j)
