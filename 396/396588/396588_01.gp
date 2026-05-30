@@ -10,6 +10,6 @@ for(k=0, 15, print1(a(3, k),", "));
 for(k=0, 15, print1(a(4, k),", "));
 for(k=0, 15, print1(a(5, k),", "));
 
-matrix(7, 7, n, k, a(n-1, k-1))
+matrix(6, 6, n, k, a(n-1, k-1))
 for(n=0, 10, for(k=0, n, print1(a(k, n-k), ", ")));
 
