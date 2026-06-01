@@ -1,6 +1,6 @@
 \\ a(0) = 1; a(n) = Sum_{k=0..n-1} (-n)^(n-1-k) * (k+2)^k * binomial(n-1,k).
-a340753(n) = if(n==0, 1, sum(k=0, n-1, (-n)^(n-1-k) * (k+2)^k * binomial(n-1, k)));
-for(n=0, 20, print1(a340753(n), ", "));
+a340473(n) = if(n==0, 1, sum(k=0, n-1, (-n)^(n-1-k) * (k+2)^k * binomial(n-1, k)));
+for(n=0, 20, print1(a340473(n), ", "));
 
 \\ a(0) = 1; a(n) = Sum_{k=0..n-1} n^(n-1-k) * (k+2)^k * binomial(n-1,k).
 a227176(n) = if(n==0, 1, sum(k=0, n-1, n^(n-1-k) * (k+2)^k * binomial(n-1, k)));
