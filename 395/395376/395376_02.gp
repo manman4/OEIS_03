@@ -1,6 +1,6 @@
 \\ a(0) = 1; a(n) = Sum_{k=0..n-1} (-n)^(n-1-k) * (k+2)^k * binomial(n-1,k).
-a340753(n) = if(n==0, 1, sum(k=0, n-1, (-n)^(n-1-k) * (k+2)^k * binomial(n-1, k)));
-for(n=0, 20, print1(a340753(n), ", "));
+a340473(n) = if(n==0, 1, sum(k=0, n-1, (-n)^(n-1-k) * (k+2)^k * binomial(n-1, k)));
+for(n=0, 20, print1(a340473(n), ", "));
 
 \\ a(0) = 1; a(n) = Sum_{k=0..n-1} n^(n-1-k) * (k+2)^k * binomial(n-1,k).
 a227176(n) = if(n==0, 1, sum(k=0, n-1, n^(n-1-k) * (k+2)^k * binomial(n-1, k)));
@@ -21,7 +21,7 @@ a394239(n) = {
 };
 for(n=0, 19, print1(a394239(n), ", "));
 
-\\ a(0) = 1; a(n) = Sum_{i,j,k >= 0 and i+j+k=n-1} ((n-1)!/(i!*j!*k!)) * n^i * (n-i)^j * (-k)^k.
+\\ a(0) = 1; a(n) = Sum_{i,j,k >= 0 and i+j+k=n-1} ((n-1)!/(i!*j!*k!)) * n^i * (n-i)^j * (-k)^k.
 a395376(n) = {
   if(n==0, 1,
     sum(i=0, n-1,
