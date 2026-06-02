@@ -1,0 +1,2 @@
+\\ Expansion of e.g.f. log(1 - W_3(-x)), where W_k(x) is the k-th iterate of LambertW(x).
+my(N=20, x='x+O('x^N)); Vec(serlaplace(log(1 - lambertw(lambertw(lambertw(-x))))))
