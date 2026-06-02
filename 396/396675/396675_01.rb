@@ -1,4 +1,4 @@
-# A(n,k) = (n-1)! * Sum_{x_1, x_2, ..., x_{k+1} >= 0 and x_1 + x_2 + ... + x_{k+1} = n-1} (-1)^(x_{k+1}) * Product_{i=1..k} ((n - Sum_{j=1..i-1} x_j)^(x_i) / x_i!).
+# A(n,k,m) = (n-1)! * Sum_{x_1, x_2, ..., x_{k+1} >= 0 and x_1 + x_2 + ... + x_{k+1} = n-1} m^(x_{k+1}) * Product_{i=1..k} ((n - Sum_{j=1..i-1} x_j)^(x_i) / x_i!).
 def f(n)
   return 1 if n < 2
   (1..n).inject(:*)
@@ -16,12 +16,12 @@ def each_tuple(remaining, len, current, &block)
   end
 end
 
-def A(n, k)
+def A(n, k, m)
   total = Rational(0)
 
   each_tuple(n - 1, k, []){|xs|
     x_last = (n - 1) - xs.sum
-    sign = x_last.even? ? 1 : -1
+    sign = m**x_last
 
     s = 0
     prod = Rational(1)
@@ -38,4 +38,4 @@ def A(n, k)
 end
 
 n = 10
-p (1..n).map{|i| (1..i).map{|j| A(j, i - j)}}.flatten
+p (1..n).map{|i| (1..i).map{|j| A(j, i - j, -1)}}.flatten
