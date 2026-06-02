@@ -25,11 +25,11 @@ def A(n, k)
 
     s = 0
     prod = Rational(1)
-    xs.each do |xi|
+    xs.each{|xi|
       base = n - s
       prod *= Rational(base**xi, f(xi))
       s += xi
-    end
+    }
 
     total += sign * prod
   }
