@@ -8,18 +8,18 @@ def each_tuple(remaining, len, current, &block)
   if len == 0
     block.call(current.dup)
   else
-    (0..remaining).each do |xi|
+    (0..remaining).each{|xi|
       current << xi
       each_tuple(remaining - xi, len - 1, current, &block)
       current.pop
-    end
+    }
   end
 end
 
 def A(n, k)
   total = Rational(0)
 
-  each_tuple(n - 1, k, []) do |xs|
+  each_tuple(n - 1, k, []){|xs|
     x_last = (n - 1) - xs.sum
     sign = x_last.even? ? 1 : -1
 
@@ -32,7 +32,7 @@ def A(n, k)
     end
 
     total += sign * prod
-  end
+  }
 
   (f(n - 1) * total).to_i
 end
