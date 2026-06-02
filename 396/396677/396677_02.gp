@@ -18,3 +18,7 @@ a396677(n) = {
 };
 for(n=1, 18, print1(a396677(n), ", "));
 
+\\ a(n) = Sum_{k=1..n} n^(n-k) * binomial(n-1,k-1) * A133297(k).
+a(n) = sum(k=1, n, n^(n-k) * binomial(n-1, k-1) * a133297(k));
+for(n=1, 50, print1(a(n)-a396677(n), ", "));
+
