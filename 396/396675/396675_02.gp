@@ -8,5 +8,6 @@ a(n,k) = {
 
   n! * polcoef(log(1 - subst(Finv_k, 'x, -x)), n)
 };
-matrix(6, 6, n, k, a(n-1, k-1))
+\\ Square array A(n,k), n>=1, k>=0
+matrix(6, 6, n, k, a(n, k-1))
 for(n=1, 10, for(k=1, n, print1(a(k, n-k),", ")));
