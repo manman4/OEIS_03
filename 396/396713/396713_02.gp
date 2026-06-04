@@ -16,7 +16,7 @@ a396712(n) = {
     )
   )
 };
-for(n=1, 25, print1(a396712(n), ", "));
+for(n=1, 18, print1(a396712(n), ", "));
 
 \\ a(n) = (n-1)! * Sum_{i,j,k,l >= 0 and i+j+k+l=n-1} (l+1) * n^i * (n-i)^j * (n-i-j)^k / (i!*j!*k!).
 a396713(n) = {
@@ -29,7 +29,7 @@ a396713(n) = {
     )
   )
 };
-for(n=1, 25, print1(a396713(n), ", "));
+for(n=1, 18, print1(a396713(n), ", "));
 
 \\ a(n) = Sum_{k=1..n} n^(n-k) * binomial(n-1,k-1) * A396712(k).
 a(n) = sum(k=1, n, n^(n-k) * binomial(n-1, k-1) * a396712(k));
