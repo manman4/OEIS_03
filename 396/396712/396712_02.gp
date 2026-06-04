@@ -16,7 +16,7 @@ a396712(n) = {
     )
   )
 };
-for(n=1, 25, print1(a396712(n), ", "));
+for(n=1, 18, print1(a396712(n), ", "));
 
 \\ a(n) = Sum_{k=1..n} n^(n-k) * binomial(n-1,k-1) * A000312(k).
 a(n) = sum(k=1, n, n^(n-k) * binomial(n-1, k-1) * a000312(k));
