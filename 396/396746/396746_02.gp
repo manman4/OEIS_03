@@ -31,6 +31,6 @@ a396746(n) = {
 };
 for(n=1, 18, print1(a396746(n), ", "));
 
-\\ a(n) = Sum_{k=1..n} n^(n-k) * binomial(n-1,k-1) * A277458(k).
-a(n) = sum(k=1, n, n^(n-k) * binomial(n-1, k-1) * a277458(k));
-for(n=1, 50, print1(a(n)-a396745(n), ", "));
+\\ a(n) = Sum_{k=1..n} n^(n-k) * binomial(n-1,k-1) * A396745(k).
+a(n) = sum(k=1, n, n^(n-k) * binomial(n-1, k-1) * a396745(k));
+for(n=1, 50, print1(a(n)-a396746(n), ", "));
