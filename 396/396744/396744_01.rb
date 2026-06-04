@@ -38,3 +38,4 @@ end
 
 n = 10
 p (1..n).map{|i| (1..i).map{|j| A(j, i - j, -1)}}.flatten
+
