@@ -2,7 +2,9 @@
 \\ Let b(n,k,l) = n! * [x^n] F^k(x), where F^k(x) is the k-th iterate of F.
 \\ b(1,k,l) = 1; b(n,k,l) = (1/(n-1)) * Sum_{i=1..n-1} i * binomial(n,i) * b(n-i,k,l) * Sum_{j=1..k} b(i,j+l-1,l).
 b(n, k, l) = if(n==1, 1, 1/(n-1) * sum(i=1, n-1, i * binomial(n,i) * b(n-i, k, l) * sum(j=1, k, b(i, j+l-1, l))) );
-
+\\ T(n,k) = b(k,1,n).
+T(n, k) = b(k,1,n);
+for(n=1, 10, for(k=1, n, print1(T(n-k+1, k), ", ")));
 
 iter(F, k, N) =
 {
