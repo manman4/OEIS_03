@@ -1,8 +1,3 @@
 a(n, m, k) = if (n == 1, 1, 1/(n-1) * sum(j=1, n-1, binomial(n,j) * j * a(n-j, m, k) * sum(i=1, m, a(j, k+i-1, k))) );
 
-seq_def(N, k = 6) =
-{
-  vector(N, n, a(n, 1, k))
-}
-
-print(seq_def(6, 6));
+for(n=1, 10, print1(a(n, 1, 6), ", "));
