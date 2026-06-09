@@ -22,26 +22,26 @@ def ncr(n, r)
 end
 
 def build_table(n_max, k_max, l)
-  k_limit = ->(n) { k_max + (n_max - n) * (l - 1) }
-  a = Array.new(n_max + 1) { |n| Array.new(k_limit.call(n) + 1, 0) }
+  k_limit = ->(n) {k_max + (n_max - n) * (l - 1)}
+  a = Array.new(n_max + 1){|n| Array.new(k_limit.call(n) + 1, 0)}
 
-  0.upto(k_limit.call(1)) do |k|
+  0.upto(k_limit.call(1)){|k|
     a[1][k] = 1
-  end
+  }
 
-  2.upto(n_max) do |n|
-    1.upto(k_limit.call(n)) do |k|
+  2.upto(n_max){|n|
+    1.upto(k_limit.call(n)){|k|
       total = 0
-      1.upto(n - 1) do |i|
+      1.upto(n - 1){|i|
         inner = 0
-        1.upto(k) do |j|
+        1.upto(k){|j|
           inner += a[i][j + l - 1]
-        end
+        }
         total += i * ncr(n, i) * a[n - i][k] * inner
-      end
+      }
       a[n][k] = total / (n - 1)
-    end
-  end
+    }
+  }
 
   a
 end
@@ -52,7 +52,7 @@ end
 
 def seq(n_max, k, l)
   table = build_table(n_max, k, l)
-  (1..n_max).map { |n| table[n][k] }
+  (1..n_max).map{|n| table[n][k]}
 end
 
 n_max = 50
