@@ -8,16 +8,16 @@
 #
 # This script computes a(n, k, l) by dynamic programming.
 
-def binomial(n, k)
-  k = [k, n - k].min
-  return 1 if k <= 0
+def ncr(n, r)
+  r = [r, n - r].min
+  return 1 if r <= 0
 
   num = 1
   den = 1
-  1.upto(k) do |i|
-    num *= n - k + i
+  1.upto(r){|i|
+    num *= n - r + i
     den *= i
-  end
+  }
   num / den
 end
 
@@ -37,7 +37,7 @@ def build_table(n_max, k_max, l)
         1.upto(k) do |j|
           inner += a[i][j + l - 1]
         end
-        total += i * binomial(n, i) * a[n - i][k] * inner
+        total += i * ncr(n, i) * a[n - i][k] * inner
       end
       a[n][k] = total / (n - 1)
     end
@@ -55,10 +55,14 @@ def seq(n_max, k, l)
   (1..n_max).map { |n| table[n][k] }
 end
 
-if __FILE__ == $PROGRAM_NAME
-  n_max = (ARGV[0] || 8).to_i
-  k = (ARGV[1] || 1).to_i
-  l = (ARGV[2] || 1).to_i
-
-  puts seq(n_max, k, l).join(", ")
-end
+n_max = 50
+k = 1
+l = 6
+ary = seq(n_max, k, l)
+(1..n_max).each{|i|
+  j = ary[i - 1]
+  break if j.to_s.size > 1000
+  print i
+  print ' '
+  puts j
+}
