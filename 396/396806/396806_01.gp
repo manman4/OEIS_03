@@ -3,14 +3,6 @@
 \\ a(1,k,l) = 1; a(n,k,l) = (1/(n-1)) * Sum_{i=1..n-1} i * binomial(n,i) * a(n-i,k,l) * Sum_{j=1..k} a(i,j+l-1,l).
 a(n, k, l) = if(n==1, 1, 1/(n-1) * sum(i=1, n-1, i * binomial(n,i) * a(n-i, k, l) * sum(j=1, k, a(i, j+l-1, l))) );
 
-\\ for(n=1, 8, print1(a(n, 1, 0), ", "));
-\\ for(n=1, 8, print1(a(n, 1, 1), ", "));
-\\ for(n=1, 8, print1(a(n, 1, 2), ", "));
-\\ for(n=1, 8, print1(a(n, 1, 3), ", "));
-\\ for(n=1, 8, print1(a(n, 1, 4), ", "));
-\\ for(n=1, 8, print1(a(n, 1, 5), ", "));
-for(n=1, 8, print1(a(n, 1, 6), ", "));
-
 
 iter(F, k, N) =
 {
@@ -18,18 +10,27 @@ iter(F, k, N) =
   if (k == 0, return(y));
   for (i = 1, k, y = subst(F, 'x, y));
   y
-}
+};
 
 Aseries(l, N) =
 {
   my(A = 'x + O('x^(N + 1)));
   for (t = 1, N, A = 'x * exp(iter(A, l, N)));
   A
-}
+};
 
 b(n, k, l) =
 {
   my(A = Aseries(l, n));
   n! * polcoef(iter(A, k, n), n)
-}
+};
+
+for(n=1, 8, print1(a(n, 1, 6), ", "));
+for(n=1, 8, print1(b(n, 0, 6) - a(n, 0, 6), ", "));
 for(n=1, 8, print1(b(n, 1, 6) - a(n, 1, 6), ", "));
+for(n=1, 8, print1(b(n, 2, 6) - a(n, 2, 6), ", "));
+for(n=1, 8, print1(b(n, 3, 6) - a(n, 3, 6), ", "));
+for(n=1, 8, print1(b(n, 4, 6) - a(n, 4, 6), ", "));
+for(n=1, 8, print1(b(n, 5, 6) - a(n, 5, 6), ", "));
+for(n=1, 8, print1(b(n, 6, 6) - a(n, 6, 6), ", "));
+for(n=1, 8, print1(b(n, 7, 6) - a(n, 7, 6), ", "));
