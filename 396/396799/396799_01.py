@@ -1,5 +1,4 @@
 from math import comb
-
 def a_list(n: int) -> list[int]:
     T = [[0] * (n + 1) for _ in range(n + 1)]
     a = [0] * (n + 1); a[0] = 1
@@ -11,4 +10,4 @@ def a_list(n: int) -> list[int]:
         a[m] = 1 - sum(a[k] * T[m][k] for k in range(1, m))
     return [T[m][1] for m in range(1, n + 1)]
 
-print(a_list(10)) 
+print(a_list(20))
