@@ -1,7 +1,7 @@
-\\ E.g.f. A(x) satisfies A(x) = x*exp(A^l(x)), where A^l(x) denotes the l-th iterate of A.
-\\ Let a(n,k,l) = n! * [x^n] A^k(x), where A^k(x) is the k-th iterate of A.
-\\ a(1,k,l) = 1; a(n,k,l) = (1/(n-1)) * Sum_{i=1..n-1} i * binomial(n,i) * a(n-i,k,l) * Sum_{j=1..k} a(i,j+l-1,l).
-a(n, k, l) = if(n==1, 1, 1/(n-1) * sum(i=1, n-1, i * binomial(n,i) * a(n-i, k, l) * sum(j=1, k, a(i, j+l-1, l))) );
+\\ E.g.f. F(x) satisfies F(x) = x*exp(F^l(x)), where F^l(x) denotes the l-th iterate of F.
+\\ Let b(n,k,l) = n! * [x^n] F^k(x), where F^k(x) is the k-th iterate of F.
+\\ b(1,k,l) = 1; b(n,k,l) = (1/(n-1)) * Sum_{i=1..n-1} i * binomial(n,i) * b(n-i,k,l) * Sum_{j=1..k} b(i,j+l-1,l).
+b(n, k, l) = if(n==1, 1, 1/(n-1) * sum(i=1, n-1, i * binomial(n,i) * b(n-i, k, l) * sum(j=1, k, b(i, j+l-1, l))) );
 
 
 iter(F, k, N) =
@@ -19,7 +19,7 @@ Aseries(l, N) =
   A
 };
 
-b(n, k, l) =
+a(n, k, l) =
 {
   my(A = Aseries(l, n));
   n! * polcoef(iter(A, k, n), n)
