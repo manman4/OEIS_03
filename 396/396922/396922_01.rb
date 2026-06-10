@@ -55,12 +55,20 @@ def seq(n_max, k, l)
   (1..n_max).map{|n| table[n][k]}
 end
 
-n_max = 50
+# a(0) = 1; a(n) = Sum_{k=0..n-1} binomial(n-1,k) * a(k) * ary(n-k).
+def a(n, k, l)
+  ary = [0] + seq(n, k, l)
+  a = [1]
+  (1..n).each{|i| a << (0..i - 1).inject(0){|s, j| s + ncr(i - 1, j) * a[j] * ary[i - j]}}
+  a
+end
+
+n = 100
 k = 1
-l = 6
-ary = seq(n_max, k, l)
-(1..n_max).each{|i|
-  j = ary[i - 1]
+l = 5
+ary = a(n, k, l)
+(0..n).each{|i|
+  j = ary[i]
   break if j.to_s.size > 1000
   print i
   print ' '
