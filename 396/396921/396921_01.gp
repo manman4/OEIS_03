@@ -16,4 +16,4 @@ Aseries(l, N) =
 };
 
 v = Aseries(4, 110);
-for(n=0, 100, write("b396922.txt", n, " ", n!*polcoef(v, n)));
+for(n=0, 100, write("b396921.txt", n, " ", n!*polcoef(v, n)));
