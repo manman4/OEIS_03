@@ -1,5 +1,4 @@
-
-
+default(parisize, 120000000);
 
 iter(F, k, N) =
 {
@@ -13,13 +12,8 @@ Aseries(l, N) =
 {
   my(A = 'x + O('x^(N + 1)));
   for (t = 1, N, A = 'x * exp(iter(A, l, N)));
-  A
+  exp(A)
 };
 
-a(n, k, l) =
-{
-  my(A = Aseries(l, n));
-  n! * polcoef(iter(A, k, n), n)
-};
-
-for(n=1, 9, print1(a(n, 1, 5), ", "));
+v = Aseries(5, 110);
+for(n=0, 100, write("b396922.txt", n, " ", n!*polcoef(v, n)));
