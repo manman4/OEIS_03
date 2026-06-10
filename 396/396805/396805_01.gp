@@ -25,7 +25,7 @@ b(n, k, l) =
   n! * polcoef(iter(A, k, n), n)
 };
 
-for(n=1, 8, print1(a(n, 1, 5), ", "));
+for(n=1, 9, print1(a(n, 1, 5), ", "));
 for(n=1, 8, print1(b(n, 0, 5) - a(n, 0, 5), ", "));
 for(n=1, 8, print1(b(n, 1, 5) - a(n, 1, 5), ", "));
 for(n=1, 8, print1(b(n, 2, 5) - a(n, 2, 5), ", "));
