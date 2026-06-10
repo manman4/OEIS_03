@@ -1,6 +1,6 @@
 {
   my(N = 6);
-  print("--- 1. B_4(x) = x * exp( B_4(B_4(B_4(B_4(x))) ) の計算 ---");
+  print("--- 1. B_4(x) = x * exp( B_4(B_4(B_4(B_4(x)))) ) の計算 ---");
   my(B = x + O(x^2));
   for(i = 1, N,
     my(B2 = subst(B, x, B));   \\ B(B(x))
@@ -9,31 +9,30 @@
     B = x * exp(B4) + O(x^(N+1));
   );
   print("B_4(x) = ", B);
+  print("数列 b_n: ", Vec(serlaplace(B)));
   print();
-
 
   print("--- 2. A_4(x) = exp(B_4(x)) から数列の抽出 ---");
   my(A = exp(B));
   print("A_4(x) = ", A);
-  print("数列 a_n (n=0..6): ", Vec(serlaplace(A)));
+  print("数列 a_n: ", Vec(serlaplace(A)));
   print();
 
-
-  print("--- 3. 関数方程式 E.g.f. A(x) satisfies A( x / A(log(A(log(A(x))))) ) = exp(x). の検証 ---");
-  my(lnA   = log(A));              \\ 1回の ln A(x)
-  my(inner = subst(A, x, lnA));    \\ A( ln A(x) )
-  my(inner2 = subst(A, x, log(inner)));  \\ A( ln A( ln A(x) ) ) 
-  my(arg   = x / inner2);           \\ 分母に配置: x / A( ln A( ln A(x) ) )
+  print("--- 3. 関数方程式 A( x / A(log(A(log(A(x))))) ) = exp(x). の検証 ---");
+  my(lnA   = log(A));              \\ 1回の log A(x)
+  my(inner = subst(A, x, lnA));    \\ A( log A(x) )
+  my(inner2 = subst(A, x, log(inner)));  \\ A( log A( log A(x) ) ) 
+  my(arg   = x / inner2);           \\ 分母に配置: x / A( log A( log A(x) ) )
   my(LHS   = subst(A, x, arg));    \\ 左辺全体
   my(RHS   = exp(x) + O(x^(N+1))); \\ 右辺: exp(x)
 
   print("LHS (左辺) = ", LHS);
   print("RHS (右辺) = ", RHS);
   print();
-  print("LHS と RHS は完全に一致するか？ -> ", LHS == RHS);
+  print("LHS と RHS は完全に一致するか？ -> ", if(LHS == RHS, "一致", "不一致"));
 }
 
-print("--------------------------------------------------");
+print("==================================================");
 
 a(n, l) ={
   my(L = l);
@@ -69,7 +68,7 @@ a(n, l) ={
   my(LHS_poly = subst(A_func, x, arg_poly));
   my(RHS_poly = exp(x) + O(x^(N+1)));
   
-  print("LHS == RHS ? -> ", LHS_poly == RHS_poly);
+  print("LHS == RHS ? -> ", if(LHS_poly == RHS_poly, "一致", "不一致"));
   print("--------------------------------------------------");
 };
 \\ a(20, 0);
