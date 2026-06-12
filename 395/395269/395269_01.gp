@@ -1,18 +1,19 @@
-a_vector(n, l=5) = {
-  my(k_limit(r) = 1 + (n - r) * l);
-  my(A = vector(n, r, vector(k_limit(r) + 1)));
-  for(k=0, k_limit(1), A[1][k + 1] = 1);
-  for(r=2, n, A[r][1] = 0);
-  for(r=2, n,
-    for(k=1, k_limit(r),
-      my(s=A[r][k]);
-      for(j=1, r-1,
-        s += binomial(r - 1, j) * A[j][k + l] * A[r - j][k];
+a_vector(n, k=1, l=5) = {
+  my(k_limit(row) = k + (n - row) * l);
+  my(A = vector(n, row, vector(k_limit(row) + 1)));
+  for(col = 0, k_limit(1), A[1][col + 1] = 1);
+  for(row = 2, n, A[row][1] = 0);
+  for(row = 2, n,
+    for(col = 1, k_limit(row),
+      my(s = A[row][col]);
+      for(j = 1, row - 1,
+        s += binomial(row - 1, j) * A[j][col + l] * A[row - j][col];
       );
-      A[r][k+1]=s;
+      A[row][col + 1] = s;
     );
   );
-  vector(n, r, A[r][2])
+  vector(n, row, A[row][k + 1])
 };
-a_vector(30)
+
+a_vector(30, 1, 5)
 
