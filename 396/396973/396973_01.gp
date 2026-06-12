@@ -48,6 +48,6 @@ a_antidiagonal(row_num, l=5) =
   Vec(v)
 }
 
-a_rows(8, 5);
-print(a_antidiagonal(8, 5));
+v = a_antidiagonal(8, 5);
+print(v);
 
