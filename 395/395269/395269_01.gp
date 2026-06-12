@@ -5,7 +5,7 @@ a_vector(n, k=1, l=5) = {
   for(row=2, n, A[row][1]=0);
   for(row=2, n,
     for(col=1, k_limit(row),
-      A[row][col+1] = A[row][col]+sum(j=1, row-1, binomial(row-1, j)*A[j][col+l]*A[row-j][col]);
+      A[row][col+1]=A[row][col]+sum(j=1, row-1, binomial(row-1, j)*A[j][col+l]*A[row-j][col]);
     );
   );
   vector(n, row, A[row][k+1])
