@@ -48,6 +48,7 @@ a_antidiagonal(row_num, l) =
   Vec(v)
 };
 
-v = a_antidiagonal(8, 5);
-print(v);
+v = a_antidiagonal(140, 5);
+cnt = 1;
+for(n=1, 9870, write("b396973_1.txt", n, " ", v[cnt]); cnt++);
 
