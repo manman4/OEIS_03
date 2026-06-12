@@ -77,7 +77,7 @@ def a_vector(n_max, k = 1, l = 1)
 end
 
 if __FILE__ == $PROGRAM_NAME
-  n_max = 200
+  n_max = 300
   k = 1
   l = 5
 
