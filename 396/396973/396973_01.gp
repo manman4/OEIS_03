@@ -1,6 +1,6 @@
 \\ A[n][k+1] = a(n,k,l)
 
-a_table(row_num, l=5) =
+a_table(row_num, l) =
 {
   my(k_limit(n) = row_num - 1 + (row_num - n) * l);
   my(A = vector(row_num, n, vector(k_limit(n) + 1)));
@@ -27,26 +27,26 @@ a_table(row_num, l=5) =
   );
 
   A
-}
+};
 
 \\ row r = [a(1,r-1,l), a(2,r-2,l), ..., a(r,1,l)]
-a_rows(row_num, l=5) =
+a_rows(row_num, l) =
 {
   my(A = a_table(row_num, l));
   for (r = 1, row_num,
     print(vector(r, n, A[n][r - n + 2]));
   );
-}
+};
 
 \\ antidiagonals including the k=0 column
-a_antidiagonal(row_num, l=5) =
+a_antidiagonal(row_num, l) =
 {
   my(A = a_table(row_num, l), v = []);
   for (r = 1, row_num,
     v = concat(v, vector(r, n, A[n][r - n + 1]));
   );
   Vec(v)
-}
+};
 
 v = a_antidiagonal(8, 5);
 print(v);
