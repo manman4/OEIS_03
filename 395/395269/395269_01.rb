@@ -53,10 +53,15 @@ def a_vector(n_max, k = 1, l = 1)
   (1..n_max).map{|n| table[n][k]}
 end
 
-if __FILE__ == $PROGRAM_NAME
-  n_max = (ARGV[0] || 10).to_i
-  k = (ARGV[1] || 1).to_i
-  l = (ARGV[2] || 5).to_i
+n_max = 100
+k = 1
+l = 5
 
-  puts a_vector(n_max, k, l).join(", ")
-end
+ary = a_vector(n_max, k, l)
+(1..n_max).each{|i|
+  j = ary[i - 1]
+  break if j.to_s.size > 1000
+  print i
+  print ' '
+  puts j
+}
