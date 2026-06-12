@@ -53,7 +53,7 @@ def a_vector(n_max, k = 1, l = 1)
   (1..n_max).map{|n| table[n][k]}
 end
 
-n_max = 100
+n_max = 200
 k = 1
 l = 5
 
