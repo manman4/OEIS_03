@@ -89,9 +89,9 @@ def antidiagonal_terms(row_num, l)
 end
 
 if __FILE__ == $PROGRAM_NAME
-  row_num = 140
+  row_num = 14
   l = (ARGV[1] || 2).to_i
-  ary = antidiagonal_terms(row_num, l)
+  p ary = antidiagonal_terms(row_num, l)
   (1..ary.size).each{|i|
     j = ary[i - 1]
     break if j.to_s.size > 1000
