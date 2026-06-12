@@ -89,7 +89,14 @@ def antidiagonal_terms(row_num, l = 5)
 end
 
 if __FILE__ == $PROGRAM_NAME
-  row_num = (ARGV[0] || 8).to_i
+  row_num = 140
   l = (ARGV[1] || 5).to_i
-  puts antidiagonal_terms(row_num, l).join(", ")
+  ary = antidiagonal_terms(row_num, l)
+  (1..ary.size).each{|i|
+    j = ary[i - 1]
+    break if j.to_s.size > 1000
+    print i
+    print ' '
+    puts j
+  }
 end
