@@ -11,5 +11,9 @@ a_vector(n, k=1, l=5) = {
   vector(n, row, A[row][k+1])
 };
 
-a_vector(30, 1, 5)
-
+a_vector(12, 0, 5)
+a_vector(12, 1, 5)
+a_vector(12, 2, 5)
+a_vector(12, 3, 5)
+a_vector(12, 4, 5)
+a_vector(12, 5, 5)
