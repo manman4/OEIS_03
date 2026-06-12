@@ -69,27 +69,16 @@ def build_table(n_max, k_max, l)
   a
 end
 
-def triangular_bound(count)
-  d = 0
-  total = 0
-  while total < count
-    d += 1
-    total += d
-  end
-  d
-end
-
-def antidiagonal_terms(count, l)
-  diag_count = triangular_bound(count)
-  n_max = diag_count
-  k_max = diag_count - 1
+def antidiagonal_terms(row_num, l = 5)
+  n_max = row_num
+  k_max = row_num - 1
   table = build_table(n_max, k_max, l)
 
   terms = []
   d = 0
-  while terms.length < count
+  while d < row_num
     n = 1
-    while n <= d + 1 && terms.length < count
+    while n <= d + 1
       k = d + 1 - n
       terms << table[n][k]
       n += 1
@@ -100,7 +89,7 @@ def antidiagonal_terms(count, l)
 end
 
 if __FILE__ == $PROGRAM_NAME
-  count = (ARGV[0] || 36).to_i
+  row_num = (ARGV[0] || 8).to_i
   l = (ARGV[1] || 5).to_i
-  puts antidiagonal_terms(count, l).join(", ")
+  puts antidiagonal_terms(row_num, l).join(", ")
 end
