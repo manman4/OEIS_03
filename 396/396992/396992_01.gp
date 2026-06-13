@@ -21,7 +21,9 @@ a_antidiagonal(row_num, l=3) = {
   Vec(v)
 };
 
-a_antidiagonal(11, 3)
+v = a_antidiagonal(140, 3);
+cnt = 1;
+for(n=1, 9870, write("b396992_1.txt", n, " ", v[cnt]); cnt++);
 
 
 
