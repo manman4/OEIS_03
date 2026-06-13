@@ -2,36 +2,36 @@
 
 def antidiagonal_terms(row_num, l = 3)
   k_limit = Array.new(row_num + 1, 0)
-  1.upto(row_num) do |row|
+  1.upto(row_num){|row|
     k_limit[row] = (row_num - row) * l
-  end
+  }
 
-  a = Array.new(row_num + 1) { |row| Array.new(k_limit[row] + 1, 0) }
+  a = Array.new(row_num + 1){|row| Array.new(k_limit[row] + 1, 0)}
 
-  0.upto(k_limit[1]) do |col|
+  0.upto(k_limit[1]){|col|
     a[1][col] = 1
-  end
+  }
 
-  2.upto(row_num) do |row|
+  2.upto(row_num){|row|
     a[row][0] = 0
-  end
+  }
 
-  2.upto(row_num) do |row|
-    1.upto(k_limit[row]) do |col|
+  2.upto(row_num){|row|
+    1.upto(k_limit[row]){|col|
       total = a[row][col - 1]
-      1.upto(row - 1) do |j|
+      1.upto(row - 1){|j|
         total += a[j][col + l - 1] * a[row - j][col - 1]
-      end
+      }
       a[row][col] = total
-    end
-  end
+    }
+  }
 
   terms = []
-  1.upto(row_num) do |d|
-    1.upto(d) do |row|
+  1.upto(row_num){|d|
+    1.upto(d){|row|
       terms << a[row][d - row]
-    end
-  end
+    }
+  }
   terms
 end
 
