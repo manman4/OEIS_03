@@ -1,3 +1,8 @@
+\\ E.g.f. B(x) satisfies B'(x) = 1 + B^l(x), where B^l(x) denotes the l-th iterate of B, with B(0) = 0.
+\\ Let a(n,k,l) = n! * [x^n] B^k(x), where B^k(x) is the k-th iterate of B.
+\\ a(n,0,l) = 0^(n-1) and a(n,k,l) = a(n,k-1,l) + Sum_{j=1..n-1} binomial(n-1,j) * a(j,k+l-1,l) * a(n-j,k-1,l) for k > 0.
+\\A(n,k) = a(n,k,3).
+
 \\ A[n][k+1] = a(n,k,l)
 
 a_table(row_num, l) =
