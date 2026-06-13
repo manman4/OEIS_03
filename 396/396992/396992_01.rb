@@ -35,14 +35,13 @@ def antidiagonal_terms(row_num, l = 3)
   terms
 end
 
-if __FILE__ == $PROGRAM_NAME
-  row_num = 140
-  l = 3
-  terms = antidiagonal_terms(row_num, l)
-
-  File.open("b396992.txt", "w") do |f|
-    1.upto(9870) do |n|
-      f.puts("#{n} #{terms[n - 1]}")
-    end
-  end
-end
+row_num = 140
+l = (ARGV[1] || 3).to_i
+ary = antidiagonal_terms(row_num, l)
+(1..ary.size).each{|i|
+  j = ary[i - 1]
+  break if j.to_s.size > 1000
+  print i
+  print ' '
+  puts j
+}
