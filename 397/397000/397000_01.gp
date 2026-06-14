@@ -41,5 +41,5 @@ a_antidiagonal(row_num, l = 3) = {
   Vec(v)
 }
 
-a_rows(8, 3);
-print(a_antidiagonal(8, 3));
+a_rows(10, 3);
+print(a_antidiagonal(10, 3));
