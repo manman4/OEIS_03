@@ -22,4 +22,4 @@ a(n, k = 1, l = 3) = {
 }
 
 \\ Square array 
-matrix(7, 7, n, k, a(n-1, k-1, 3))
+matrix(6, 6, n, k, a(n-1, k-1, 3))
