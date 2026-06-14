@@ -42,4 +42,4 @@ a_antidiagonal(row_num, l = 3) = {
 }
 
 a_rows(8, 2);
-print(a_antidiagonal(8, 2));
+print(a_antidiagonal(11, 2));
