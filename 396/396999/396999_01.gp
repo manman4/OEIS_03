@@ -49,4 +49,4 @@ b_antidiagonal(row_num, l = 3) = {
 }
 
 b_rows(8, 2);
-print(b_antidiagonal(8, 2));
+print(b_antidiagonal(11, 2));
