@@ -40,12 +40,9 @@ b_vector(N, k = 1, l = 3) = {
   vector(N + 1, n, b(n - 1, k, l, MA, MB))
 };
 
-print(a_vector(9, 1, 1));
-print(b_vector(9, 1, 1));
+print(a_vector(8, 0, 3));
+print(a_vector(8, 1, 3));
+print(a_vector(8, 2, 3));
+print(a_vector(8, 3, 3));
 
-print(a_vector(9, 1, 2));
-print(b_vector(9, 1, 2));
-
-print(a_vector(9, 1, 3));
-print(b_vector(9, 1, 3));
 
