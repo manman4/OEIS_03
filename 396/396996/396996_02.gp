@@ -1,53 +1,51 @@
-\\ E.g.f. A'(x) = exp(A^l(x)), A(0) = 0.
-\\ A^l(x) denotes the l-th iterate of A.
+\\ a(n,0,l) = 0^(n-1),
+\\ a(n,k,l) = Sum_{j=0..n-1} binomial(n-1,j) * b(j,k+l-1,l) * a(n-j,k-1,l),
+\\ b(0,k,l) = 1,
+\\ b(n,k,l) = Sum_{j=1..n} binomial(n-1,j-1) * a(j,k,l) * b(n-j,k,l).
 
-iter(F, k, N) = {
-  my(y = 'x + O('x^(N + 1)));
-  if(k == 0, return(y));
-  for(i = 1, k, y = subst(F, 'x, y));
-  y
+\\ E.g.f. A(x) satisfies A'(x) = exp(A^l(x)),
+\\ where A^l(x) denotes the l-th iterate of A, with A(0) = 0.
+\\ a(n,k,l) = n! * [x^n] A^k(x)
+\\ b(n,k,l) = n! * [x^n] exp(A^k(x))
+
+a(n, k, l, MA, MB) = {
+  my(key = Str(n, ",", k), v);
+  if(mapisdefined(MA, key, &v), return(v));
+  if(k == 0, return(if(n == 1, 1, 0)));
+  v = sum(j = 0, n - 1,
+    binomial(n - 1, j) * b(j, k + l - 1, l, MA, MB) * a(n - j, k - 1, l, MA, MB)
+  );
+  mapput(MA, key, v);
+  v
 };
 
-Aseries(N, l = 3) = {
-  my(A = 'x + O('x^(N + 1)));
-  for(i = 1, N, A = intformal(exp(iter(A, l, N))));
-  A
-};
-
-Akseries(N, k = 1, l = 3) = {
-  iter(Aseries(N, l), k, N)
-};
-
-Bkseries(N, k = 1, l = 3) = {
-  exp(Akseries(N, k, l)) + O('x^(N + 1))
+b(n, k, l, MA, MB) = {
+  my(key = Str(n, ",", k), v);
+  if(mapisdefined(MB, key, &v), return(v));
+  if(n == 0, return(1));
+  v = sum(j = 1, n,
+    binomial(n - 1, j - 1) * a(j, k, l, MA, MB) * b(n - j, k, l, MA, MB)
+  );
+  mapput(MB, key, v);
+  v
 };
 
 a_vector(N, k = 1, l = 3) = {
-  my(Ak = Akseries(N, k, l));
-  vector(N, n, n! * polcoef(Ak, n))
+  my(MA = Map(), MB = Map());
+  vector(N, n, a(n, k, l, MA, MB))
 };
 
 b_vector(N, k = 1, l = 3) = {
-  my(Bk = Bkseries(N, k, l));
-  vector(N + 1, n, (n - 1)! * polcoef(Bk, n - 1))
+  my(MA = Map(), MB = Map());
+  vector(N + 1, n, b(n - 1, k, l, MA, MB))
 };
 
-print(Akseries(10, 1, 3));
+\\ print(a_vector(9, 1, 1));
+\\ print(b_vector(9, 1, 1));
 
+\\ print(a_vector(9, 1, 2));
+\\ print(b_vector(9, 1, 2));
 
-print(a_vector(35, 1, 2));
-print(b_vector(35, 1, 2));
-
-print(a_vector(15, 2, 2));
-print(b_vector(15, 2, 2));
-
-
-print("================================");
-
-
-print(a_vector(35, 1, 3));
-print(b_vector(35, 1, 3));
-
-print(a_vector(15, 2, 3));
-print(b_vector(15, 2, 3));
+print(a_vector(9, 1, 3));
+\\ print(b_vector(9, 1, 3));
 
