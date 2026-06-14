@@ -21,4 +21,5 @@ a(n, k = 1, l = 3) = {
   n! * polcoef(iter(A, k, n), n)
 }
 
+\\ Square array 
 matrix(6, 7, n, k, a(n, k-1, 3))
