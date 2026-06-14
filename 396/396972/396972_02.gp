@@ -20,3 +20,53 @@ a_vector(12, 2, 4)
 a_vector(12, 3, 4)
 a_vector(12, 4, 4)
 a_vector(12, 5, 4)
+
+
+\\ E.g.f. B'(x) = 1 + B^l(x), B(0) = 0.
+\\ B^l(x) denotes the l-th iterate of B.
+\\ a(n,k,l) = n! * [x^n] B^k(x)
+
+iter(F, k, N) = {
+  my(y = 'x + O('x^(N + 1)));
+  if(k == 0, return(y)); \\ B^0(x) = x
+  for(i = 1, k, y = subst(F, 'x, y));
+  y
+};
+
+Bseries(N, l = 3) = {
+  my(B = 'x + O('x^(N + 1)));
+  for(i = 1, N, B = intformal(1 + iter(B, l, N)));
+  B
+};
+
+b(n, k = 1, l = 3) = {
+  my(B = Bseries(n, l));
+  n! * polcoef(iter(B, k, n), n)
+};
+
+b_vector(N, k = 1, l = 3) = {
+  my(B = Bseries(N, l));
+  my(Bk = iter(B, k, N));
+  vector(N, n, n! * polcoef(Bk, n))
+};
+
+check_vectors(N, k = 1, l = 3) = {
+  my(v1 = a_vector(N, k, l), v2 = b_vector(N, k, l));
+  if(v1 == v2,
+    print("ok");
+  ,
+    print("mismatch");
+    print(v1);
+    print(v2);
+  );
+};
+
+check_vectors(12, 0, 4)
+check_vectors(12, 1, 4)
+check_vectors(12, 2, 4)
+check_vectors(12, 3, 4)
+check_vectors(12, 4, 4)
+check_vectors(12, 5, 4)
+
+
+
