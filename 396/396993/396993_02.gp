@@ -22,3 +22,50 @@ a_vector(10, 4, 4)
 a_vector(10, 5, 4)
 a_vector(10, 6, 4)
 
+
+
+\\ G.f. B(x) satisfies B(x) = x*(1 + B^l(x)),
+\\ where B^l(x) denotes the l-th iterate of B.
+\\ a(n,k,l) = [x^n] B^k(x)
+
+iter(F, k, N) = {
+  my(y = x + x * O(x^N));
+  if(k == 0, return(y)); \\ B^0(x) = x
+  for(i = 1, k, y = subst(F, x, y));
+  y
+};
+
+Bseries(N, l = 4) = {
+  my(B = x + x * O(x^N));
+  for(i = 1, N, B = x * (1 + iter(B, l, N)));
+  B
+};
+
+b(n, k = 1, l = 4) = {
+  my(B = Bseries(n + 1, l));
+  polcoef(iter(B, k, n + 1), n)
+};
+
+b_vector(N, k = 1, l = 3) = {
+  my(B = Bseries(N + 1, l));
+  my(Bk = iter(B, k, N + 1));
+  vector(N, n, polcoef(Bk, n))
+};
+
+check_vectors(N, k = 1, l = 2) = {
+  my(v1 = a_vector(N, k, l), v2 = b_vector(N, k, l));
+  if(v1 == v2,
+    print("ok");
+  ,
+    print("mismatch");
+    print(v1);
+    print(v2);
+  );
+};
+
+check_vectors(12, 0, 4)
+check_vectors(12, 1, 4)
+check_vectors(12, 2, 4)
+check_vectors(12, 3, 4)
+check_vectors(12, 4, 4)
+check_vectors(12, 5, 4)
