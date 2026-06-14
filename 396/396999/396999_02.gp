@@ -6,7 +6,7 @@ iter(F, k, N) = {
   if(k == 0, return(y));               
   for(i = 1, k, y = subst(F, 'x, y));
   y
-}
+};
 
 Aseries(N, l = 3) = {
   my(A = 'x + O('x^(N + 1)));
@@ -14,12 +14,12 @@ Aseries(N, l = 3) = {
     A = intformal(exp(iter(A, l, N)));
   );
   A
-}
+};
 
 a(n, k = 1, l = 3) = {
   my(A = Aseries(n, l));
   n! * polcoef(exp(iter(A, k, n)), n)
-}
+};
 
 \\ Square array 
 matrix(6, 6, n, k, a(n-1, k-1, 2))
