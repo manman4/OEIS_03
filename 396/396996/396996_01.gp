@@ -32,14 +32,14 @@ b_vector(N, k = 1, l = 3) = {
   vector(N + 1, n, (n - 1)! * polcoef(Bk, n - 1))
 };
 
-print(Akseries(10, 1, 3));
 
 
-print(a_vector(35, 1, 2));
-print(b_vector(35, 1, 2));
 
-print(a_vector(15, 2, 2));
-print(b_vector(15, 2, 2));
+\\ print(a_vector(35, 1, 2));
+\\ print(b_vector(35, 1, 2));
+
+\\ print(a_vector(15, 2, 2));
+\\ print(b_vector(15, 2, 2));
 
 
 print("================================");
@@ -48,6 +48,6 @@ print("================================");
 print(a_vector(35, 1, 3));
 print(b_vector(35, 1, 3));
 
-print(a_vector(15, 2, 3));
-print(b_vector(15, 2, 3));
+\\ print(a_vector(15, 2, 3));
+\\ print(b_vector(15, 2, 3));
 
