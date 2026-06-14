@@ -35,8 +35,8 @@ b_vector(N, k = 1, l = 3) = {
 print(Akseries(10, 1, 3));
 
 
-print(a_vector(15, 1, 2));
-print(b_vector(15, 1, 2));
+print(a_vector(35, 1, 2));
+print(b_vector(35, 1, 2));
 
 print(a_vector(15, 2, 2));
 print(b_vector(15, 2, 2));
@@ -45,8 +45,8 @@ print(b_vector(15, 2, 2));
 print("================================");
 
 
-print(a_vector(15, 1, 3));
-print(b_vector(15, 1, 3));
+print(a_vector(35, 1, 3));
+print(b_vector(35, 1, 3));
 
 print(a_vector(15, 2, 3));
 print(b_vector(15, 2, 3));
