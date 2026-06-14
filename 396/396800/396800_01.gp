@@ -27,6 +27,30 @@ a(n, k, l) =
   n! * polcoef(iter(A, k, n), n)
 };
 
+print("l=1:");
+
+for(n=1, 8, print1(b(n, 0, 1) - a(n, 0, 1), ", "));
+for(n=1, 8, print1(b(n, 1, 1) - a(n, 1, 1), ", "));
+for(n=1, 8, print1(b(n, 2, 1) - a(n, 2, 1), ", "));
+for(n=1, 8, print1(b(n, 3, 1) - a(n, 3, 1), ", "));
+for(n=1, 8, print1(b(n, 4, 1) - a(n, 4, 1), ", "));
+for(n=1, 8, print1(b(n, 5, 1) - a(n, 5, 1), ", "));
+for(n=1, 8, print1(b(n, 6, 1) - a(n, 6, 1), ", "));
+for(n=1, 8, print1(b(n, 7, 1) - a(n, 7, 1), ", "));
+
+print("l=2:");
+
+for(n=1, 8, print1(b(n, 0, 2) - a(n, 0, 2), ", "));
+for(n=1, 8, print1(b(n, 1, 2) - a(n, 1, 2), ", "));
+for(n=1, 8, print1(b(n, 2, 2) - a(n, 2, 2), ", "));
+for(n=1, 8, print1(b(n, 3, 2) - a(n, 3, 2), ", "));
+for(n=1, 8, print1(b(n, 4, 2) - a(n, 4, 2), ", "));
+for(n=1, 8, print1(b(n, 5, 2) - a(n, 5, 2), ", "));
+for(n=1, 8, print1(b(n, 6, 2) - a(n, 6, 2), ", "));
+for(n=1, 8, print1(b(n, 7, 2) - a(n, 7, 2), ", "));
+
+print("l=3:");
+
 for(n=1, 8, print1(b(n, 0, 3) - a(n, 0, 3), ", "));
 for(n=1, 8, print1(b(n, 1, 3) - a(n, 1, 3), ", "));
 for(n=1, 8, print1(b(n, 2, 3) - a(n, 2, 3), ", "));
