@@ -46,6 +46,6 @@ b_vector(N, k = 1, l = 3) = {
 \\ print(a_vector(9, 1, 2));
 \\ print(b_vector(9, 1, 2));
 
-print(a_vector(9, 1, 3));
-\\ print(b_vector(9, 1, 3));
+\\ print(a_vector(9, 1, 3));
+print(b_vector(9, 1, 3));
 
