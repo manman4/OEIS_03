@@ -10,5 +10,6 @@ matrix(7, 7, n, k, b(n-1, k-1))
 \\ A(n,k) = k^n - Sum_{j=1..n-1} binomial(n,j) * A(j,k) * A(n-j,j).
 a(n, k) = k^n-sum(j=1, n-1, binomial(n, j)*a(j, k)*a(n-j, j));
 for(n=0, 10, for(k=0, n, print1(a(k,n-k),", ")));
+\\ 一致の確認
 for(n=0, 10, for(k=0, n, print1(a(k,n-k)-b(k,n-k),", ")));
 
