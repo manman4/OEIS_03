@@ -4,4 +4,4 @@ my(k=2, N=20, x='x+O('x^N), V=lambertw(exp(1/k)*(1-(k+1)^2*x)/k)); apply(round, 
 my(k=3, N=20, x='x+O('x^N), V=lambertw(exp(1/k)*(1-(k+1)^2*x)/k)); apply(round, Vec(serlaplace((1-k*V)/(k*(k+1)) * exp((k*V-1)/(k+1)))))
 my(k=4, N=20, x='x+O('x^N), V=lambertw(exp(1/k)*(1-(k+1)^2*x)/k)); apply(round, Vec(serlaplace((1-k*V)/(k*(k+1)) * exp((k*V-1)/(k+1)))))
 
-my(k=2, N=20, x='x+O('x^N), V=lambertw(exp(1/k)*(1-(k+1)^2*x)/k)); serlaplace((1-k*V)/(k*(k+1)))
+my(k=2, N=20, x='x+O('x^N), V=lambertw(exp(1/k)*(1-(k+1)^2*x)/k)); serlaplace((1-k*V)/(k*(k+1)) * exp((k*V-1)/(k+1)))
