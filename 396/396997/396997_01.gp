@@ -50,4 +50,3 @@ print(b_vector(35, 1, 3));
 
 \\ print(a_vector(15, 2, 3));
 \\ print(b_vector(15, 2, 3));
-
