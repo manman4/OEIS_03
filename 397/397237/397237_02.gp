@@ -99,6 +99,8 @@ print("------------------");
 \\ Example 2:
 \\ a(2*n+5) from 1/(1 - x^4 - x^5 - x^7) equals coefficients of 1/(1 - x - x^2 + x^3 - x^5 - x^6).
 check_subsequence_identity(2, 5, 1, 1 + x, 1 - x, 1);
+print("A397234");
+print("------------------");
 
 \\ Example 3:
 \\ a(3*n+8) from 1/(1 + x^3 - x^4) equals coefficients of 1/(1 + 3*x + 3*x^2 + x^3 - x^4).
