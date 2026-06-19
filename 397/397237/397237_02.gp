@@ -58,7 +58,7 @@ check_subsequence_identity(s, m, k, P, Q, R, N=15) = {
   Bser =
     1 / (P * (Q^s - x^m * R^s) + O(x^(N + 1)));
 
-  print("s=", s, ", m=", m, ", k=", k, ", t=", t, ", N=", N);
+  print("s=", s, ", m=", m, ", k=", k, ", t=m*k=", t, ", N=", N);
   print("P(x) = ", P);
   print("Q(x) = ", Q);
   print("R(x) = ", R);
