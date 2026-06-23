@@ -1,3 +1,7 @@
+\\ For m >= 1 and any constants r, s, define a_{m,r,s}(n) = Sum_{k=0..n} binomial(n+(m-1)*k,m*k) * (r*binomial(n+m*k,k) - s*binomial(n+m*k,k-1)). 
+\\ A_{m,r,s}(x) = Sum_{n>=0} a_{m,r,s}(n)*x^n = t*(1+t^m)*(r+(r+s)*t^(m-1)-s*t^m)/((1+t^(m-1))*(1+(m+1)*t^m-m*t^(m+1))), where t = t(x) satisfies t = 1 + x*t*(1+t^m).
+
+
 \\ Proof: Let
 \\ a_{m,r,s}(n) = Sum_{k=0..n} binomial(n+(m-1)*k, m*k) * (r*binomial(n+m*k, k) - s*binomial(n+m*k, k-1))
 \\ and let A_{m,r,s}(x) = Sum_{n>=0} a_{m,r,s}(n)*x^n.
