@@ -91,7 +91,7 @@ N = 22;
 
 m = 2;
 r = 1;
-s = 1;
+s = -1;
 
 a(n) = sum(k=0, n, binomial(n + (m-1)*k, m*k) * (r*binomial(n + m*k, k) - s*binomial(n + m*k, k-1)));
 t = 1 + x + O(x^(N+1));
