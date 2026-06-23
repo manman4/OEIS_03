@@ -85,23 +85,20 @@
 default(parisize, 200000000);
 N = 22;
 
-m = 4;
-r = 0;
-s = -1;
+m = 2;
+r = 1;
+s = 1;
 
 a(n) = sum(k=0, n, binomial(n + (m-1)*k, m*k) * (r*binomial(n + m*k, k) - s*binomial(n + m*k, k-1)));
-
 t = 1 + x + O(x^(N+1));
 for(i=1, N+3, t = 1 + x*t*(1 + t^m) + O(x^(N+1)));
 
 A = t*(1 + t^m)*(r + (r+s)*t^(m-1) - s*t^m) / ((1 + t^(m-1))*(1 + (m+1)*t^m - m*t^(m+1)));
-
 print("m = ", m, ", r = ", r, ", s = ", s);
 print("t(x) = ", t);
 print("A(x) = ", A + O(x^(N+1)));
-
 print("Check sum formula against A(x):");
-for(n=0, N, print([n, polcoeff(A,n), a(n), polcoeff(A,n)==a(n)]));
+for(n=0, N, print([n, polcoeff(A,n), a(n), if(polcoeff(A,n)==a(n), "ok", "fail")]));
 
 print("Coefficients of A(x):");
 print(Vec(A));
