@@ -1,0 +1,9 @@
+filename,filepath,pattern,affected_range,self_check,resolved_date
+369013_02.gp,369/369013/369013_02.gp,"binomial(n-k-1, n-2*k)",n>=1,"k=n -> (-1, -n); verified for n>=1",2026-06-25
+369014_02.gp,369/369014/369014_02.gp,"binomial(n-2*k-1, n-3*k)",n>=1,"k=n -> (-n-1, -2*n); verified for n>=1",2026-06-25
+370840_02.gp,370/370840/370840_02.gp,"binomial(2*n-3*k, n-3*k)",n>=1,"k=n -> (-n, -2*n); verified for n>=1",2026-06-25
+370841_02.gp,370/370841/370841_02.gp,"binomial(2*n-4*k, n-4*k)",n>=1,"k=n -> (-2*n, -3*n); verified for n>=1",2026-06-25
+371888_01.gp,371/371888/371888_01.gp,"binomial(n-2*k, n-k-1)",n=1のみ,"k=n -> (-n, -1); verified for n=1のみ",2026-06-25
+372035_02.gp,372/372035/372035_02.gp,"binomial(n-2*k, n-k-1)",n=1のみ,"k=n -> (-n, -1); verified for n=1のみ",2026-06-25
+378611_01.gp,378/378611/378611_01.gp,"binomial(2*n+i-1, n-1)",n=0のみ,"k=n -> (3*n-1, n-1); verified for n=0のみ",2026-06-25
+378958_01.gp,378/378958/378958_01.gp,"binomial(3*n-4*k, n-k-1)",n=1のみ,"k=n -> (-n, -1); verified for n=1のみ",2026-06-25
