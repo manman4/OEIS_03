@@ -1,5 +1,5 @@
-filename,filepath,pattern,affected_range,self_check,resolved_date
-371888_01.gp,371/371888/371888_01.gp,"binomial(n-2*k, n-k-1)",n=1のみ,"k=n -> (-n, -1); verified for n=1のみ",2026-06-25
-372035_02.gp,372/372035/372035_02.gp,"binomial(n-2*k, n-k-1)",n=1のみ,"k=n -> (-n, -1); verified for n=1のみ",2026-06-25
-378611_01.gp,378/378611/378611_01.gp,"binomial(2*n+i-1, n-1)",n=0のみ,"k=n -> (3*n-1, n-1); verified for n=0のみ",2026-06-25
-378958_01.gp,378/378958/378958_01.gp,"binomial(3*n-4*k, n-k-1)",n=1のみ,"k=n -> (-n, -1); verified for n=1のみ",2026-06-25
+filename,filepath,pattern,affected_range,reason,self_check,resolved_date
+371888_01.gp,371/371888/371888_01.gp,"binomial(n-2*k, n-k-1)",n=1のみ,k=nで両引数が負整数となり、第2引数<=第1引数がn=1でのみ成立,"k=n -> (-n, -1); verified for n=1のみ",2026-06-25
+372035_02.gp,372/372035/372035_02.gp,"binomial(n-2*k, n-k-1)",n=1のみ,"C(n,k)で一部対応済みだが、内部のbinomialがPARI/GPのversion差分を踏むため残す","k=n -> (-n, -1); verified for n=1のみ",2026-06-25
+378611_01.gp,378/378611/378611_01.gp,"binomial(2*n+i-1, n-1)",n=0のみ,"補助式のみ。k=nでbinomial(-1,-1)になり、影響はn=0に限る","k=n -> (3*n-1, n-1); verified for n=0のみ",2026-06-25
+378958_01.gp,378/378958/378958_01.gp,"binomial(3*n-4*k, n-k-1)",n=1のみ,k=nで両引数が負整数となり、第2引数<=第1引数がn=1でのみ成立,"k=n -> (-n, -1); verified for n=1のみ",2026-06-25

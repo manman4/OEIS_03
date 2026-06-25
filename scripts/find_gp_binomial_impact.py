@@ -289,6 +289,29 @@ def extract_function_defaults(text: str) -> list[tuple[int, dict[str, Affine]]]:
     return defaults
 
 
+def extract_binomial_aliases(text: str) -> dict[str, tuple[list[str], tuple[str, str]]]:
+    aliases: dict[str, tuple[list[str], tuple[str, str]]] = {}
+    func_re = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(([^()]*)\)\s*=\s*(.+?);", re.DOTALL)
+    for match in func_re.finditer(text):
+        name = match.group(1)
+        params = [part.strip() for part in split_top_level(match.group(2))]
+        if len(params) != 2 or any("=" in p for p in params):
+            continue
+        body = match.group(3)
+        calls = find_calls(body, "binomial")
+        if len(calls) != 1:
+            continue
+        args = split_top_level(calls[0][2])
+        if len(args) != 2:
+            continue
+        arg1 = normalize_expr(args[0])
+        arg2 = normalize_expr(args[1])
+        if arg1 not in params or arg2 not in params:
+            continue
+        aliases[name] = (params, (arg1, arg2))
+    return aliases
+
+
 def extract_global_constants(text: str) -> dict[str, Affine]:
     constants: dict[str, Affine] = {}
     for line in text.splitlines():
@@ -392,12 +415,27 @@ def make_self_check(arg1: Affine, arg2: Affine, affected_range: str) -> str:
     )
 
 
+def make_reason(path: Path, affected_range: str) -> str:
+    if path.name == "378611_01.gp" and affected_range == "n=0のみ":
+        return "補助式のみ。k=nでbinomial(-1,-1)になり、影響はn=0に限る"
+    if path.name == "372035_02.gp" and affected_range == "n=1のみ":
+        return "C(n,k)で一部対応済みだが、内部のbinomialがPARI/GPのversion差分を踏むため残す"
+    if affected_range == "n>=1":
+        return "k=nで両引数が負整数となり、第2引数<=第1引数がn>=1で成立"
+    if affected_range == "n=1のみ":
+        return "k=nで両引数が負整数となり、第2引数<=第1引数がn=1でのみ成立"
+    if affected_range == "n=0のみ":
+        return "k=nで両引数が負整数となり、第2引数<=第1引数がn=0でのみ成立"
+    return "k=nで仕様変更条件を満たす"
+
+
 def analyze_file(path: Path) -> list[dict[str, str]]:
     repo_root = Path.cwd()
     text = path.read_text(encoding="utf-8")
     cleaned = strip_gp_comments(text)
     global_constants = extract_global_constants(cleaned)
     function_defaults = extract_function_defaults(cleaned)
+    binomial_aliases = extract_binomial_aliases(cleaned)
     function_positions = [pos for pos, _ in function_defaults]
     results: dict[tuple[str, str], dict[str, str]] = {}
 
@@ -424,11 +462,21 @@ def analyze_file(path: Path) -> list[dict[str, str]]:
             func_env.update(function_defaults[func_index][1])
 
         body = parts[2]
-        for _call_start, _call_end, bin_inner in find_calls(body, "binomial"):
+        candidate_calls = [("binomial", call) for call in find_calls(body, "binomial")]
+        for alias_name in binomial_aliases:
+            candidate_calls.extend((alias_name, call) for call in find_calls(body, alias_name))
+
+        for call_name, (_call_start, _call_end, bin_inner) in candidate_calls:
             bin_args = split_top_level(bin_inner)
             if len(bin_args) != 2:
                 continue
-            arg1_text, arg2_text = bin_args
+            if call_name == "binomial":
+                arg1_text, arg2_text = bin_args
+            else:
+                params, template = binomial_aliases[call_name]
+                substitutions = {params[0]: normalize_expr(bin_args[0]), params[1]: normalize_expr(bin_args[1])}
+                arg1_text = substitutions[template[0]]
+                arg2_text = substitutions[template[1]]
             try:
                 arg1 = parse_affine(arg1_text, func_env, {var_name})
                 arg2 = parse_affine(arg2_text, func_env, {var_name})
@@ -460,6 +508,7 @@ def analyze_file(path: Path) -> list[dict[str, str]]:
                 "filepath": str(path.relative_to(repo_root)),
                 "pattern": pattern,
                 "affected_range": affected_range,
+                "reason": make_reason(path, affected_range),
                 "self_check": make_self_check(at_boundary_arg1, at_boundary_arg2, affected_range),
                 "resolved_date": RESOLVED_DATE,
             }
@@ -483,6 +532,7 @@ def main() -> None:
                 "filepath",
                 "pattern",
                 "affected_range",
+                "reason",
                 "self_check",
                 "resolved_date",
             ],
