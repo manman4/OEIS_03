@@ -5,7 +5,7 @@
 
 b(n, m) = if(n<m, 0, if(n==m, 1, 1/6 * (6^(n-m) * sum(l=0, m, binomial(l, n-3*m+2*l) * binomial(m, l)) - sum(l=m+1, n-1, (b(n, l) + sum(k=l, n, (b(n, k) + sum(j=k, n, (b(n, j) + sum(i=j, n, (b(n, i) + sum(h=i, n, b(n, h) * b(h, i))) * b(i, j))) * b(j, k))) * b(k, l))) * b(l, m)))));
 a(n) = b(n, 1);
-for(n=0, 8, print1(a(n), ", "))
+for(n=0, 6, print1(a(n), ", "))
 
 a=[1, 1, 1, -35, 325, -1295, -12455, 283285, -2186675];
 f(x) = sum(n=1, #a, a[n]*x^n);
