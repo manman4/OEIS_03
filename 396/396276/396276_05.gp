@@ -51,3 +51,4 @@ write_triangle_data(N) =
 \\ example
 N = 5;
 write_triangle_data(N);
+
