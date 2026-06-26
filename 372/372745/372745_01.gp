@@ -10,8 +10,8 @@ a(n) = b(n, 1);
 for(n=0, 6, print1(a(n), ", "))
 
 
-a=[1, 2, -9, 124, -2555, 64170, -1675205];
+a=[1, 2, -9, 124, -2555, 64170];
 f(x) = sum(n=1, #a, a[n]*x^n/n!);
 print("A(A(A(A(A(x))))): ", Vec(serlaplace( f(f(f(f(f(x))))) + x*O(x^#a)) ))
 
-my(N=20, x='x+O('x^N)); Vec(serlaplace( x*exp(5*x) ))
+my(N=8, x='x+O('x^N)); Vec(serlaplace( x*exp(5*x) ))
