@@ -48,6 +48,6 @@ write_triangle_data(N, filename) =
 }
 
 \\ example
-N = 8;
+N = 5;
 write_triangle_data(N, "b396276_2.txt");
 
