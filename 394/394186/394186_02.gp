@@ -1,4 +1,4 @@
-\\ For m >= 1 and any constants r, s, define a_{m,r,s}(n) = Sum_{k=0..n} binomial(n+(m-1)*k,m*k) * (r*binomial(n+m*k,k) - s*binomial(n+m*k,k-1)). 
+\\ For m >= 0 and any constants r, s, define a_{m,r,s}(n) = Sum_{k=0..n} binomial(n+(m-1)*k,m*k) * (r*binomial(n+m*k,k) - s*binomial(n+m*k,k-1)). 
 \\ A_{m,r,s}(x) = Sum_{n>=0} a_{m,r,s}(n)*x^n = t*(1+t^m)*(r+(r+s)*t^(m-1)-s*t^m)/((1+t^(m-1))*(1+(m+1)*t^m-m*t^(m+1))), where t = t(x) satisfies t = 1 + x*t*(1+t^m).
 
 
@@ -10,6 +10,7 @@
 \\ where t = t(x) is defined by
 \\ t = 1 + x*t*(1+t^m).
 \\ We show that A_{m,r,s}(x) = R_{m,r,s}(t(x)).
+\\ Since t has constant term 1, the powers t^(m-1) and t^m are well-defined formal power series also when m=0.
 \\ Put y = t-1. Then y = x*t*(1+t^m), so
 \\ x = (t-1)/(t*(1+t^m)) = y/(t*(1+t^m)),
 \\ and
@@ -94,9 +95,9 @@ r = 1;
 s = 1;
 
 a(n) = sum(k=0, n, binomial(n + (m-1)*k, m*k) * (r*binomial(n + m*k, k) - s*binomial(n + m*k, k-1)));
+
 t = 1 + x + O(x^(N+1));
 for(i=1, N+3, t = 1 + x*t*(1 + t^m) + O(x^(N+1)));
-
 A = t*(1 + t^m)*(r + (r+s)*t^(m-1) - s*t^m) / ((1 + t^(m-1))*(1 + (m+1)*t^m - m*t^(m+1)));
 print("m = ", m, ", r = ", r, ", s = ", s);
 print("t(x) = ", t);
