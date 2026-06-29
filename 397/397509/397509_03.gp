@@ -164,10 +164,10 @@ batch_check(l0,l1,m0,m1,c0,c1,r0,r1,s0,s1)=
 };
 
 print(["PARI_version", version()]);
-print(["binomial(-1,-1)", binomial(-1,-1)]);
-print(["binomial(-1,0)", binomial(-1,0)]);
-print(["binomial(-1,1)", binomial(-1,1)]);
-print(["binomial(0,-1)", binomial(0,-1)]);
+\\ print(["binomial(-1,-1)", binomial(-1,-1)]);
+\\ print(["binomial(-1,0)", binomial(-1,0)]);
+\\ print(["binomial(-1,1)", binomial(-1,1)]);
+\\ print(["binomial(0,-1)", binomial(0,-1)]);
 
 \\ This is the special case l=1, m=2, c=0, r=1, s=0 of the following family. 
 check_case(1,2,0,1,0);
