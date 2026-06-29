@@ -12,8 +12,8 @@ c(n) = sum(k=0, n, binomial(4*n+2*k-3,k-1));
 for(n=0, 50, print1(a(4,2,0,0,-1,n)-c(n),", "));
 
 \\ a(n) = Sum_{k=0..n} (-1)^k * binomial(6*n+k-1,n-k-1).
-d(n) = sum(k=0, n, (-1)^k * binomial(6*n+k-1,n-k-1));
-\\ d(n) = sum(k=0, n, (-1)^k * C(6*n+k-1,n-k-1));
+\\ d(n) = sum(k=0, n, (-1)^k * binomial(6*n+k-1,n-k-1));
+d(n) = sum(k=0, n, (-1)^k * C(6*n+k-1,n-k-1));
 for(n=0, 50, print1(a(4,2,0,0,-1,n)-d(n),", "));
 
 \\ a(n) = Sum_{k=0..floor(n/2)} (-1)^k * binomial(6*n-k-2,n-2*k-1).
