@@ -1,8 +1,7 @@
-a(l,m,c,r,s,n) = sum(k=0, n, (r*binomial(l*n+m*k-m-1+c,k) - s*binomial(l*n+m*k-m-1+c,k-1)));
-\\ This is the special case l=4, m=2, c=0, r=0, s=-1 of the following family. 
-for(n=0, 30, print1(a(4,2,0,0,-1,n),", "));
+\\ G.f.: x*g^4/((1-7*x*g^6) * (1-x*g^5)) where g = 1+x*g^7 is the g.f. of A002296.
+my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(7*k, k)/(6*k+1)*x^k)); Vec( g )
+my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(7*k, k)/(6*k+1)*x^k)); Vec( 1+x*g^7 - g )
+my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(7*k, k)/(6*k+1)*x^k)); Vec( x*g^4/((1-7*x*g^6) * (1-x*g^5)) )
 
-C(n, k) = if(k>=0, binomial(n, k));
-b(l,m,c,r,s,n) = sum(k=0, n, (r*C(l*n+m*k-m-1+c,k) - s*C(l*n+m*k-m-1+c,k-1)));
-
-for(n=0, 50, print1(a(4,2,0,0,-1,n)-b(4,2,0,0,-1,n),", "));
+\\ G.f.: (-1+g)/((7-6*g) * (1-g+g^2)) where g = 1+x*g^7 is the g.f. of A002296.
+my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(7*k, k)/(6*k+1)*x^k)); Vec( (-1+g)/((7-6*g) * (1-g+g^2)) - x*g^4/((1-7*x*g^6) * (1-x*g^5)) )
