@@ -169,8 +169,8 @@ print(["PARI_version", version()]);
 \\ print(["binomial(-1,1)", binomial(-1,1)]);
 \\ print(["binomial(0,-1)", binomial(0,-1)]);
 
-\\ This is the special case l=4, m=2, c=0, r=1, s=1 of the following family. 
-check_case(4,2,0,1,1);
+\\ This is the special case l=3, m=2, c=0, r=1, s=1 of the following family. 
+check_case(3,2,0,1,1);
 
 \\ Boundary cases with m=0.
 \\ check_case(1,0,1,1,1);
