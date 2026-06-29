@@ -128,7 +128,7 @@ check_case(l,m,c,r,s)=
   );
   print(["ALL_OK", if(ok, "ok", "fail")]);
   ok
-}
+};
 
 batch_check(l0,l1,m0,m1,c0,c1,r0,r1,s0,s1)=
 {
@@ -161,7 +161,7 @@ batch_check(l0,l1,m0,m1,c0,c1,r0,r1,s0,s1)=
     );
   );
   print(["BATCH_DONE", "total", total, "bad", bad, "ok", total-bad]);
-}
+};
 
 print(["PARI_version", version()]);
 print(["binomial(-1,-1)", binomial(-1,-1)]);
