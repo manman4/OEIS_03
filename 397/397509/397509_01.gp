@@ -1,9 +1,12 @@
-\\ Cf. A390239.
+a(l,m,c,r,s,n) = sum(k=0, n, (r*binomial(l*n+m*k-m-1+c,k) - s*binomial(l*n+m*k-m-1+c,k-1)));
+\\ This is the special case l=1, m=2, c=0, r=1, s=0 of the following family. 
+for(n=0, 30, print1(a(1,2,0,1,0,n),", "));
 
-\\ G.f.: 1/(g^3 * (1-3*x*g^2) * (1-x*g)) where g = 1+x*g^3 is the g.f. of A001764.
-my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(3*k, k)/(2*k+1)*x^k)); Vec( g )
-my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(3*k, k)/(2*k+1)*x^k)); Vec( 1+x*g^3 - g )
-my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(3*k, k)/(2*k+1)*x^k)); Vec( 1/(g^3 * (1-3*x*g^2) * (1-x*g)) )
+C(n, k) = if(k>=0, binomial(n, k));
+b(l,m,c,r,s,n) = sum(k=0, n, (r*C(l*n+m*k-m-1+c,k) - s*C(l*n+m*k-m-1+c,k-1)));
 
-\\ G.f.: 1/((3-2*g) * (1-g+g^2)) where g = 1+x*g^3 is the g.f. of A001764.
-my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(3*k, k)/(2*k+1)*x^k)); Vec( 1/((3-2*g) * (1-g+g^2)) - 1/(g^3 * (1-3*x*g^2) * (1-x*g)) )
+for(n=0, 50, print1(a(1,2,0,1,0,n)-b(1,2,0,1,0,n),", "));
+
+\\ a(n) = Sum_{k=0..n} binomial(n+2*k-3,k).
+c(n) = sum(k=0, n, binomial(n+2*k-3,k));
+for(n=0, 50, print1(a(1,2,0,1,0,n)-c(n),", "));
