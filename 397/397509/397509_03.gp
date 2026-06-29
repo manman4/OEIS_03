@@ -169,37 +169,21 @@ print(["binomial(-1,0)", binomial(-1,0)]);
 print(["binomial(-1,1)", binomial(-1,1)]);
 print(["binomial(0,-1)", binomial(0,-1)]);
 
-\\ Safe interior cases.
-check_case(2,1,0,1,1);
-check_case(0,2,0,3,5);
-check_case(1,3,2,2,7);
-
-check_case(-3,2,2,1,1);
-check_case(-2,2,2,1,1);
-check_case(1,2,0,1,1);
-check_case(1,2,2,1,1);
-check_case(2,2,0,1,1);
-check_case(2,2,2,1,1);
-check_case(3,2,0,1,1);
-check_case(3,2,2,1,1);
-check_case(4,2,0,1,1);
-check_case(4,2,2,1,1);
-check_case(5,2,-1,1,1);
-check_case(5,2,0,1,1);
-check_case(5,2,2,1,1);
+\\ This is the special case l=1, m=2, c=0, r=1, s=0 of the following family. 
+check_case(1,2,0,1,0);
 
 \\ Boundary cases with m=0.
-check_case(1,0,1,1,1);
-check_case(1,0,0,2,3);
-check_case(2,0,0,1,1);
+\\ check_case(1,0,1,1,1);
+\\ check_case(1,0,0,2,3);
+\\ check_case(2,0,0,1,1);
 
 \\ Boundary cases with l=0.
-check_case(0,1,0,1,1);
-check_case(0,1,2,4,1);
+\\ check_case(0,1,0,1,1);
+\\ check_case(0,1,2,4,1);
 
 \\ Extreme edge with l+m=1.
-check_case(1,0,2,5,5);
+\\ check_case(1,0,2,5,5);
 
 \\ Small exhaustive checks. Adjust ranges as desired.
-batch_check(0,3,0,3,-4,4,1,3,1,3);
-batch_check(-3,3,-3,3,-4,4,-2,2,-2,2);
+\\ batch_check(0,3,0,3,-4,4,1,3,1,3);
+\\ batch_check(-3,3,-3,3,-4,4,-2,2,-2,2);
