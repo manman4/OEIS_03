@@ -10,3 +10,7 @@ for(n=0, 50, print1(a(1,2,0,1,0,n)-b(1,2,0,1,0,n),", "));
 \\ a(n) = Sum_{k=0..n} binomial(n+2*k-3,k).
 c(n) = sum(k=0, n, binomial(n+2*k-3,k));
 for(n=0, 50, print1(a(1,2,0,1,0,n)-c(n),", "));
+
+\\ a(n) = Sum_{k=0..n} (-1)^k * binomial(3*n+k-1,n-k).
+d(n) = sum(k=0, n, (-1)^k * binomial(3*n+k-1,n-k));
+for(n=0, 50, print1(a(1,2,0,1,0,n)-d(n),", "));
