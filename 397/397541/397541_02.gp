@@ -1,7 +1,7 @@
-\\ G.f.: x*g^4/((1-7*x*g^6) * (1-x*g^5)) where g = 1+x*g^7 is the g.f. of A002296.
-my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(7*k, k)/(6*k+1)*x^k)); Vec( g )
-my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(7*k, k)/(6*k+1)*x^k)); Vec( 1+x*g^7 - g )
-my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(7*k, k)/(6*k+1)*x^k)); Vec( x*g^4/((1-7*x*g^6) * (1-x*g^5)) )
+\\ G.f.: 1/((1-5*x*g^4) * (1-x*g^2)) where g = 1+x*g^5 is the g.f. of A002294.
+my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(5*k, k)/(4*k+1)*x^k)); Vec( g )
+my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(5*k, k)/(4*k+1)*x^k)); Vec( 1+x*g^5 - g )
+my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(5*k, k)/(4*k+1)*x^k)); Vec( 1/((1-5*x*g^4) * (1-x*g^2)) )
 
-\\ G.f.: (-1+g)/((7-6*g) * (1-g+g^2)) where g = 1+x*g^7 is the g.f. of A002296.
-my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(7*k, k)/(6*k+1)*x^k)); Vec( (-1+g)/((7-6*g) * (1-g+g^2)) - x*g^4/((1-7*x*g^6) * (1-x*g^5)) )
+\\ G.f.: g^4/((5-4*g) * (1-g+g^3)) where g = 1+x*g^5 is the g.f. of A002294.
+my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(5*k, k)/(4*k+1)*x^k)); Vec( g^4/((5-4*g) * (1-g+g^3)) - 1/((1-5*x*g^4) * (1-x*g^2)) )
