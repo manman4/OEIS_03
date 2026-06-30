@@ -1,5 +1,11 @@
-\\ G.f.: g^2 * (2-g)/((6-5*g) * (1-g+g^2)) where g = 1+x*g^6 is the g.f. of A002295.
-my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(6*k, k)/(5*k+1)*x^k)); Vec( g )
-my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(6*k, k)/(5*k+1)*x^k)); Vec( 1+x*g^6 - g )
-my(N=30, x='x+O('x^N), g=sum(k=0, N, binomial(6*k, k)/(5*k+1)*x^k)); Vec( g^2 * (2-g)/((6-5*g)*(1-g+g^2)) )
+a(l,m,c,r,s,n) = sum(k=0, n, (r*binomial(l*n+m*k-m-1+c,k) - s*binomial(l*n+m*k-m-1+c,k-1)));
+\\ This is the special case l=5, m=2, c=2, r=1, s=1 of the following family.
+\\ for(n=0, 30, print1(a(5,2,2,1,1,n),", "));
+
+C(n, k) = if(k>=0, binomial(n, k));
+b(l,m,c,r,s,n) = sum(k=0, n, (r*C(l*n+m*k-m-1+c,k) - s*C(l*n+m*k-m-1+c,k-1)));
+for(n=0, 30, print1(b(5,2,2,1,1,n),", "));
+
+\\ for(n=0, 50, print1(a(5,2,2,1,1,n)-b(5,2,2,1,1,n),", "));
+
 
