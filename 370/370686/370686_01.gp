@@ -6,7 +6,7 @@
 \\ a(n) = 1 + 2 * Sum_{i=0..floor(n/3)-1} (n-3*i-2)/(i+1) * Sum_{j=0..i} 4^j * binomial((n-3*i-2)/2+j,j) * binomial(2*i-j,i).
 a(n) = 1 + sum(i=1, n\3, 2*(n-3*i+1)/i * sum(j=0, i-1, 4^j*binomial((n-3*i+1)/2+j, j)*binomial(2*i-j-2, i-j-1)));
 
-\\ a_int(n) = 1+sum(i=1,n\3,2*(n-3*i+1)/i*sum(j=0,i-1,2^j/j!*prod(k=1,j,n-3*i+1+2*k)*binomial(2*i-j-2,i-j-1)));
+a_int(n) = 1+sum(i=1,n\3,2*(n-3*i+1)/i*sum(j=0,i-1,2^j/j!*prod(k=1,j,n-3*i+1+2*k)*binomial(2*i-j-2,i-j-1)));
 
 \\ Coefficient-extraction form; equivalent but a little less explicit.
 a_cf(n)=
