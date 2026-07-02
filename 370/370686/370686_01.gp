@@ -18,4 +18,6 @@ N=50;
 for(n=0, N, print([n,a(n),a_int(n),a_cf(n)]));
 \\ for(n=0, N, write("b370686_1.txt", n, " ", a(n)));
 
-
+A = sum(k=0, N, a(k)*x^k) + x*O(x^N);
+\\ G.f. A(x) satisfies (x^4+16*x^3+2*x^2-3)*A(x)^4 + (4*x^3+4*x)*A(x)^3 + (6*x^2+2)*A(x)^2 + 4*x*A(x) + 1 = 0.
+(x^4+16*x^3+2*x^2-3)*A^4 + (4*x^3+4*x)*A^3 + (6*x^2+2)*A^2 + 4*x*A + 1 
