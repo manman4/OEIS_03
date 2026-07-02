@@ -1,0 +1,19 @@
+\\ a(n): number of 132-avoiding permutations p such that p^3 is the identity.
+\\ Two equivalent PARI/GP formulas are provided:
+\\   a(n)     : direct formula with binomial((p/2)+j, j)*4^j,
+\\   a_int(n) : integer-only version using 2^j/j! * prod_{k=1..j} (p+2*k).
+
+a(n) = 1+2*sum(i=0, n\3-1, (n-3*i-2)/(i+1)*sum(j=0, i, 4^j*binomial((n-3*i-2)/2+j, j)*binomial(2*i-j, i)));
+
+\\ a_int(n) = 1+sum(i=1,n\3,2*(n-3*i+1)/i*sum(j=0,i-1,2^j/j!*prod(k=1,j,n-3*i+1+2*k)*binomial(2*i-j-2,i-j-1)));
+
+\\ Coefficient-extraction form; equivalent but a little less explicit.
+a_cf(n)=
+{
+  my(x='x);
+  1+sum(m=1,n\3,2*(n-3*m+1)/m*polcoeff((1-x)^(-m)*(1-4*x+O(x^m))^(-(n-3*m+3)/2),m-1));
+};
+
+N=1000;
+\\ for(n=0,N,print([n,a(n),a_int(n),a_cf(n)]));
+for(n=0, N, write("b370686_1.txt", n, " ", a(n)));
