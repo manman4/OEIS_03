@@ -81,8 +81,8 @@ def a(n)
   ary
 end
 
-n = 100
-p ary = a(n)
+n = 1000
+ary = a(n)
 (0..n).each{|i| 
   j = ary[i]
   break if j.to_s.size > 1000
