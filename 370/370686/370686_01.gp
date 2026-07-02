@@ -14,6 +14,8 @@ a_cf(n)=
   1+sum(m=1,n\3,2*(n-3*m+1)/m*polcoeff((1-x)^(-m)*(1-4*x+O(x^m))^(-(n-3*m+3)/2),m-1));
 };
 
-N=1000;
-\\ for(n=0,N,print([n,a(n),a_int(n),a_cf(n)]));
-for(n=0, N, write("b370686_1.txt", n, " ", a(n)));
+N=50;
+for(n=0, N, print([n,a(n),a_int(n),a_cf(n)]));
+\\ for(n=0, N, write("b370686_1.txt", n, " ", a(n)));
+
+
