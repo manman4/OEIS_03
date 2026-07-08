@@ -1,6 +1,7 @@
 # a(n) = Sum_{k=1..n} gcd(k^3,n^2).
 # Multiplicative with
-# a(p^e) = p^e * ( 1 + ((p-1)/p) * Sum_{k=1..2*e} p^floor(2*k/3) ).
+# a(p^e) = p^(2*e) + Sum_{k=0..e-1} (p^(e-k) - p^(e-k-1))
+#   * p^min(3*k,2*e).
 #
 # More generally, let s and t be positive integers, and let
 # a_{s,t}(n) = Sum_{k=1..n} gcd(k^s,n^t).
@@ -29,12 +30,12 @@ def factorize(n)
   factors
 end
 
-def prime_power_value_floor(p, e, s, t)
-  sum = 0
-  1.upto(t * e){|k|
-    sum += p**(((s - 1) * k) / s)
+def prime_power_value_padic(p, e, s, t)
+  total = p**([s * e, t * e].min)
+  0.upto(e - 1){|k|
+    total += (p**(e - k) - p**(e - k - 1)) * p**([s * k, t * e].min)
   }
-  p**e + (p - 1) * p**(e - 1) * sum
+  total
 end
 
 def a_number(n, s, t)
@@ -42,7 +43,7 @@ def a_number(n, s, t)
   raise ArgumentError, "multiplicativity requires t <= s" if t > s
 
   factorize(n).inject(1){|prod, (p, e)|
-    prod * prime_power_value_floor(p, e, s, t)
+    prod * prime_power_value_padic(p, e, s, t)
   }
 end
 
