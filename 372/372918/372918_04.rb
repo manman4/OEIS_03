@@ -1,3 +1,14 @@
+# a(n) = Sum_{k=1..n} gcd(k^3,n^2).
+# Multiplicative with
+# a(p^e) = p^e * ( 1 + ((p-1)/p) * Sum_{k=1..2*e} p^floor(2*k/3) ).
+#
+# More generally, let s and t be positive integers, and let
+# a_{s,t}(n) = Sum_{k=1..n} gcd(k^s,n^t).
+# Then a_{s,t}(n) is multiplicative if and only if t <= s. For
+# 1 <= t <= s,
+# a_{s,t}(p^e) = p^e * ( 1 + ((p-1)/p) * Sum_{k=1..t*e}
+#   p^floor(((s-1)*k)/s) ).
+
 def factorize(n)
   factors = []
   m = n

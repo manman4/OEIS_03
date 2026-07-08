@@ -1,3 +1,14 @@
+# a(n) = Sum_{k=1..n} gcd(k^3,n^2).
+# Multiplicative with
+# a(p^e) = p^(2*e) + Sum_{k=0..e-1} (p^(e-k) - p^(e-k-1))
+#   * p^min(3*k,2*e).
+#
+# More generally, let s and t be positive integers, and let
+# a_{s,t}(n) = Sum_{k=1..n} gcd(k^s,n^t).
+# a_{s,t}(p^e) = p^min(s*e,t*e) + Sum_{k=0..e-1}
+#   (p^(e-k) - p^(e-k-1)) * p^min(s*k,t*e).
+# a_{s,t}(n) is multiplicative if and only if t <= s.
+
 def factorize(n)
   factors = []
   m = n
@@ -18,11 +29,11 @@ def factorize(n)
 end
 
 def prime_power_value_padic(p, e, s, t)
-  total = 0
+  total = p**([s * e, t * e].min)
   0.upto(e - 1){|j|
     total += (p**(e - j) - p**(e - j - 1)) * p**([s * j, t * e].min)
   }
-  total + p**([s * e, t * e].min)
+  total
 end
 
 def a_number(n, s = 3, t = 2)
