@@ -4,10 +4,11 @@
 #
 # More generally, let s and t be positive integers, and let
 # a_{s,t}(n) = Sum_{k=1..n} gcd(k^s,n^t).
-# Then a_{s,t}(n) is multiplicative if and only if t <= s. For
-# 1 <= t <= s,
-# a_{s,t}(p^e) = p^e * ( 1 + ((p-1)/p) * Sum_{k=1..t*e}
-#   p^floor(((s-1)*k)/s) ).
+# a_{s,t}(p^e) = p^min(s*e,t*e) + Sum_{k=0..e-1}
+#   (p^(e-k) - p^(e-k-1)) * p^min(s*k,t*e).
+# a_{s,t}(n) is multiplicative if and only if t <= s.
+# For 1 <= t <= s, a_{s,t}(p^e) = p^e * ( 1 + ((p-1)/p)
+#   * Sum_{k=1..t*e} p^floor(((s-1)*k)/s) ).
 
 def factorize(n)
   factors = []
@@ -29,11 +30,11 @@ def factorize(n)
 end
 
 def prime_power_value_floor(p, e, s, t)
-  total = p**e
-  1.upto(t * e){|i|
-    total += (p - 1) * p**(e - 1 + ((s - 1) * i) / s)
+  sum = 0
+  1.upto(t * e){|k|
+    sum += p**(((s - 1) * k) / s)
   }
-  total
+  p**e + (p - 1) * p**(e - 1) * sum
 end
 
 def a_number(n, s, t)

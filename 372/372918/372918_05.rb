@@ -8,6 +8,8 @@
 # a_{s,t}(p^e) = p^min(s*e,t*e) + Sum_{k=0..e-1}
 #   (p^(e-k) - p^(e-k-1)) * p^min(s*k,t*e).
 # a_{s,t}(n) is multiplicative if and only if t <= s.
+# For 1 <= t <= s, a_{s,t}(p^e) = p^e * ( 1 + ((p-1)/p)
+#   * Sum_{k=1..t*e} p^floor(((s-1)*k)/s) ).
 
 def factorize(n)
   factors = []
@@ -30,8 +32,8 @@ end
 
 def prime_power_value_padic(p, e, s, t)
   total = p**([s * e, t * e].min)
-  0.upto(e - 1){|j|
-    total += (p**(e - j) - p**(e - j - 1)) * p**([s * j, t * e].min)
+  0.upto(e - 1){|k|
+    total += (p**(e - k) - p**(e - k - 1)) * p**([s * k, t * e].min)
   }
   total
 end
