@@ -1,4 +1,4 @@
-def a_number(n, s = 3, t = 2)
+def a_number(n, s, t)
   return 0 if n <= 0
 
   nt = n**t
@@ -9,12 +9,12 @@ def a_number(n, s = 3, t = 2)
   total
 end
 
-def sequence(limit, s = 3, t = 2)
+def sequence(limit, s, t)
   (0..limit).map{|n| a_number(n, s, t)}
 end
 
 if __FILE__ == $PROGRAM_NAME
-  limit = (ARGV[0] || 20).to_i
+  limit = (ARGV[0] || 10000).to_i
   s = (ARGV[1] || 3).to_i
   t = (ARGV[2] || 2).to_i
 
