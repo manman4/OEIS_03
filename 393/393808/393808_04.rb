@@ -8,6 +8,8 @@
 # a_{s,t}(p^e) = p^e * ( 1 + ((p-1)/p)
 #   * Sum_{k=1..t*e} p^floor(((s-1)*k)/s) ).
 
+# 乗法的であることを利用して n = p^e の場合チェック
+
 def primes_upto(limit)
   return [] if limit < 2
 
@@ -77,10 +79,10 @@ def verify!(prime_limit, e_max, s_max, t_max)
 end
 
 if __FILE__ == $PROGRAM_NAME
-  prime_limit = (ARGV[0] || 7).to_i
-  e_max = (ARGV[1] || 4).to_i
-  s_max = (ARGV[2] || 5).to_i
-  t_max = (ARGV[3] || 5).to_i
+  prime_limit = (ARGV[0] || 9).to_i
+  e_max = (ARGV[1] || 6).to_i
+  s_max = (ARGV[2] || 7).to_i
+  t_max = (ARGV[3] || 7).to_i
 
   verify!(prime_limit, e_max, s_max, t_max)
   puts "ok"
