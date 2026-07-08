@@ -30,6 +30,8 @@ def factorize(n)
   factors
 end
 
+# a_{s,t}(p^e) = p^min(s*e,t*e) + Sum_{k=0..e-1}
+#   (p^(e-k) - p^(e-k-1)) * p^min(s*k,t*e).
 def prime_power_value_padic(p, e, s, t)
   total = p**([s * e, t * e].min)
   0.upto(e - 1){|k|
