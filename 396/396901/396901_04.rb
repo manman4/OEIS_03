@@ -87,3 +87,4 @@ if __FILE__ == $PROGRAM_NAME
   verify!(prime_limit, e_max, s_max, t_max)
   puts "ok"
 end
+
