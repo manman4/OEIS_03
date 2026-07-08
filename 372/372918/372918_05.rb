@@ -29,6 +29,8 @@ def factorize(n)
   factors
 end
 
+# For 1 <= t <= s, a_{s,t}(p^e) = p^e * ( 1 + ((p-1)/p)
+#   * Sum_{k=1..t*e} p^floor(((s-1)*k)/s) ).
 def prime_power_value_floor(p, e, s, t)
   sum = 0
   1.upto(t * e){|k|
