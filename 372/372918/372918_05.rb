@@ -36,7 +36,7 @@ def prime_power_value_padic(p, e, s, t)
   total
 end
 
-def a_number(n, s = 3, t = 2)
+def a_number(n, s, t)
   return 0 if n <= 0
   raise ArgumentError, "multiplicativity requires t <= s" if t > s
 
@@ -45,7 +45,7 @@ def a_number(n, s = 3, t = 2)
   }
 end
 
-def sequence(limit, s = 3, t = 2)
+def sequence(limit, s, t)
   (0..limit).map{|n| a_number(n, s, t)}
 end
 
