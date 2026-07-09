@@ -1,3 +1,5 @@
+\\ Cf. A396507.
+
 \\ Integer square root without sqrtint.
 \\ isqrt0(N) = floor(sqrt(N)), using only integer comparisons.
 isqrt0(N)=
@@ -66,6 +68,6 @@ T4(N)=
 
 a341399(N)=1 + 4*(SE4(N)+16*SE4p(N)+8*T4(N))/5;
 
-for(n=0, 10000, write("b341399.txt", n, " ", a341399(n)));
+for(n=0, 10000, write("b341399_1.txt", n, " ", a341399(n)));
 
 
