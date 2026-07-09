@@ -75,9 +75,9 @@ a2(m)=B2(10^m);
 a4(m)=B4(10^m);
 a6(m)=B6(10^m);
 
-for(n=0, 10, print1(a2(n), ", "));
-for(n=0, 10, print1(a4(n), ", "));
-for(n=0, 10, print1(a6(n), ", "));
+\\ for(n=0, 12, print(n, " ", a2(n)));
+\\ for(n=0, 12, print(n, " ", a4(n)));
+\\ for(n=0, 10, print(n, " ", a6(n)));
 
 \\ for(n=0, 12, write("b373884.txt", n, " ", a(n)));
 
