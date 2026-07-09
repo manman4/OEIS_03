@@ -79,6 +79,6 @@ a6(m)=B6(10^m);
 \\ for(n=0, 12, print(n, " ", a4(n)));
 \\ for(n=0, 10, print(n, " ", a6(n)));
 
-\\ for(n=0, 12, write("b373884.txt", n, " ", a(n)));
+for(n=0, 14, write("b373884.txt", n, " ", a6(n)));
 
 
