@@ -1,4 +1,4 @@
-M=50;
+M=33;
 
 \\ a(n) = Sum_{d|n} J_4(n/d) * (n/d) * sigma_2(d^2)/sigma(d^2), where J_k is the k-th Jordan totient function.
 J(n, k) = sumdiv(n, d, d^k*moebius(n/d));
