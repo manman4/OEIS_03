@@ -97,6 +97,10 @@ def poly_to_s(poly, var = "x")
   out
 end
 
+def var_power(var, exp)
+  exp == 1 ? var : "#{var}^#{exp}"
+end
+
 def autocorrelation(pattern)
   chars = pattern.chars
   m = chars.length
@@ -183,8 +187,11 @@ c_poly = trim(corr)
 avoid_den = avoid_denominator(q, corr)
 contain_den = multiply([1, -q], avoid_den)
 terms = containing_terms(contain_den, m, term_count)
-gf = "x^#{m}/((1 - #{q}*x)*(#{poly_to_s(avoid_den)}))"
-avoid_gf = "(#{poly_to_s(c_poly)})/(#{poly_to_s(avoid_den)})"
+c_expr = poly_to_s(c_poly, "x")
+avoid_den_expr = "#{var_power('x', m)} + (1 - #{q}*x)*(#{c_expr})"
+avoid_gf = "(#{c_expr})/(#{avoid_den_expr})"
+gf = "#{var_power('x', m)}/((1 - #{q}*x)*(#{avoid_den_expr}))"
+gf_by_subtraction = "1/(1 - #{q}*x) - #{avoid_gf}"
 rec_start = contain_den.length - 1
 pari = "a(n) = polcoef(#{gf} + O(x^(n+1)), n);"
 
@@ -198,9 +205,10 @@ puts "Number of #{word_class(q)} words of length n containing the word #{pattern
 puts
 puts "Formula:"
 puts "G.f.: #{gf}."
+puts "Equivalently, #{gf_by_subtraction}."
 puts
 puts "Comment:"
-puts "The autocorrelation polynomial of #{pattern} is #{poly_to_s(c_poly)}. Hence the g.f. for #{word_class(q)} words avoiding #{pattern} is #{avoid_gf}, and the result follows by subtracting this from 1/(1 - #{q}*x)."
+puts "The autocorrelation polynomial of #{pattern} is c(x) = #{c_expr}. Therefore the OGF for #{word_class(q)} words containing #{pattern} is x^#{m}/((1 - #{q}*x)*(x^#{m} + (1 - #{q}*x)*c(x)))."
 puts
 puts "Recurrence:"
 puts "a(n) = #{recurrence_string(contain_den)} for n >= #{rec_start}, with #{initial_values_string(terms, rec_start - 1)}."
