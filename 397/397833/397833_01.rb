@@ -2,7 +2,7 @@
 # Counts q-ary words containing a fixed word, via autocorrelation.
 #
 # Usage:
-#   ruby word_pattern_gf.rb q pattern [terms]
+#   ruby xxx.rb q pattern [terms]
 #
 # Arguments:
 #   q        Alphabet size. For binary words use 2, for ternary words use 3.
