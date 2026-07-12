@@ -2,12 +2,12 @@
 # Counts q-ary words avoiding a fixed consecutive word, via autocorrelation.
 #
 # Usage:
-#   ruby 397834_02.rb q pattern [terms]
+#   ruby xxx.rb q pattern [terms]
 #
 # Examples:
-#   ruby 397834_02.rb 2 ababab 35
-#   ruby 397834_02.rb 3 abcabc 35
-#   ruby 397834_02.rb --gf 3 abcabc
+#   ruby xxx.rb 2 ababab 35
+#   ruby xxx.rb 3 abcabc 35
+#   ruby xxx.rb --gf 3 abcabc
 
 def usage!
   program = File.basename($PROGRAM_NAME)
