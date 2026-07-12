@@ -187,16 +187,13 @@ c_poly = trim(corr)
 avoid_den = avoid_denominator(q, corr)
 contain_den = multiply([1, -q], avoid_den)
 terms = containing_terms(contain_den, m, term_count)
-c_expr = poly_to_s(c_poly, "z")
-avoid_den_expr = "#{var_power('z', m)} + (1 - #{q}*z)*(#{c_expr})"
+c_expr = poly_to_s(c_poly, "x")
+avoid_den_expr = "#{var_power('x', m)} + (1 - #{q}*x)*(#{c_expr})"
 avoid_gf = "(#{c_expr})/(#{avoid_den_expr})"
-gf = "#{var_power('z', m)}/((1 - #{q}*z)*(#{avoid_den_expr}))"
-gf_by_subtraction = "1/(1 - #{q}*z) - #{avoid_gf}"
-x_c_expr = poly_to_s(c_poly, "x")
-x_avoid_den_expr = "#{var_power('x', m)} + (1 - #{q}*x)*(#{x_c_expr})"
-x_gf = "#{var_power('x', m)}/((1 - #{q}*x)*(#{x_avoid_den_expr}))"
+gf = "#{var_power('x', m)}/((1 - #{q}*x)*(#{avoid_den_expr}))"
+gf_by_subtraction = "1/(1 - #{q}*x) - #{avoid_gf}"
 rec_start = contain_den.length - 1
-pari = "a(n) = polcoef(#{x_gf} + O(x^(n+1)), n);"
+pari = "a(n) = polcoef(#{gf} + O(x^(n+1)), n);"
 
 if gf_only
   puts gf
@@ -211,7 +208,7 @@ puts "G.f.: #{gf}."
 puts "Equivalently, #{gf_by_subtraction}."
 puts
 puts "Comment:"
-puts "The autocorrelation polynomial of #{pattern} is c(z) = #{c_expr}. Therefore the OGF for #{word_class(q)} words containing #{pattern} is z^#{m}/((1 - #{q}*z)*(z^#{m} + (1 - #{q}*z)*c(z)))."
+puts "The autocorrelation polynomial of #{pattern} is c(x) = #{c_expr}. Therefore the OGF for #{word_class(q)} words containing #{pattern} is x^#{m}/((1 - #{q}*x)*(x^#{m} + (1 - #{q}*x)*c(x)))."
 puts
 puts "Recurrence:"
 puts "a(n) = #{recurrence_string(contain_den)} for n >= #{rec_start}, with #{initial_values_string(terms, rec_start - 1)}."
