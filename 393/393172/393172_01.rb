@@ -3,7 +3,7 @@ def ncr(n, r)
   (n - r + 1..n).inject(:*) / (1..r).inject(:*)
 end
 
-# aa(1) = 1; a(n) = Sum_{k=1..n-1} a(k)*a(n-k) + Sum_{r=1..floor(n/2)} (-1)^(r+1) * binomial(n-r,r) * a(n-r).
+# a(1) = 1; a(n) = Sum_{k=1..n-1} a(k)*a(n-k) + Sum_{r=1..floor(n/2)} (-1)^(r+1) * binomial(n-r,r) * a(n-r).
 def a(n)
   ary = [0, 1]
   (2..n).each{|m|
