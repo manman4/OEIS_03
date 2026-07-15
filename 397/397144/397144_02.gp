@@ -1,9 +1,2 @@
-N = 20;
-X = 'x + O('x^(N+1));
-
-C = (1 - sqrt(1 - 4*X))/2;
-
-A = X;
-for(i = 1, N, A = C + subst(A, 'x, C)^3);
-
-vector(N, n, polcoef(A, n))
+a_vector(n) = my(v=vector(n)); v[1]=1; for(m=2, n, v[m]=sum(i=1, m-2, sum(j=1, m-i-1, v[i]*v[j]*v[m-i-j]))+sum(r=1, m\2,(-1)^(r+1)*binomial(m-r, r)*v[m-r])); v;
+a_vector(30)
