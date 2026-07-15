@@ -1,0 +1,8 @@
+a_by_recurrence(n, s, t=0) = my(v=vector(n+1)); v[1]=1; for(i=1, n, v[i+1]=i*sum(k=0, i-1, (s*k+t)^(i-k-1)*binomial(i-1, k)*v[k+1])); v;
+A_by_recurrence_laplace(n, s, t=0) = my(v=a_by_recurrence(n, s, t)); sum(i=0,n, v[i+1]*x^i)+O(x^(n+1));
+
+A_by_definition_laplace(n, s)=my(X=x+O(x^(n+1)), A=1+O(x^(n+1))); for(r=1, n+1, A=1+X*subst(A,x,X*exp(s*X))); serlaplace(A);
+
+check_exp(n,s,t=0) = if(A_by_recurrence_laplace(n, s, t)==A_by_definition_laplace(n, s), "ok", "fail");
+
+check_exp(20, 2, 0)
