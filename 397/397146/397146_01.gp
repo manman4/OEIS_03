@@ -1,2 +1,6 @@
-a_vector(n) = my(v=vector(n)); v[1]=1; for(m=2, n, v[m]=sum(i=1, m-3, sum(j=1, m-i-2, sum(k=1, m-i-j-1, v[i]*v[j]*v[k]*v[m-i-j-k])))+sum(r=1, m\2, (-1)^(r+1)*binomial(m-r, r)*v[m-r])); v;
-a_vector(30)
+N = 20;
+X = 'x + O('x^(N+1));
+C = (1 - sqrt(1 - 4*X))/2;
+A = X;
+for(i = 1, N, A = C + subst(A, 'x, C)^4);
+vector(N, n, polcoef(A, n))
