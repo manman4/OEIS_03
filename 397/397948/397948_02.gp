@@ -130,3 +130,4 @@ check_egf(N,s,t)={
 \\ check_egf(20,4,4);
 \\ check_egf(20,3,3);
 check_egf(20,4,3);
+a_by_recurrence(20,4,3)
