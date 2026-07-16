@@ -15,7 +15,6 @@
 \\ によって a(0),...,a(N) を求める。
 a_by_recurrence(N,s,t)={
   my(v=vector(N+1));
-
   \\ v[1] = a(0)
   v[1]=1;
   for(n=1,N,
@@ -32,16 +31,10 @@ a_by_recurrence(N,s,t)={
 \\
 \\ 漸化式は使用していない。
 A_by_definition_gf(N,s,t)={
-  my(
-    X=x+O(x^(N+1)),
-    A=1+O(x^(N+1))
-  );
+  my(X=x+O(x^(N+1)), A=1+O(x^(N+1)));
   \\ 反復するたびに正しい係数が順に確定する。
   for(j=1,N+1,
-    A=1
-      +X
-       *subst(A,x,X^s/(1-X)^s)
-       /(1-X)^t
+    A=1+X*subst(A,x,X^s/(1-X)^s)/(1-X)^t
   );
   A
 };
