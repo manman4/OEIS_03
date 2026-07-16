@@ -18,13 +18,11 @@ a_by_recurrence(N,s,t)={
 
   \\ v[1] = a(0)
   v[1]=1;
-
   for(n=1,N,
     v[n+1]=sum(k=0,(n-1)\s,
       binomial(n+t-2,s*k+t-1)*v[k+1]
     )
   );
-
   v
 };
 
@@ -38,7 +36,6 @@ A_by_definition_gf(N,s,t)={
     X=x+O(x^(N+1)),
     A=1+O(x^(N+1))
   );
-
   \\ 反復するたびに正しい係数が順に確定する。
   for(j=1,N+1,
     A=1
@@ -46,7 +43,6 @@ A_by_definition_gf(N,s,t)={
        *subst(A,x,X^s/(1-X)^s)
        /(1-X)^t
   );
-
   A
 };
 
@@ -89,34 +85,27 @@ E_from_definition(N,s,t)={
 \\   ] du
 E_by_operator_formula(N,s,t)={
   my(v,M,X,F);
-
   if(t<1,error("t must be >= 1"));
-
   \\ この公式で使う a(k) を漸化式から求める。
   v=a_by_recurrence(N,s,t);
-
   \\ t-2 回微分すると精度が下がるため、
   \\ 最初に余分な次数まで計算しておく。
   M=N+max(t-2,0);
   X=x+O(x^(M+1));
-
   \\ 微分または積分を行う前の級数。
   F=exp(X)*sum(k=0,(N-1)\s,
     v[k+1]
     *X^(s*k+t-1)
     /(s*k+t-1)!
   );
-
   if(t==1,
     \\ t=1 のときは 1 回形式積分する。
     F=intformal(F,x),
-
     \\ t>=2 のときは t-2 回微分する。
     for(j=1,t-2,
       F=deriv(F,x)
     )
   );
-
   \\ 元の G.f. にある明示的な定数項 1 を加える。
   1+F+O(x^(N+1))
 };
@@ -125,19 +114,14 @@ E_by_operator_formula(N,s,t)={
 \\ 三通りに作った E.g.f. を比較する。
 check_egf(N,s,t)={
   my(E1,E2,E3);
-
   \\ 漸化式から作った E.g.f.
   E1=E_by_recurrence(N,s,t);
-
   \\ G.f. の定義を反復して作った E.g.f.
   E2=E_from_definition(N,s,t);
-
   \\ 微分・積分公式から作った E.g.f.
   E3=E_by_operator_formula(N,s,t);
-
   print("recurrence = definition : ",E1==E2);
   print("recurrence = formula    : ",E1==E3);
-
   \\ 三つの級数も返す。
   [E1,E2,E3]
 };
