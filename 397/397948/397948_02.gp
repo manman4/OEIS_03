@@ -40,12 +40,13 @@ A_by_definition_gf(N,s,t)={
 };
 
 
+
+
 \\ 漸化式で求めた a(n) から E.g.f.
 \\   E(x) = Sum_{n>=0} a(n)*x^n/n!
 \\ を作る。
 E_by_recurrence(N,s,t)={
   my(v=a_by_recurrence(N,s,t));
-
   sum(n=0,N,
     v[n+1]*x^n/n!
   )+O(x^(N+1))
@@ -58,7 +59,6 @@ E_by_recurrence(N,s,t)={
 \\ ここでも漸化式は使用していない。
 E_from_definition(N,s,t)={
   my(A=A_by_definition_gf(N,s,t));
-
   sum(n=0,N,
     polcoef(A,n)*x^n/n!
   )+O(x^(N+1))
