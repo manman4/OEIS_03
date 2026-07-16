@@ -3,3 +3,6 @@ M=32;
 
 a(n)=my(A=1); for(i=1, n, A=1+x*subst( A, x, x^4/(1-x+x*O(x^n))^4 )/(1-x+x*O(x^n))^3); polcoeff(A, n);
 for(n=0, M, print1(a(n), ", "));
+
+\\ E.g.f.: 1 + d/dx ( exp(x) * Sum_{k>=0} a(k) * x^(4*k+2) / (4*k+2)! ).
+Vec(serlaplace(1 + deriv(exp(x) * sum(k=0, M, a(k) * x^(4*k+2) / (4*k+2)!))))
