@@ -5,14 +5,7 @@
 \\ から直接 a(1),...,a(N) を求める。
 \\ Stirling 数による漸化式は使わない。
 a_from_general_definition(N,c)={
-  my(
-    X=x+O(x^(N+1)),
-    P,
-    M,
-    b,
-    v
-  );
-
+  my(X=x+O(x^(N+1)), P, M, b, v);
   if(c==0,error("c must be nonzero"));
 
   \\ A(x) に代入する級数
@@ -37,7 +30,6 @@ a_from_general_definition(N,c)={
 
   \\ 未知係数 a(1),...,a(N) を解く。
   v=matsolve(M,b);
-
   Vec(v)
 };
 a_from_general_definition(20,2)
