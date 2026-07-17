@@ -1,0 +1,11 @@
+a_vector(N)={
+  my(v=vector(N));
+  v[1]=1;
+  for(n=2,N,
+    v[n]=sum(k=1,n-1,
+      2^(n-1-k)*abs(stirling(n,k,1))*v[k]
+    )
+  );
+  v
+};
+a_vector(20)
