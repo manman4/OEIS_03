@@ -4,3 +4,9 @@ for(n=0, 10, print1(a(n),", "));
 
 a_vector(n, s=1, t=0) = my(v=vector(n+1)); v[1]=1; for(i=1, n, v[i+1]=i*sum(k=0, i-1, (s*k+t)^(i-k-1)*binomial(i-1, k)*v[k+1])); v;
 a_vector(30)
+
+\\ a(0) = 1; a(n) = n * Sum_{k=0..n-1} (k+1)^(n-k-1) * binomial(n-1,k) * a(k).
+a396900(n) = if(n==0, 1, n * sum(k=0, n-1, (k+1)^(n-k-1) * binomial(n-1,k) * a396900(k)));
+\\ a(0) = 1; a(n) = n * A396900(n-1).
+b(n) = if(n==0, 1, n * a396900(n-1));
+for(n=0, 15, print1(a(n)-b(n),", "));
