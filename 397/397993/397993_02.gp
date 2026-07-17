@@ -24,12 +24,10 @@ a_from_general_definition(N,c)={
   );
 
   \\ 右辺 -c*X の E.g.f. 係数
-  b=vector(N,n,
-    if(n==1,-c,0)
-  )~;
+  b=vector(N,n,if(n==1,-c,0))~;
 
   \\ 未知係数 a(1),...,a(N) を解く。
-  v=matsolve(M,b);
+  v=matsolve(M, b);
   Vec(v)
 };
 a_from_general_definition(20,2)
