@@ -11,7 +11,7 @@ if(subst(A, x, P)==4*A-3*X, print("ok"), print("not ok"));
 
 
 \\ a(1) = 1; a(n+1) = Sum_{k=1..n} 3^(n-k) * |Stirling1(n+1,k)| * a(k).
-\\ a(1) = 1; a(n) = Sum_{k=1..n-1} 2^(n-1-k) * |Stirling1(n,k)| * a(k).
+\\ a(1) = 1; a(n) = Sum_{k=1..n-1} 3^(n-1-k) * |Stirling1(n,k)| * a(k).
 a(n) = if(n==1, 1, sum(k=1, n-1, 3^(n-1-k) * abs(stirling(n, k, 1)) * a(k)));
 for(n=1, 15, print1(a(n),", "));
 
