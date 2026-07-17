@@ -1,12 +1,12 @@
 a_vector(n) = my(v=vector(n)); v[1]=1; for(i=1, n-1, v[i+1]=sum(j=1, i, 2^(i-j)*stirling(i, j, 2)*v[j])); v;
-a_vector(30)
+a_vector(20)
 
 \\ E.g.f. A(x) satisfies A'(x) = 1 + A((exp(2*x) - 1)/2), with A(0) = 0.
 N=30;
 v=a_vector(N);
 X=x+O(x^(N+1));
 A=sum(n=1, N, v[n]*X^n/n!);
-P=(exp(2*X) - 1)/2;
+P=((exp(2*X) - 1)/2);
 if(deriv(A) == 1 + subst(A, x, P), print("ok"), print("not ok"));
 
 
