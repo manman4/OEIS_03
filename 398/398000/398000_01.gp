@@ -1,5 +1,5 @@
 a_vector(n) = my(v=vector(n)); v[1]=1; for(i=1, n-1, v[i+1]=sum(j=1, i, 3^(i-j)*abs(stirling(i, j, 1))*v[j])); v;
-a_vector(30)
+a_vector(19)
 
 \\ E.g.f. A(x) satisfies A'(x) = 1 + A(-log(1-3*x)/3), with A(0) = 0.
 N=30;
