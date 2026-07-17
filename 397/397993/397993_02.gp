@@ -16,15 +16,10 @@ a_from_general_definition(N,c)={
   \\   A(P)-(c+1)*A(X)=-c*X
   \\
   \\ として線形方程式を作る。
-  M=matrix(N,N,n,k,
-    polcoef(
-      P^k/k!-(c+1)*X^k/k!,
-      n
-    )*n!
-  );
+  M=matrix(N, N, n, k, n!*polcoef(P^k/k!-(c+1)*X^k/k!, n));
 
   \\ 右辺 -c*X の E.g.f. 係数
-  b=vector(N,n,if(n==1,-c,0))~;
+  b=vector(N, n, if(n==1, -c, 0))~;
 
   \\ 未知係数 a(1),...,a(N) を解く。
   v=matsolve(M, b);
