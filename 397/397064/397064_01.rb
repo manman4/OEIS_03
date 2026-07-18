@@ -1,5 +1,5 @@
 # a(n) = 2^(n-1) - Sum_{k=1..floor(n/3)} 2^(n-3*k) * a(k).
-def A(n)
+def A397064(n)
   ary = [0]
   (1..n).each{|i|
     s = 2 ** (i - 1)
@@ -12,7 +12,7 @@ def A(n)
 end
 
 n = 50
-p ary = A(n)
+p ary = A397064(n)
 (1..n).each{|i|
   j = ary[i]
   break if j.to_s.size > 1000
