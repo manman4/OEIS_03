@@ -56,13 +56,20 @@ diag(n, expr, var) = {
   return(a);
 };
 
-s0 = 3;
-t0 = 3;
-e0 = [1, 1, 1];
-vars0 = [x, y, z];
-X0 = prod(i=1, s0, vars0[i]);
+diagonal_rational(s, t, e, vars) = {
+  if (#vars != s || #e != s,
+    error("The vectors vars and e must have length s")
+  );
+  if (sum(i = 1, s, e[i]) != t,
+    error("The sum of the exponents must be t")
+  );
+  my(X = prod(i = 1, s, vars[i]));
+  1 / (1 - sum(i = 1, s,
+    vars[i] * (1 + X)^e[i]
+  ))
+};
 
-if (sum(i=1, s0, e0[i]) != t0, error("The sum of the exponents must be t"));
-R = 1/(1 - sum(i=1, s0, vars0[i]*(1+X0)^e0[i]));
+\\ s=3, t=3, e_1=e_2=e_3=1
+R = diagonal_rational(3, 3, [1, 1, 1], [x, y, z]);
 
-diag(16, R, vars0)
+diag(16, R, [x, y, z])
