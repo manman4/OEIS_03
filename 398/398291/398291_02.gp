@@ -66,6 +66,10 @@ diagonal_rational(s, t, e, vars) = {
   ))
 };
 
+\\ Diagonal of rational function 1/(1 - (1 + x*y*z)*(x*(1 + x*y*z) + y + z)).
+R = 1/(1 - (x*(1 + x*y*z) + y + z)*(1 + x*y*z)); 
+diag(17, R, [x, y, z]) 
+
 \\ For integers s >= 1, t >= 0 and e_1, ... ,e_s >= 0 with e_1 + ... + e_s = t, [x_1^n*  ... *x_s^n] 1/(1 - Sum_{i=1..s} x_i * (1 + x_1* ... *x_s)^e_i) = Sum_{k=0..n} (s*k)!/k!^s * binomial(t*k,n-k). For s=3, t=4, (e_1,e_2,e_3)=(2,1,1), and (x_1,x_2,x_3)=(x,y,z), this gives a(n) = [x^n*y^n*z^n] 1/(1 - (1 + x*y*z)*(x*(1 + x*y*z) + y + z)).
 R = diagonal_rational(3, 4, [2, 1, 1], [x, y, z]);
 diag(16, R, [x, y, z])
