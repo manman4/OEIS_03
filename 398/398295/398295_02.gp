@@ -68,12 +68,13 @@ diagonal_rational(s, t, e, vars) = {
 
 \\ Diagonal of rational function 1/(1 - (1 + x*y*z*w)*(x + y + z + w)).
 R = 1/(1 - (1 + x*y*z*w)*(x + y + z + w));
-diag(15, R, [x, y, z, w]) 
+diag(12, R, [x, y, z, w]) 
 
 \\ For integers s >= 1, t >= 0 and e_1, ... ,e_s >= 0 with e_1 + ... + e_s = t, [x_1^n*  ... *x_s^n] 1/(1 - Sum_{i=1..s} x_i * (1 + x_1* ... *x_s)^e_i) = Sum_{k=0..n} (s*k)!/k!^s * binomial(t*k,n-k). For s=4, t=4, (e_1,e_2,e_3,e_4)=(1,1,1,1), and (x_1,x_2,x_3,x_4)=(x,y,z,w), this gives a(n) = [x^n*y^n*z^n*w^n] 1/(1 - (1 + x*y*z*w)*(x + y + z + w)).
+if((1 + x*y*z*w)*(x + y + z + w) - (x * (1 + x*y*z*w)^1 + y * (1 + x*y*z*w)^1 + z * (1 + x*y*z*w)^1 + w * (1 + x*y*z*w)^1) == 0, "ok", "error")
 R = diagonal_rational(4, 4, [1, 1, 1, 1], [x, y, z, w]);
-diag(16, R, [x, y, z, w])
+diag(12, R, [x, y, z, w])
 
 R = diagonal_rational(4, 4, [2, 1, 1, 0], [x, y, z, w]);
-diag(16, R, [x, y, z, w])
+diag(12, R, [x, y, z, w])
 
