@@ -6,9 +6,9 @@
 \\ =
 \\ Sum_{k=0..n} (s*k)!/(k!)^s * binomial(t*k,n-k).
 
-\\ The choice s=t=3 and e_1=e_2=e_3=1 gives
-\\ 1/(1-(1+x*y*z)*(x+y+z)), the rational function appearing
-\\ in the name of this sequence.
+\\ For s=t=3 and e_1=e_2=e_3=1, this gives
+\\ a(n) = [x^n*y^n*z^n]
+\\       1/(1-(1+x*y*z)*(x+y+z)).
 
 \\ Proof: Writing X=x_1*...*x_s and
 \\ A=Sum_{i=1..s} x_i*(1+X)^e_i,
