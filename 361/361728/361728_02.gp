@@ -1,3 +1,11 @@
+\\ For integers s>=1, t>=0 and e_1,...,e_s>=0 with
+\\ e_1+...+e_s=t,
+
+\\ [x_1^n*...*x_s^n]
+\\ 1/(1 - Sum_{i=1..s} x_i*(1+x_1*...*x_s)^e_i)
+\\ =
+\\ Sum_{k=0..n} (s*k)!/(k!)^s * binomial(t*k,n-k).
+
 \\ Proof: Writing X=x_1*...*x_s and
 \\ A=Sum_{i=1..s} x_i*(1+X)^e_i,
 \\ the expansion 1/(1-A)=Sum_{m>=0} A^m is used. A term of
