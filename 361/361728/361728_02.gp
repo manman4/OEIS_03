@@ -71,5 +71,10 @@ diagonal_rational(s, t, e, vars) = {
 
 \\ s=3, t=3, e_1=e_2=e_3=1
 R = diagonal_rational(3, 3, [1, 1, 1], [x, y, z]);
+diag(16, R, [x, y, z])
 
+R = diagonal_rational(3, 3, [2, 1, 0], [x, y, z]);
+diag(16, R, [x, y, z])
+
+R = diagonal_rational(3, 3, [3, 0, 0], [x, y, z]);
 diag(16, R, [x, y, z])
