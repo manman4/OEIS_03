@@ -56,5 +56,13 @@ diag(n, expr, var) = {
   return(a);
 };
 
-R = 1/(1 - (1 + x*y*z) * (x + y + z)); 
-diag(16, R, [x, y, z]) 
+s0 = 3;
+t0 = 3;
+e0 = [1, 1, 1];
+vars0 = [x, y, z];
+X0 = prod(i=1, s0, vars0[i]);
+
+if (sum(i=1, s0, e0[i]) != t0, error("The sum of the exponents must be t"));
+R = 1/(1 - sum(i=1, s0, vars0[i]*(1+X0)^e0[i]));
+
+diag(16, R, vars0)
