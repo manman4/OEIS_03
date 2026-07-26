@@ -66,12 +66,12 @@ diagonal_rational(s, t, e, vars) = {
   ))
 };
 
-\\ Diagonal of rational function 1/(1 - (x + y + z + x^2*y*z)).
-R = 1/(1 - (x + y + z + x^2*y*z));
-diag(12, R, [x, y, z]) 
-
 \\ For integers t >= 0 and 0 <= e <= t, [x^n*y^n] 1/(1 - x*(1+x*y)^e - y*(1+x*y)^(t-e)) = Sum_{k=0..n} binomial(2*k,k) * binomial(t*k,n-k).
-if((x + y + z + x^2*y*z) - (x * (1 + x*y*z)^1 + y * (1 + x*y*z)^0 + z * (1 + x*y*z)^0) == 0, "ok", "error")
-R = diagonal_rational(3, 1, [1, 0, 0], [x, y, z]);
-diag(16, R, [x, y, z])
+R = diagonal_rational(2, 5, [5, 0], [x, y]);
+diag(16, R, [x, y])
 
+R = diagonal_rational(2, 5, [4, 1], [x, y]);
+diag(16, R, [x, y])
+
+R = diagonal_rational(2, 5, [3, 2], [x, y]);
+diag(16, R, [x, y])
