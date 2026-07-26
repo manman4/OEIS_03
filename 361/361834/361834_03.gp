@@ -24,11 +24,10 @@ diagonal_rational(s, t, e, vars) = {
 };
 
 \\ For integers t >= 0 and 0 <= e <= t, [x^n*y^n] 1/(1 - x*(1-x*y)^e - y*(1-x*y)^(t-e)) = Sum_{k=0..n} (-1)^(n-k) * binomial(2*k,k) * binomial(t*k,n-k). 
-R = diagonal_rational(2, 3, [3, 0], [x, y]);
-diag(16, R, [x, y])[3+1]
+\\ For integers k >= 0 and 0 <= e <= k, [x^n*y^n] 1/(1 - x*(1-x*y)^e - y*(1-x*y)^(k-e)) = Sum_{j=0..n} (-1)^(n-j) * binomial(2*j,j) * binomial(k*j,n-j). 
+T(n,k) = {
+  R = diagonal_rational(2, k, [k, 0], [x, y]);
+  return(diag(16, R, [x, y])[n+1]);
+};
 
-R = diagonal_rational(2, 4, [4, 0], [x, y]);
-diag(16, R, [x, y])[4+1]
-
-R = diagonal_rational(2, 5, [5, 0], [x, y]);
-diag(16, R, [x, y])[5+1]
+for(n=0, 8, for(k=0, n, print1(T(k,n-k),", ")));
