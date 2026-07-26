@@ -29,7 +29,8 @@ str = "
 # a(n) が 24 で割り切れるか確認する。
 ary = str.split("\n").reject(&:empty?).map{|line| line.split.map(&:to_i)}
 ary.each{|n, a|
-  puts "a(%d) mod 24 = %d %s" % [n, a % 24, a % 24 == 0 ? 'OK' : 'NG']}
+  puts "a(%d) mod 24 = %d %s" % [n, a % 24, a % 24 == 0 ? 'OK' : 'NG']
+}
 puts "all divisible by 24: #{ary.all?{|_, a| a % 24 == 0}}"
 
 # 0 を除く全項の最大公約数（24 が定数因子として最大かどうか）。
