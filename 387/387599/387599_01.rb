@@ -88,18 +88,18 @@ def count_paths_upto(max_n, s, r)
   # x-increment.  When a step has dx = 0, increasing y-order ensures that
   # its contribution is processed later in the same row.
   max_dx = [steps.map(&:first).max, max_n].min
-  rows = Array.new(max_dx + 1) { Array.new(max_n + 1, 0) }
+  rows = Array.new(max_dx + 1){Array.new(max_n + 1, 0)}
   rows[0][0] = 1
   answers = Array.new(max_n + 1, 0)
 
-  0.upto(max_n) { |x|
+  0.upto(max_n){|x|
     row = rows[x % rows.length]
 
-    0.upto(max_n) { |y|
+    0.upto(max_n){|y|
       count = row[y]
       next if count.zero?
 
-      steps.each { |dx, dy|
+      steps.each{|dx, dy|
         next_x = x + dx
         next_y = y + dy
         next if next_x > max_n || next_y > max_n
@@ -124,13 +124,13 @@ def verify_r_agreement(s, max_n = 20)
   raise ArgumentError, "max_n must be nonnegative" if max_n.negative?
 
   r_values = 0.upto(s / 2).to_a
-  sequences = r_values.map { |r| count_paths_upto(max_n, s, r) }
+  sequences = r_values.map{|r| count_paths_upto(max_n, s, r)}
 
-  0.upto(max_n) { |n|
+  0.upto(max_n){|n|
     counts = sequences.map { |sequence| sequence[n] }
     next if counts.uniq.length == 1
 
-    details = r_values.zip(counts).map { |r, count| "r=#{r}: #{count}" }.join(", ")
+    details = r_values.zip(counts).map{|r, count| "r=#{r}: #{count}" }.join(", ")
     raise "path counts differ at s=#{s}, n=#{n} (#{details})"
   }
 
@@ -168,7 +168,7 @@ if __FILE__ == $PROGRAM_NAME
     exit
   end
 
-  usage! if ARGV.length != 3 || ARGV.any? { |arg| %w[-h --help].include?(arg) }
+  usage! if ARGV.length != 3 || ARGV.any?{|arg| %w[-h --help].include?(arg)}
 
   begin
     n = Integer(ARGV[0], 10)
