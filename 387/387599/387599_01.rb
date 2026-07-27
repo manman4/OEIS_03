@@ -65,7 +65,7 @@ def usage!
   warn "  s: nonnegative integer"
   warn "  r: integer satisfying 0 <= r < (s+1)/2"
   warn "  upto: print a(0),a(1),...,a(N)"
-  warn "  --verify: compare all valid r for n=0..max_n (default: 20)"
+  warn "  --verify: compare all valid r for n=0..max_n (default: 40)"
   exit 1
 end
 
@@ -119,7 +119,7 @@ def count_paths(n, s, r)
   count_paths_upto(n, s, r)[n]
 end
 
-def verify_r_agreement(s, max_n = 20)
+def verify_r_agreement(s, max_n = 40)
   raise ArgumentError, "s must be nonnegative" if s.negative?
   raise ArgumentError, "max_n must be nonnegative" if max_n.negative?
 
@@ -157,7 +157,7 @@ if __FILE__ == $PROGRAM_NAME
 
     begin
       s = Integer(ARGV[1], 10)
-      max_n = Integer(ARGV[2] || "20", 10)
+      max_n = Integer(ARGV[2] || "40", 10)
       verify_r_agreement(s, max_n)
     rescue ArgumentError => error
       abort error.message
