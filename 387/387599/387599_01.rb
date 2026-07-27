@@ -46,21 +46,25 @@
 #
 # Usage:
 #   ruby 387599_01.rb n s r
+#   ruby 387599_01.rb upto N s r
 #   ruby 387599_01.rb --verify s [max_n]
 #
 # Examples:
 #   ruby 387599_01.rb 5 4 0
 #   ruby 387599_01.rb 20 4 2
+#   ruby 387599_01.rb upto 20 4 1
 #   ruby 387599_01.rb --verify 4
 
 def usage!
   program = File.basename($PROGRAM_NAME)
   warn "Usage:"
   warn "  ruby #{program} n s r"
+  warn "  ruby #{program} upto N s r"
   warn "  ruby #{program} --verify s [max_n]"
-  warn "  n: nonnegative integer"
+  warn "  n, N: nonnegative integer"
   warn "  s: nonnegative integer"
   warn "  r: integer satisfying 0 <= r < (s+1)/2"
+  warn "  upto: print a(0),a(1),...,a(N)"
   warn "  --verify: compare all valid r for n=0..max_n (default: 20)"
   exit 1
 end
@@ -69,8 +73,8 @@ def valid_r?(s, r)
   r >= 0 && 2 * r < s + 1
 end
 
-def count_paths(n, s, r)
-  raise ArgumentError, "n must be nonnegative" if n.negative?
+def count_paths_upto(max_n, s, r)
+  raise ArgumentError, "N must be nonnegative" if max_n.negative?
   raise ArgumentError, "s must be nonnegative" if s.negative?
   raise ArgumentError, "r must satisfy 0 <= r < (s+1)/2" unless valid_r?(s, r)
 
@@ -83,32 +87,36 @@ def count_paths(n, s, r)
   # The rolling buffer has one more row than the largest relevant
   # x-increment.  When a step has dx = 0, increasing y-order ensures that
   # its contribution is processed later in the same row.
-  max_dx = [steps.map(&:first).max, n].min
-  rows = Array.new(max_dx + 1) { Array.new(n + 1, 0) }
+  max_dx = [steps.map(&:first).max, max_n].min
+  rows = Array.new(max_dx + 1) { Array.new(max_n + 1, 0) }
   rows[0][0] = 1
-  answer = 0
+  answers = Array.new(max_n + 1, 0)
 
-  0.upto(n) { |x|
+  0.upto(max_n) { |x|
     row = rows[x % rows.length]
 
-    0.upto(n) { |y|
+    0.upto(max_n) { |y|
       count = row[y]
       next if count.zero?
 
       steps.each { |dx, dy|
         next_x = x + dx
         next_y = y + dy
-        next if next_x > n || next_y > n
+        next if next_x > max_n || next_y > max_n
 
         rows[next_x % rows.length][next_y] += count
       }
     }
 
-    answer = row[n] if x == n
+    answers[x] = row[x]
     row.fill(0)
   }
 
-  answer
+  answers
+end
+
+def count_paths(n, s, r)
+  count_paths_upto(n, s, r)[n]
 end
 
 def verify_r_agreement(s, max_n = 20)
@@ -116,9 +124,10 @@ def verify_r_agreement(s, max_n = 20)
   raise ArgumentError, "max_n must be nonnegative" if max_n.negative?
 
   r_values = 0.upto(s / 2).to_a
+  sequences = r_values.map { |r| count_paths_upto(max_n, s, r) }
 
   0.upto(max_n) { |n|
-    counts = r_values.map { |r| count_paths(n, s, r) }
+    counts = sequences.map { |sequence| sequence[n] }
     next if counts.uniq.length == 1
 
     details = r_values.zip(counts).map { |r, count| "r=#{r}: #{count}" }.join(", ")
@@ -129,6 +138,20 @@ def verify_r_agreement(s, max_n = 20)
 end
 
 if __FILE__ == $PROGRAM_NAME
+  if %w[upto --upto].include?(ARGV.first)
+    usage! unless ARGV.length == 4
+
+    begin
+      max_n = Integer(ARGV[1], 10)
+      s = Integer(ARGV[2], 10)
+      r = Integer(ARGV[3], 10)
+      puts count_paths_upto(max_n, s, r).join(", ")
+    rescue ArgumentError => error
+      abort error.message
+    end
+    exit
+  end
+
   if ARGV.first == "--verify"
     usage! unless ARGV.length.between?(2, 3)
 
