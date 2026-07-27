@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# A387599 is the case s = 4 of the general family below.
+# A393251 is the case s = 5 of the general family below.
 #
 # Count lattice paths from (0, 0) to (n, n) using the three steps
 #
