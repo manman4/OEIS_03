@@ -127,7 +127,7 @@ def verify_r_agreement(s, max_n = 20)
   sequences = r_values.map{|r| count_paths_upto(max_n, s, r)}
 
   0.upto(max_n){|n|
-    counts = sequences.map { |sequence| sequence[n] }
+    counts = sequences.map{|sequence| sequence[n]}
     next if counts.uniq.length == 1
 
     details = r_values.zip(counts).map{|r, count| "r=#{r}: #{count}" }.join(", ")
