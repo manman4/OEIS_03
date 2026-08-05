@@ -7,6 +7,44 @@
 #
 #   |p(i+1) - p(i)| != k for every 1 <= i < n.
 #
+# Partial closed formula and proof (documentation only):
+#
+# If k < n <= 2*k, then
+#
+#   A(n,k) = sum(j=0..n-k,
+#                (-2)^j * binomial(n-k,j) * (n-j)!).
+#
+# Indeed, every adjacent pair whose absolute difference is k is uniquely
+# one of
+#
+#   {1,1+k}, {2,2+k}, ..., {n-k,n}.
+#
+# There are n-k such forbidden pairs.  The assumption n<=2*k gives
+# n-k<=k, so their lower endpoints 1,...,n-k and upper endpoints
+# k+1,...,n are disjoint.  Hence all forbidden pairs are vertex-disjoint:
+# they form a matching.
+#
+# For 1<=x<=n-k, let E_x be the event that x and x+k are adjacent in a
+# permutation.  Choose any j of these events.  Because the corresponding
+# pairs are disjoint, contract each chosen pair to one block.  Every block
+# has two possible internal orders, giving 2^j orientations.  The j blocks
+# together with the n-2*j remaining singleton values give n-j objects, so
+#
+#   |intersection of the chosen j events| = 2^j * (n-j)!.
+#
+# There are binomial(n-k,j) choices of the j events.  Inclusion-exclusion
+# therefore gives
+#
+#   A(n,k)
+#     = sum(j=0..n-k,
+#           (-1)^j * binomial(n-k,j) * 2^j * (n-j)!)
+#     = sum(j=0..n-k,
+#           (-2)^j * binomial(n-k,j) * (n-j)!).
+#
+# The condition n<=2*k is essential for this short proof.  If n>2*k,
+# pairs such as {1,1+k} and {1+k,1+2*k} share a value and form chains, so
+# the selected constraints are no longer independent two-element blocks.
+#
 # This is deliberately a naive implementation of the definition.  It
 # enumerates every permutation and tests every adjacent pair; it does not
 # use inclusion-exclusion, a recurrence, or any closed formula.
