@@ -88,11 +88,17 @@ __extension__ typedef unsigned __int128 uint128_t;
 #define DEFAULT_MEMORY_MIB UINT64_C(1024)
 #define MIN_MEMORY_MIB UINT64_C(16)
 #define INITIAL_CAPACITY ((size_t)16)
-#define LOAD_NUMERATOR ((size_t)3)
-#define LOAD_DENOMINATOR ((size_t)4)
+/* A322308 has a very sharp n=29 middle layer.  A 3/4 threshold rounds a
+ * roughly 10^8-state layer from 2^27 to 2^28 slots, adding 2 GiB per table.
+ * The mixed-key linear-probing table remains correct at any load below one;
+ * 15/16 avoids that capacity cliff.  Actual measured central loads are lower
+ * because capacities are still powers of two. */
+#define LOAD_NUMERATOR ((size_t)15)
+#define LOAD_DENOMINATOR ((size_t)16)
 #define ENDPOINT_BITS 6U
 #define ENDPOINT_MASK UINT64_C(63)
 #define STATE_SHIFT (4U * ENDPOINT_BITS)
+#define LOOKAHEAD_DEPTH 4
 
 _Static_assert(MAX_SUPPORTED_N + STATE_SHIFT < 64,
                "packed state key must fit in uint64_t");
@@ -146,6 +152,7 @@ typedef struct {
 
 typedef struct {
     uint64_t transitions;
+    uint64_t pruned_states;
     size_t peak_states;
     size_t peak_bytes;
     double seconds;
@@ -644,6 +651,66 @@ static uint64_t canonical_state(uint64_t used, unsigned a, unsigned b,
     return original < complemented ? original : complemented;
 }
 
+/*
+ * A full completion supplies an extension of every shorter depth.  Hence a
+ * state with no extension of LOOKAHEAD_DEPTH (or all remaining positions,
+ * if fewer) can be discarded without changing the answer.  This tests only
+ * existence and does not enter the coefficient arithmetic.  Value reflection
+ * preserves the test, so checking the stored orbit representative suffices.
+ */
+static bool has_extension(uint64_t remaining, unsigned a, unsigned b,
+                          unsigned c, unsigned d, const uint64_t *bad,
+                          int depth)
+{
+    if (depth == 0) return true;
+    uint64_t candidates = remaining &
+        ~(bad[a] | bad[b] | bad[c] | bad[d]);
+    while (candidates != 0U) {
+        uint64_t bit = candidates & (UINT64_C(0) - candidates);
+        candidates ^= bit;
+#if defined(__GNUC__) || defined(__clang__)
+        unsigned e = (unsigned)__builtin_ctzll(bit);
+#else
+        unsigned e = 0;
+        while ((bit >> e) != UINT64_C(1)) ++e;
+#endif
+        if (has_extension(remaining ^ bit, b, c, d, e, bad, depth - 1))
+            return true;
+    }
+    return false;
+}
+
+static void prune_dead_states(StateMap *map, uint64_t full,
+                              const uint64_t *bad, DpStats *stats)
+{
+    for (size_t index = 0; index < map->capacity; ++index) {
+        StateSlot *slot = &map->slots[index];
+        if (slot->key_plus_one == 0U) continue;
+        uint64_t used;
+        unsigned a, b, c, d;
+        unpack_state(slot->key_plus_one - UINT64_C(1),
+                     &used, &a, &b, &c, &d);
+        uint64_t remaining = full & ~used;
+#if defined(__GNUC__) || defined(__clang__)
+        int remaining_count = __builtin_popcountll(remaining);
+#else
+        int remaining_count = 0;
+        for (uint64_t bits = remaining; bits != 0U; bits &= bits - 1U)
+            ++remaining_count;
+#endif
+        int depth = remaining_count < LOOKAHEAD_DEPTH
+                  ? remaining_count : LOOKAHEAD_DEPTH;
+        if (!has_extension(remaining, a, b, c, d, bad, depth)) {
+            slot->key_plus_one = 0U;
+            slot->count_low = 0U;
+            --map->size;
+            if (stats->pruned_states == UINT64_MAX)
+                die("pruned-state counter overflow");
+            ++stats->pruned_states;
+        }
+    }
+}
+
 static void update_stats(DpStats *stats, const StateMap *map,
                          const MemoryBudget *budget)
 {
@@ -710,6 +777,7 @@ static Count128 compute_dp(int n, bool use_symmetry,
             }
         }
     }
+    prune_dead_states(&current, full, bad, stats);
     update_stats(stats, &current, &budget);
     size_t previous_layer_size = 0U;
 
@@ -785,6 +853,7 @@ static Count128 compute_dp(int n, bool use_symmetry,
         StateMap temporary = current;
         current = next;
         next = temporary;
+        prune_dead_states(&current, full, bad, stats);
         if (getenv("A322308_LAYER_STATS") != NULL)
             fprintf(stderr, "         result states=%zu cap=%zu\n",
                     current.size, current.capacity);
@@ -892,10 +961,11 @@ static Count128 compute_value(int n, bool use_symmetry,
     if (verbose) {
         fprintf(stderr,
                 "322308_01: n=%d, %s, peak states=%zu, "
-                "transitions=%" PRIu64 ", peak table memory=%.1f MiB, "
+                "transitions=%" PRIu64 ", pruned=%" PRIu64
+                ", peak table memory=%.1f MiB, "
                 "%.3f s\n",
                 n, use_symmetry ? "complement-quotient DP" : "plain DP",
-                stats.peak_states, stats.transitions,
+                stats.peak_states, stats.transitions, stats.pruned_states,
                 (double)stats.peak_bytes / 1048576.0, stats.seconds);
     }
     return value;
