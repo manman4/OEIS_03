@@ -79,7 +79,7 @@ __extension__ typedef unsigned __int128 uint128_t;
 #define LOAD_DEN ((size_t)8)
 #define VALUE_BITS 6U
 #define VALUE_MASK UINT64_C(63)
-#define LOOKAHEAD_DEPTH 4
+#define LOOKAHEAD_MULTIPLIER 2
 
 static const char *const known[KNOWN_MAX_D + 1] = {
     NULL, "1", "7", "20", "37", "64", "109"
@@ -369,15 +369,25 @@ static bool has_extension(uint64_t remaining, uint64_t frontier, int width,
     return false;
 }
 
-static void prune(Map *m, uint64_t full, int width, const uint64_t *bad,
-                  Stats *stats)
+static void prune(Map *m, uint64_t full, int width, int index,
+                  const uint64_t *bad, Stats *stats)
 {
     for (size_t i=0;i<m->capacity;++i) {
         Slot *s=&m->slots[i]; if (!s->used) continue;
         uint64_t rem=full & ~s->used;
         int left=__builtin_popcountll(rem);
-        int depth=left<LOOKAHEAD_DEPTH?left:LOOKAHEAD_DEPTH;
+        /* Here N=index^2+1 is only just large enough to hold index widely
+         * separated values in every window.  Consequently the branching
+         * factor after a window has formed is small.  Looking through two
+         * complete window lengths discards many globally impossible prefixes
+         * before they consume a hash-table slot in the following layer. */
+        int horizon=LOOKAHEAD_MULTIPLIER*index;
+        int depth=left<horizon?left:horizon;
         if (!has_extension(rem,s->frontier,width,bad,depth)) {
+            /* Clearing a slot would normally break a linear-probing search
+             * chain.  A pruned map is never searched by key again: it is
+             * only scanned sequentially as the current layer, and is fully
+             * cleared or destroyed before it is reused as the next layer. */
             s->used=0; s->frontier=s->low=s->high=0; --m->size;
             if (stats->pruned==UINT64_MAX) die("prune counter overflow");
             ++stats->pruned;
@@ -429,7 +439,7 @@ static Count compute_oriented(int d, bool symmetry, uint64_t memory_mib,
     Map current,next; map_init(&current,&budget); map_init(&next,&budget);
     InitContext init={&current,bad,total,width,symmetry};
     initialize_rec(&init,0,0,0);
-    prune(&current,full,width,bad,stats); update_stats(stats,&current,&budget);
+    prune(&current,full,width,d,bad,stats); update_stats(stats,&current,&budget);
     size_t previous=0;
     for (int length=width; length<total && current.size; ++length) {
         size_t predicted=current.size;
@@ -458,7 +468,7 @@ static Count compute_oriented(int d, bool symmetry, uint64_t memory_mib,
             }
         }
         Map tmp=current; current=next; next=tmp;
-        prune(&current,full,width,bad,stats); update_stats(stats,&current,&budget);
+        prune(&current,full,width,d,bad,stats); update_stats(stats,&current,&budget);
     }
     Count result=count_u64(0);
     for (size_t i=0;i<current.capacity;++i) if (current.slots[i].used) {
