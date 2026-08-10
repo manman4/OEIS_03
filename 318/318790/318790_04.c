@@ -21,6 +21,33 @@
  * impossible.  Rejecting exactly this necessary-condition failure is safe;
  * the test is not a heuristic and never removes a valid permutation.
  *
+ * Cooldown-capacity lemma (full proof).
+ * Let R be the number of unfilled positions and let q be the number of
+ * unused members of C_v.  Any two members of C_v differ in value by at most
+ * d-1, so their positions in a valid permutation differ by at least d.
+ * Moreover, the current frontier consists of at most d-1 consecutive
+ * positions; hence it contains at most one member of C_v.  If it contains
+ * none, number future positions 1,...,R and put first=1.  If its member is
+ * at age a (newest age 0), a future occurrence at position t must satisfy
+ * t+a>=d, so put first=d-a.  For the future occurrence positions
+ * t_1<...<t_q we therefore have
+ *
+ *       t_1 >= first,                 t_{i+1} >= t_i+d,
+ *
+ * and induction gives t_q>=first+d*(q-1).  Thus
+ * first+d*(q-1)>R proves that no completion exists.  Testing every interval
+ * C_v is sufficient for this pruning rule because these are precisely the
+ * maximal cliques of the graph whose edges join values at distance <d.
+ * The converse is not claimed: passing every capacity test is necessary,
+ * but not sufficient, for completion.
+ *
+ * Implementation correspondence.  capacity_possible() sets
+ * R=total-length, computes q by popcount(C_v & ~used), scans the frontier
+ * from newest to oldest to obtain a, and tests exactly
+ * first+d*(q-1)<=R.  search() calls it immediately after tentatively adding
+ * a value and before recursing.  Therefore a rejected node is never counted,
+ * while every valid completion necessarily survives this test.
+ *
  * Value complementation c(x)=N-1-x is a fixed-point-free involution on full
  * permutations and preserves all constraints.  The search retains exactly
  * the lexicographically smaller of p and c(p).  Therefore its number of
