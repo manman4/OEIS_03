@@ -20,11 +20,11 @@
  * Subsets are visited in Gray-code order.  Only one position changes at a
  * time, so every E_k is updated by a popcount against a precomputed mask.
  * Independent Gray-code intervals are evaluated by pthread workers.  The
- * alternating sums use 256-bit accumulators; each individual product fits
- * unsigned __int128 for n<=14.
+ * products and alternating sums use checked 256-bit accumulators.
  *
- * Compared with _01 this uses O(n^2 + threads) memory rather than hundreds
- * of MiB, while still computing through n=14 in a practical amount of time.
+ * Compared with _01 this uses O(n^2 + threads) memory rather than a large
+ * subset table.  The 2^(2*n) running time is substantial at n=18, but the
+ * calculation remains memory-safe and parallelizable.
  *
  * Build:
  *   clang -O3 -std=c11 -Wall -Wextra -Wpedantic -pthread \
@@ -34,6 +34,8 @@
  *   ./322179_02 14
  *   ./322179_02 --term 14 --threads 8
  *   ./322179_02 --check --threads 8
+ * Completed terms are atomically recorded in b322179_02.txt by default.
+ * Use --output FILE to select another b-file or --no-bfile to disable it.
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -45,6 +47,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -54,10 +57,13 @@
 
 __extension__ typedef unsigned __int128 U128;
 
-#define MAX_N 14
+#define MAX_N 18
 #define MAX_POSITIONS (2 * MAX_N)
 #define MAX_THREADS 64
 #define DEFAULT_N 9
+
+static const char *output_path = "b322179_02.txt";
+static bool write_bfile = true;
 
 typedef struct {
     uint64_t limb[4];
@@ -68,7 +74,7 @@ typedef struct {
     unsigned positions;
     uint64_t begin;
     uint64_t end;
-    const uint32_t (*far_mask)[MAX_N + 1];
+    const uint64_t (*far_mask)[MAX_N + 1];
     U256 positive;
     U256 negative;
     int failed;
@@ -77,7 +83,10 @@ typedef struct {
 
 static const char *const known[] = {
     "1", "0", "0", "2", "40", "1070", "38936", "1896220",
-    "119912476", "9587033840"
+    "119912476", "9587033840", "946858118960",
+    "113306859860824", "16161535729743216",
+    "2709775402648307208", "527750051727868912592",
+    "118165073636280852175296", "30144089315619479375954448"
 };
 
 static void die(const char *message)
@@ -138,15 +147,15 @@ static bool add_u256(U256 *destination, U256 addend)
     return carry == 0;
 }
 
-static bool add_u128_to_u256(U256 *destination, U128 addend)
+static bool multiply_u256_small(U256 *value, unsigned factor)
 {
-    U256 value = {{
-        (uint64_t)addend,
-        (uint64_t)(addend >> 64),
-        0,
-        0
-    }};
-    return add_u256(destination, value);
+    uint64_t carry = 0;
+    for (unsigned i = 0; i < 4; ++i) {
+        const U128 product = (U128)value->limb[i] * factor + carry;
+        value->limb[i] = (uint64_t)product;
+        carry = (uint64_t)(product >> 64);
+    }
+    return carry == 0;
 }
 
 static int compare_u256(U256 left, U256 right)
@@ -235,6 +244,115 @@ static bool parse_u256(const char *text, U256 *result)
     return true;
 }
 
+static void store_bfile_term(int n, U256 value)
+{
+    U256 values[MAX_N + 1];
+    int count = 0;
+    mode_t output_mode = 0644;
+    struct stat metadata;
+    if (stat(output_path, &metadata) == 0) {
+        output_mode = metadata.st_mode & 0777;
+    } else if (errno != ENOENT) {
+        die("cannot inspect b-file");
+    }
+
+    FILE *input = fopen(output_path, "r");
+    if (input == NULL && errno != ENOENT) {
+        die("cannot open existing b-file");
+    }
+    if (input != NULL) {
+        char line[128];
+        while (fgets(line, sizeof(line), input) != NULL) {
+            int index;
+            char number[80];
+            char extra;
+            if (count > MAX_N ||
+                sscanf(line, "%d %79s %c", &index, number, &extra) != 2 ||
+                index != count || !parse_u256(number, &values[count])) {
+                fclose(input);
+                die("existing b-file is malformed or nonconsecutive");
+            }
+            ++count;
+        }
+        if (ferror(input) || fclose(input) != 0) {
+            die("cannot read existing b-file");
+        }
+    }
+
+    if (n < count) {
+        if (compare_u256(values[n], value) != 0) {
+            die("computed term disagrees with existing b-file");
+        }
+        return;
+    }
+    if (n != count) {
+        die("b-file has a gap; compute the missing earlier terms first");
+    }
+    values[count++] = value;
+
+    const char suffix[] = ".tmp.XXXXXX";
+    const size_t path_length = strlen(output_path);
+    if (path_length > SIZE_MAX - sizeof(suffix)) {
+        die("b-file path is too long");
+    }
+    char *temporary = malloc(path_length + sizeof(suffix));
+    if (temporary == NULL) {
+        die("cannot allocate b-file temporary path");
+    }
+    memcpy(temporary, output_path, path_length);
+    memcpy(temporary + path_length, suffix, sizeof(suffix));
+
+    const int fd = mkstemp(temporary);
+    if (fd < 0) {
+        free(temporary);
+        die("cannot create temporary b-file");
+    }
+    if (fchmod(fd, output_mode) != 0) {
+        close(fd);
+        unlink(temporary);
+        free(temporary);
+        die("cannot set temporary b-file permissions");
+    }
+    FILE *output = fdopen(fd, "w");
+    if (output == NULL) {
+        close(fd);
+        unlink(temporary);
+        free(temporary);
+        die("cannot open temporary b-file stream");
+    }
+    bool failed = false;
+    for (int index = 0; index < count; ++index) {
+        if (fprintf(output, "%d ", index) < 0 ||
+            print_u256(output, values[index]) != 0 ||
+            fputc('\n', output) == EOF) {
+            failed = true;
+            break;
+        }
+    }
+    if (!failed && fflush(output) != 0) {
+        failed = true;
+    }
+    if (!failed && fsync(fd) != 0) {
+        failed = true;
+    }
+    if (fclose(output) != 0) {
+        failed = true;
+    }
+    if (failed) {
+        unlink(temporary);
+        free(temporary);
+        die("cannot write temporary b-file");
+    }
+    if (rename(temporary, output_path) != 0) {
+        unlink(temporary);
+        free(temporary);
+        die("cannot atomically replace b-file");
+    }
+    free(temporary);
+    fprintf(stderr, "322179_02: updated %s through n=%d\n",
+            output_path, n);
+}
+
 static uint64_t gray_code(uint64_t index)
 {
     return index ^ (index >> 1);
@@ -255,20 +373,20 @@ static void compute_edges(const Worker *worker, uint64_t subset,
     }
 }
 
-static U128 edge_product(const Worker *worker,
+static U256 edge_product(const Worker *worker,
                          const uint16_t edges[MAX_N + 1], bool *ok)
 {
-    const U128 maximum = ~(U128)0;
-    U128 product = 1;
+    U256 product = {{1, 0, 0, 0}};
     for (int k = 1; k <= worker->n; ++k) {
         if (edges[k] == 0) {
-            return 0;
+            U256 zero = {{0, 0, 0, 0}};
+            return zero;
         }
-        if (product > maximum / edges[k]) {
+        if (!multiply_u256_small(&product, edges[k])) {
             *ok = false;
-            return 0;
+            U256 zero = {{0, 0, 0, 0}};
+            return zero;
         }
-        product *= edges[k];
     }
     return product;
 }
@@ -299,7 +417,7 @@ static void *worker_main(void *argument)
 
     for (uint64_t index = worker->begin; index < worker->end; ++index) {
         bool ok = true;
-        const U128 term = edge_product(worker, edges, &ok);
+        const U256 term = edge_product(worker, edges, &ok);
         if (!ok) {
             worker->failed = 1;
             snprintf(worker->error, sizeof(worker->error),
@@ -307,7 +425,7 @@ static void *worker_main(void *argument)
             return NULL;
         }
         U256 *sum = (index & 1) ? &worker->negative : &worker->positive;
-        if (!add_u128_to_u256(sum, term)) {
+        if (!add_u256(sum, term)) {
             worker->failed = 1;
             snprintf(worker->error, sizeof(worker->error),
                      "inclusion-exclusion sum overflow");
@@ -344,16 +462,16 @@ static U256 a322179(int n, int requested_threads)
         thread_count = (int)subset_count;
     }
 
-    uint32_t far_mask[MAX_POSITIONS][MAX_N + 1];
+    uint64_t far_mask[MAX_POSITIONS][MAX_N + 1];
     memset(far_mask, 0, sizeof(far_mask));
     for (unsigned position = 0; position < positions; ++position) {
         for (int k = 1; k <= n; ++k) {
-            uint32_t mask = 0;
+            uint64_t mask = 0;
             for (unsigned other = 0; other < positions; ++other) {
                 const unsigned distance = position > other ?
                     position - other : other - position;
                 if (distance >= (unsigned)k + 1) {
-                    mask |= UINT32_C(1) << other;
+                    mask |= UINT64_C(1) << other;
                 }
             }
             far_mask[position][k] = mask;
@@ -444,9 +562,9 @@ static U256 evaluated(int n, int threads, bool verbose)
 static void usage(const char *program)
 {
     fprintf(stderr,
-            "usage: %s [MAX_N] [--threads T]\n"
-            "       %s --term N [--threads T]\n"
-            "       %s --check [--threads T]\n"
+            "usage: %s [MAX_N] [--threads T] [--output FILE]\n"
+            "       %s --term N [--threads T] [--output FILE]\n"
+            "       %s --check [--threads T] [--no-bfile]\n"
             "N must be in 0..%d; T must be in 1..%d.\n",
             program, program, program, MAX_N, MAX_THREADS);
 }
@@ -458,6 +576,7 @@ int main(int argc, char **argv)
     int threads = default_threads();
     bool have_mode = false;
     bool have_threads = false;
+    bool have_output_option = false;
 
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
@@ -471,6 +590,21 @@ int main(int argc, char **argv)
             }
             threads = parse_int(argv[i], "threads", 1, MAX_THREADS);
             have_threads = true;
+        } else if (!strcmp(argv[i], "--output")) {
+            if (have_output_option || ++i >= argc) {
+                usage(argv[0]);
+                return EXIT_FAILURE;
+            }
+            output_path = argv[i];
+            write_bfile = true;
+            have_output_option = true;
+        } else if (!strcmp(argv[i], "--no-bfile")) {
+            if (have_output_option) {
+                usage(argv[0]);
+                return EXIT_FAILURE;
+            }
+            write_bfile = false;
+            have_output_option = true;
         } else if (!strcmp(argv[i], "--term")) {
             if (have_mode || ++i >= argc) {
                 usage(argv[0]);
@@ -509,6 +643,9 @@ int main(int argc, char **argv)
     }
     if (mode == MODE_TERM) {
         const U256 value = evaluated(n, threads, true);
+        if (write_bfile) {
+            store_bfile_term(n, value);
+        }
         printf("%d ", n);
         print_u256(stdout, value);
         putchar('\n');
@@ -517,6 +654,9 @@ int main(int argc, char **argv)
 
     for (int k = 0; k <= n; ++k) {
         const U256 value = evaluated(k, threads, true);
+        if (write_bfile) {
+            store_bfile_term(k, value);
+        }
         printf("%d ", k);
         print_u256(stdout, value);
         putchar('\n');

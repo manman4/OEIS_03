@@ -37,8 +37,11 @@
  *   ./322179_01 10          # print n=0..10
  *   ./322179_01 --term 9    # print a(9)
  *   ./322179_01 --check     # verify the supplied terms
+ * Completed terms are atomically recorded in b322179_01.txt by default.
+ * Use --output FILE to select another b-file or --no-bfile to disable it.
  */
 
+#define _POSIX_C_SOURCE 200809L
 #include <errno.h>
 #include <inttypes.h>
 #include <limits.h>
@@ -47,6 +50,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #if !defined(__SIZEOF_INT128__)
 #error "322179_01.c requires unsigned __int128"
@@ -56,6 +61,9 @@ __extension__ typedef unsigned __int128 U128;
 
 #define MAX_N 14
 #define DEFAULT_N 9
+
+static const char *output_path = "b322179_01.txt";
+static bool write_bfile = true;
 
 typedef struct {
     void *values;
@@ -88,6 +96,14 @@ static int parse_n(const char *text)
     char *end = NULL;
     errno = 0;
     const long value = strtol(text, &end, 10);
+    if (errno == 0 && end != text && *end == '\0' &&
+        value > MAX_N && value <= 18) {
+        fprintf(stderr,
+                "error: the layered subset DP is limited to n<=%d; "
+                "use ./322179_02 --term %ld --threads T for n=%ld\n",
+                MAX_N, value, value);
+        exit(EXIT_FAILURE);
+    }
     if (errno != 0 || end == text || *end != '\0' ||
         value < 0 || value > MAX_N) {
         fprintf(stderr, "error: N must be in 0..%d: %s\n", MAX_N, text);
@@ -96,7 +112,7 @@ static int parse_n(const char *text)
     return (int)value;
 }
 
-static void print_u128(U128 value)
+static int print_u128(FILE *stream, U128 value)
 {
     char digits[40];
     size_t length = 0;
@@ -107,8 +123,11 @@ static void print_u128(U128 value)
     } while (value != 0);
 
     while (length != 0) {
-        putchar(digits[--length]);
+        if (fputc(digits[--length], stream) == EOF) {
+            return -1;
+        }
     }
+    return 0;
 }
 
 static bool parse_u128(const char *text, U128 *result)
@@ -131,6 +150,112 @@ static bool parse_u128(const char *text, U128 *result)
     }
     *result = value;
     return true;
+}
+
+static void store_bfile_term(int n, U128 value)
+{
+    U128 values[MAX_N + 1];
+    int count = 0;
+    mode_t output_mode = 0644;
+    struct stat metadata;
+    if (stat(output_path, &metadata) == 0) {
+        output_mode = metadata.st_mode & 0777;
+    } else if (errno != ENOENT) {
+        die("cannot inspect b-file");
+    }
+    FILE *input = fopen(output_path, "r");
+    if (input == NULL && errno != ENOENT) {
+        die("cannot open existing b-file");
+    }
+    if (input != NULL) {
+        char line[128];
+        while (fgets(line, sizeof(line), input) != NULL) {
+            int index;
+            char number[64];
+            char extra;
+            if (count > MAX_N ||
+                sscanf(line, "%d %63s %c", &index, number, &extra) != 2 ||
+                index != count || !parse_u128(number, &values[count])) {
+                fclose(input);
+                die("existing b-file is malformed or nonconsecutive");
+            }
+            ++count;
+        }
+        if (ferror(input) || fclose(input) != 0) {
+            die("cannot read existing b-file");
+        }
+    }
+    if (n < count) {
+        if (values[n] != value) {
+            die("computed term disagrees with existing b-file");
+        }
+        return;
+    }
+    if (n != count) {
+        die("b-file has a gap; compute the missing earlier terms first");
+    }
+    values[count++] = value;
+
+    const char suffix[] = ".tmp.XXXXXX";
+    const size_t path_length = strlen(output_path);
+    if (path_length > SIZE_MAX - sizeof(suffix)) {
+        die("b-file path is too long");
+    }
+    char *temporary = malloc(path_length + sizeof(suffix));
+    if (temporary == NULL) {
+        die("cannot allocate b-file temporary path");
+    }
+    memcpy(temporary, output_path, path_length);
+    memcpy(temporary + path_length, suffix, sizeof(suffix));
+    const int fd = mkstemp(temporary);
+    if (fd < 0) {
+        free(temporary);
+        die("cannot create temporary b-file");
+    }
+    if (fchmod(fd, output_mode) != 0) {
+        close(fd);
+        unlink(temporary);
+        free(temporary);
+        die("cannot set temporary b-file permissions");
+    }
+    FILE *output = fdopen(fd, "w");
+    if (output == NULL) {
+        close(fd);
+        unlink(temporary);
+        free(temporary);
+        die("cannot open temporary b-file stream");
+    }
+    bool failed = false;
+    for (int index = 0; index < count; ++index) {
+        if (fprintf(output, "%d ", index) < 0 ||
+            print_u128(output, values[index]) != 0 ||
+            fputc('\n', output) == EOF) {
+            failed = true;
+            break;
+        }
+    }
+    if (!failed && fflush(output) != 0) {
+        failed = true;
+    }
+    if (!failed && fsync(fd) != 0) {
+        failed = true;
+    }
+    if (fclose(output) != 0) {
+        failed = true;
+    }
+    if (failed) {
+        unlink(temporary);
+        free(temporary);
+        die("cannot write temporary b-file");
+    }
+    if (rename(temporary, output_path) != 0) {
+        unlink(temporary);
+        free(temporary);
+        die("cannot atomically replace b-file");
+    }
+    free(temporary);
+    fprintf(stderr, "322179_01: updated %s through n=%d\n",
+            output_path, n);
 }
 
 static bool add_u128(U128 *destination, U128 addend)
@@ -364,7 +489,7 @@ static void verify_known(int n, U128 value)
     }
     if (value != expected) {
         fprintf(stderr, "error: A322179 mismatch at n=%d: got ", n);
-        print_u128(value);
+        print_u128(stderr, value);
         fprintf(stderr, ", expected %s\n", known[n]);
         exit(EXIT_FAILURE);
     }
@@ -373,9 +498,9 @@ static void verify_known(int n, U128 value)
 static void usage(const char *program)
 {
     fprintf(stderr,
-            "usage: %s [MAX_N]\n"
-            "       %s --term N\n"
-            "       %s --check\n"
+            "usage: %s [MAX_N] [--output FILE]\n"
+            "       %s --term N [--output FILE]\n"
+            "       %s --check [--no-bfile]\n"
             "N must be in 0..%d.\n",
             program, program, program, MAX_N);
 }
@@ -388,21 +513,50 @@ int main(int argc, char **argv)
 
     initialize_binomial();
 
-    if (argc == 2 && (!strcmp(argv[1], "--help") ||
-                      !strcmp(argv[1], "-h"))) {
-        usage(argv[0]);
-        return EXIT_SUCCESS;
-    }
-    if (argc == 2 && !strcmp(argv[1], "--check")) {
-        check_mode = true;
-    } else if (argc == 3 && !strcmp(argv[1], "--term")) {
-        term_mode = true;
-        maximum = parse_n(argv[2]);
-    } else if (argc == 2) {
-        maximum = parse_n(argv[1]);
-    } else if (argc != 1) {
-        usage(argv[0]);
-        return EXIT_FAILURE;
+    bool have_mode = false;
+    bool have_output_option = false;
+    for (int i = 1; i < argc; ++i) {
+        if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
+            usage(argv[0]);
+            return EXIT_SUCCESS;
+        }
+        if (!strcmp(argv[i], "--output")) {
+            if (have_output_option || ++i >= argc) {
+                usage(argv[0]);
+                return EXIT_FAILURE;
+            }
+            output_path = argv[i];
+            write_bfile = true;
+            have_output_option = true;
+        } else if (!strcmp(argv[i], "--no-bfile")) {
+            if (have_output_option) {
+                usage(argv[0]);
+                return EXIT_FAILURE;
+            }
+            write_bfile = false;
+            have_output_option = true;
+        } else if (!strcmp(argv[i], "--check")) {
+            if (have_mode) {
+                usage(argv[0]);
+                return EXIT_FAILURE;
+            }
+            check_mode = true;
+            have_mode = true;
+        } else if (!strcmp(argv[i], "--term")) {
+            if (have_mode || ++i >= argc) {
+                usage(argv[0]);
+                return EXIT_FAILURE;
+            }
+            term_mode = true;
+            maximum = parse_n(argv[i]);
+            have_mode = true;
+        } else if (argv[i][0] != '-' && !have_mode) {
+            maximum = parse_n(argv[i]);
+            have_mode = true;
+        } else {
+            usage(argv[0]);
+            return EXIT_FAILURE;
+        }
     }
 
     if (check_mode) {
@@ -417,8 +571,11 @@ int main(int argc, char **argv)
     if (term_mode) {
         const U128 value = a322179(maximum);
         verify_known(maximum, value);
+        if (write_bfile) {
+            store_bfile_term(maximum, value);
+        }
         printf("%d ", maximum);
-        print_u128(value);
+        print_u128(stdout, value);
         putchar('\n');
         return EXIT_SUCCESS;
     }
@@ -426,8 +583,11 @@ int main(int argc, char **argv)
     for (int n = 0; n <= maximum; ++n) {
         const U128 value = a322179(n);
         verify_known(n, value);
+        if (write_bfile) {
+            store_bfile_term(n, value);
+        }
         printf("%d ", n);
-        print_u128(value);
+        print_u128(stdout, value);
         putchar('\n');
     }
     return EXIT_SUCCESS;
