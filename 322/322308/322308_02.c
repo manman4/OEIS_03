@@ -24,6 +24,10 @@
  * mask T are joined, and only endpoint quadruples stored in those groups are
  * tested against the ten inequalities.  This sparse grouped join avoids the
  * enormous n^8 Cartesian endpoint space.
+ * Endpoint records contain a packed key and the low coefficient word (16
+ * bytes); nonzero high words alone use a sparse side list.  For an odd split,
+ * each hash table is destroyed immediately after conversion, so both large
+ * hash tables and both expanded record arrays are never resident together.
  * For even n, S and T give reversal-paired full permutations, so only
  * S<T is joined and the result is doubled.
  *
@@ -797,8 +801,27 @@ static void extend_layer(const StateMap *current, StateMap *next,
 
 typedef struct {
     uint64_t packed_key;
-    Count128 count;
+    uint64_t count_low;
 } EndpointRecord;
+
+typedef struct {
+    uint64_t packed_key;
+    uint64_t count_high;
+} EndpointHigh;
+
+typedef struct {
+    EndpointRecord *records;
+    EndpointHigh *high;
+    size_t count;
+    size_t high_count;
+    size_t high_capacity;
+    size_t record_bytes;
+    size_t high_bytes;
+    MemoryBudget *budget;
+} RecordSet;
+
+_Static_assert(sizeof(EndpointRecord) == 16U,
+               "endpoint record must stay compact");
 
 static int compare_records(const void *left, const void *right)
 {
@@ -808,26 +831,64 @@ static int compare_records(const void *left, const void *right)
            a->packed_key > b->packed_key ? 1 : 0;
 }
 
-static EndpointRecord *collect_records(const StateMap *map, int n,
-                                       bool use_symmetry,
-                                       size_t *record_count)
+static int compare_endpoint_high(const void *left, const void *right)
 {
+    const EndpointHigh *a = left;
+    const EndpointHigh *b = right;
+    return a->packed_key < b->packed_key ? -1 :
+           a->packed_key > b->packed_key ? 1 : 0;
+}
+
+static void append_endpoint_high(RecordSet *set, uint64_t packed,
+                                 uint64_t high)
+{
+    if (high == 0U) return;
+    if (set->high_count == set->high_capacity) {
+        size_t new_capacity = set->high_capacity == 0U
+                            ? INITIAL_CAPACITY : set->high_capacity * 2U;
+        if (new_capacity < set->high_capacity)
+            die("endpoint high-word capacity overflow");
+        size_t new_bytes = checked_product_size(new_capacity,
+                                                sizeof(EndpointHigh));
+        budget_reserve(set->budget, new_bytes);
+        EndpointHigh *replacement = malloc(new_bytes);
+        if (replacement == NULL)
+            die("out of memory collecting endpoint high words");
+        if (set->high_count != 0U)
+            memcpy(replacement, set->high,
+                   set->high_count * sizeof(EndpointHigh));
+        free(set->high);
+        if (set->high_bytes != 0U)
+            budget_release(set->budget, set->high_bytes);
+        set->high = replacement;
+        set->high_capacity = new_capacity;
+        set->high_bytes = new_bytes;
+    }
+    set->high[set->high_count++] = (EndpointHigh){packed, high};
+}
+
+static RecordSet collect_records(StateMap *map, int n, bool use_symmetry)
+{
+    RecordSet set;
+    memset(&set, 0, sizeof(set));
+    set.budget = map->budget;
     size_t multiplier = use_symmetry ? 2U : 1U;
     size_t capacity = checked_product_size(map->size, multiplier);
     size_t allocation_capacity = capacity == 0U ? 1U : capacity;
-    size_t bytes = checked_product_size(allocation_capacity,
-                                        sizeof(EndpointRecord));
-    budget_reserve(map->budget, bytes);
-    EndpointRecord *records = malloc(bytes);
-    if (records == NULL) die("out of memory collecting endpoint records");
-    size_t count = 0;
+    set.record_bytes = checked_product_size(allocation_capacity,
+                                            sizeof(EndpointRecord));
+    budget_reserve(set.budget, set.record_bytes);
+    set.records = malloc(set.record_bytes);
+    if (set.records == NULL) die("out of memory collecting endpoint records");
+
     for (size_t i = 0; i < map->capacity; ++i) {
         const StateSlot *slot = &map->slots[i];
         if (slot->key_plus_one == 0U) continue;
         uint64_t packed = slot->key_plus_one - UINT64_C(1);
         Count128 value = map_get_count(map, slot);
         if (use_symmetry) value = count_halve(value);
-        records[count++] = (EndpointRecord){packed, value};
+        set.records[set.count++] = (EndpointRecord){packed, value.low};
+        append_endpoint_high(&set, packed, value.high);
         if (use_symmetry) {
             uint64_t used;
             unsigned a, b, c, d;
@@ -838,25 +899,48 @@ static EndpointRecord *collect_records(const StateMap *map, int n,
                 (unsigned)(n - 1 - (int)b),
                 (unsigned)(n - 1 - (int)c),
                 (unsigned)(n - 1 - (int)d));
-            records[count++] = (EndpointRecord){reflected, value};
+            set.records[set.count++] =
+                (EndpointRecord){reflected, value.low};
+            append_endpoint_high(&set, reflected, value.high);
         }
     }
-    if (count > 1U) qsort(records, count, sizeof(*records), compare_records);
-    *record_count = count;
-    return records;
+    if (set.count > 1U)
+        qsort(set.records, set.count, sizeof(*set.records), compare_records);
+    if (set.high_count > 1U)
+        qsort(set.high, set.high_count, sizeof(*set.high),
+              compare_endpoint_high);
+    return set;
 }
 
-static void free_records(const StateMap *map, EndpointRecord *records,
-                         size_t record_count, bool use_symmetry)
+static Count128 record_count(const RecordSet *set, size_t index)
 {
-    (void)record_count;
-    size_t multiplier = use_symmetry ? 2U : 1U;
-    size_t capacity = checked_product_size(map->size, multiplier);
-    size_t allocation_capacity = capacity == 0U ? 1U : capacity;
-    size_t bytes = checked_product_size(allocation_capacity,
-                                        sizeof(EndpointRecord));
-    free(records);
-    budget_release(map->budget, bytes);
+    Count128 result = {set->records[index].count_low, 0U};
+    if (set->high_count == 0U) return result;
+    uint64_t packed = set->records[index].packed_key;
+    size_t first = 0U, length = set->high_count;
+    while (length != 0U) {
+        size_t half = length / 2U;
+        size_t middle = first + half;
+        if (set->high[middle].packed_key < packed) {
+            first = middle + 1U;
+            length -= half + 1U;
+        } else {
+            length = half;
+        }
+    }
+    if (first < set->high_count && set->high[first].packed_key == packed)
+        result.high = set->high[first].count_high;
+    return result;
+}
+
+static void free_records(RecordSet *set)
+{
+    free(set->high);
+    free(set->records);
+    if (set->high_bytes != 0U)
+        budget_release(set->budget, set->high_bytes);
+    budget_release(set->budget, set->record_bytes);
+    memset(set, 0, sizeof(*set));
 }
 
 static size_t lower_bound_used(const EndpointRecord *records, size_t count,
@@ -877,42 +961,46 @@ static size_t lower_bound_used(const EndpointRecord *records, size_t count,
     return first;
 }
 
-static Count128 join_halves(const StateMap *left_map,
-                            const StateMap *right_map,
+static Count128 join_halves(StateMap *left_map,
+                            StateMap *right_map,
                             int n, int left_length,
                             const uint64_t *bad,
                             bool use_symmetry, MitmStats *stats)
 {
     uint64_t full = (UINT64_C(1) << (unsigned)n) - UINT64_C(1);
     bool equal_halves = left_length * 2 == n;
-    size_t left_count, right_count;
-    EndpointRecord *left = collect_records(left_map, n, use_symmetry,
-                                           &left_count);
-    EndpointRecord *right;
-    if (left_map == right_map) {
-        right = left;
-        right_count = left_count;
+    bool same_map = left_map == right_map;
+    MemoryBudget *budget = left_map->budget;
+    RecordSet left = collect_records(left_map, n, use_symmetry);
+    map_destroy(left_map);
+    RecordSet separate_right;
+    RecordSet *right;
+    if (same_map) {
+        right = &left;
     } else {
-        right = collect_records(right_map, n, use_symmetry, &right_count);
+        separate_right = collect_records(right_map, n, use_symmetry);
+        map_destroy(right_map);
+        right = &separate_right;
     }
 
     Count128 total = count_zero();
     size_t left_begin = 0;
-    while (left_begin < left_count) {
-        uint64_t subset = left[left_begin].packed_key >> STATE_SHIFT;
+    while (left_begin < left.count) {
+        uint64_t subset = left.records[left_begin].packed_key >> STATE_SHIFT;
         size_t left_end = left_begin + 1U;
-        while (left_end < left_count &&
-               (left[left_end].packed_key >> STATE_SHIFT) == subset)
+        while (left_end < left.count &&
+               (left.records[left_end].packed_key >> STATE_SHIFT) == subset)
             ++left_end;
         uint64_t complement = full ^ subset;
         if (!equal_halves || subset < complement) {
-            size_t right_begin = lower_bound_used(right, right_count,
+            size_t right_begin = lower_bound_used(right->records, right->count,
                                                   complement);
-            if (right_begin < right_count &&
-                (right[right_begin].packed_key >> STATE_SHIFT) == complement) {
+            if (right_begin < right->count &&
+                (right->records[right_begin].packed_key >> STATE_SHIFT) ==
+                    complement) {
                 size_t right_end = right_begin + 1U;
-                while (right_end < right_count &&
-                       (right[right_end].packed_key >> STATE_SHIFT) ==
+                while (right_end < right->count &&
+                       (right->records[right_end].packed_key >> STATE_SHIFT) ==
                            complement)
                     ++right_end;
                 if (stats->split_subsets == UINT64_MAX)
@@ -922,13 +1010,13 @@ static Count128 join_halves(const StateMap *left_map,
                 for (size_t li = left_begin; li < left_end; ++li) {
                     uint64_t left_used;
                     unsigned a, b, c, d;
-                    unpack_state(left[li].packed_key, &left_used,
+                    unpack_state(left.records[li].packed_key, &left_used,
                                  &a, &b, &c, &d);
                     (void)left_used;
                     for (size_t ri = right_begin; ri < right_end; ++ri) {
                         uint64_t right_used;
                         unsigned h, g, f, e;
-                        unpack_state(right[ri].packed_key, &right_used,
+                        unpack_state(right->records[ri].packed_key, &right_used,
                                      &h, &g, &f, &e);
                         (void)right_used;
                         uint64_t e_bit = UINT64_C(1) << e;
@@ -941,7 +1029,8 @@ static Count128 join_halves(const StateMap *left_map,
                             (bad[a] & e_bit) != 0U)
                             continue;
                         count_add_to(&total,
-                            count_multiply(left[li].count, right[ri].count));
+                            count_multiply(record_count(&left, li),
+                                           record_count(right, ri)));
                         if (stats->joined_endpoint_pairs == UINT64_MAX)
                             die("joined endpoint-quadruple counter overflow");
                         ++stats->joined_endpoint_pairs;
@@ -953,9 +1042,9 @@ static Count128 join_halves(const StateMap *left_map,
     }
 
     if (equal_halves) count_add_to(&total, total);
-    if (right != left)
-        free_records(right_map, right, right_count, use_symmetry);
-    free_records(left_map, left, left_count, use_symmetry);
+    if (stats->peak_bytes < budget->peak) stats->peak_bytes = budget->peak;
+    if (!same_map) free_records(&separate_right);
+    free_records(&left);
     return total;
 }
 
@@ -1095,8 +1184,8 @@ static Count128 compute_mitm(int n, bool use_symmetry,
     stats->build_seconds = monotonic_seconds() - build_started;
     stats->peak_bytes = budget.peak;
 
-    const StateMap *left_map;
-    const StateMap *right_map;
+    StateMap *left_map;
+    StateMap *right_map;
     if (left_length == right_length) {
         left_map = &current;
         right_map = &current;
@@ -1136,7 +1225,7 @@ static Count128 compute_value(int n, bool use_symmetry,
                 "322308_02: n=%d, MITM %s, left/right states=%zu/%zu, "
                 "prefix transitions=%" PRIu64 ", split subsets=%" PRIu64
                 ", joined endpoint quadruples=%" PRIu64
-                ", peak table memory=%.1f MiB, build/join/total="
+                ", peak working memory=%.1f MiB, build/join/total="
                 "%.3f/%.3f/%.3f s\n",
                 n, use_symmetry ? "complement-quotient" : "plain",
                 stats.left_states, stats.right_states,
@@ -1170,6 +1259,11 @@ static int check_implementation(int maximum_n, uint64_t memory_mib)
         Count128 expected = {UINT64_C(1), UINT64_C(13)};
         if (!count_equal(map_get_count(&test, slot), expected))
             die("sparse high-word count self-test failed");
+        RecordSet records = collect_records(&test, 10, false);
+        if (records.count != 1U ||
+            !count_equal(record_count(&records, 0U), expected))
+            die("endpoint-record high-word self-test failed");
+        free_records(&records);
         map_destroy(&test);
         if (budget.in_use != 0U)
             die("sparse high-word count self-test leaked memory");
