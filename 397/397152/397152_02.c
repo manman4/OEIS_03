@@ -1,6 +1,7 @@
 /*
  * Independent exact-cover counter for partitions of {1,...,3*n} into
- * unordered triples of distinct values satisfying x+y=3*z.
+ * unordered triples of distinct values satisfying x+y=c*z, where c is a
+ * positive integer supplied by --c (default c=3).
  *
  * This deliberately differs from 397152_01.c.  It first generates every
  * valid three-set as a row of an exact-cover matrix.  At each recursive state
@@ -10,6 +11,12 @@
  * covers the chosen value, so induction proves that each unordered partition
  * is counted exactly once.
  *
+ * generate_rows() chooses the distinguished z and then x<y, so swapping x,y
+ * is not duplicated.  Nor can one three-set have two different choices of z:
+ * if b+d=c*a and a+d=c*b, subtraction gives (c+1)*(b-a)=0, contradicting
+ * distinctness.  Thus every valid unordered row is generated exactly once
+ * for every positive c.
+ *
  * A state is completely determined by its remaining-value mask.  Each worker
  * has a direct-mapped replacement cache from mask to exact U128 count.  A hash
  * collision merely evicts an old entry and can cause recomputation; it never
@@ -17,26 +24,36 @@
  * probabilistic hash argument.  Root search is expanded through two rows to
  * provide enough dynamically scheduled parallel tasks.
  *
- * The only arithmetic pruning is the unavoidable identity T=4*sum(z): a
- * remaining set whose sum T is not divisible by 4 cannot be completed.  In
- * particular the root is zero unless n==0 or 5 (mod 8).  The role-subset-sum
+ * The only arithmetic pruning is the unavoidable identity
+ *
+ *                         T=(c+1)*sum(z).
+ *
+ * Thus a remaining set whose sum T is not divisible by c+1 cannot be
+ * completed.  For c=3 this specializes to the former divisibility-by-four
+ * test and makes the root zero unless n==0 or 5 (mod 8).  The role-subset-sum
  * pruning and maximum-first recurrence of 397152_01.c are not used, making
  * this suitable as an algorithmically independent check.
  *
- * Values 1..63 fit in uint64_t, hence MAX_N=21.  At every recursion level a
- * selected element has at most O(n) valid partners; the coarse bound n^n is
- * below 2^93 for n<=21.  U128 is therefore sufficient, and additions are
- * checked in any case.
+ * Values 1..63 fit in uint64_t, hence MAX_N=21.  There is also a uniform U128
+ * bound for every positive c.  For c=1 the largest remaining value must be z,
+ * and its two addends have at most floor((3*n-1)/2) choices.  For c>=2 the
+ * largest remaining value cannot be z; after z is chosen its other addend is
+ * forced, again giving at most floor((3*n-1)/2) choices.  Hence the answer is
+ * at most ceil(3*n/2)^n; at n=21 this is below 2^106.  Every addition is also
+ * checked.
  *
  * Build:
  *   clang -O3 -march=native -std=c11 -Wall -Wextra -Wpedantic -pthread \
  *       397152_02.c -o 397152_02
  *
- * Results are atomically recorded in b397152_02.txt by default.  A --term
- * request is rejected before calculation if earlier b-file terms are missing;
- * use the prefix form or --no-bfile in that case.
+ * Results for the default c=3 are atomically recorded in b397152_02.txt.
+ * Other coefficients use b397152_02_cC.txt, preventing different sequences
+ * from being mixed.  --output overrides either name.  A --term request is
+ * rejected before calculation if earlier b-file terms are missing; use the
+ * prefix form or --no-bfile in that case.
  *   ./397152_02 13 --threads 8
- *   ./397152_02 --term 16 --threads 8 --hash-power 19
+ *   ./397152_02 10 --c 2 --threads 8
+ *   ./397152_02 --term 16 --c 3 --threads 8 --hash-power 19
  *   ./397152_02 --check --threads 8
  *
  * Cache memory is approximately 24*2^P bytes per active worker.  P=19 and
@@ -70,6 +87,7 @@ __extension__ typedef unsigned __int128 U128;
 #define DEFAULT_HASH_POWER 19
 #define MIN_HASH_POWER 16
 #define MAX_HASH_POWER 22
+#define MAX_C UINT32_MAX
 
 _Static_assert(MAX_VALUES < 64, "search mask must fit in uint64_t");
 
@@ -118,7 +136,9 @@ static uint32_t row_count, row_capacity;
 static Adjacency adjacency[MAX_VALUES];
 static int requested_threads = DEFAULT_THREADS;
 static unsigned requested_hash_power = DEFAULT_HASH_POWER;
+static uint32_t requested_c = 3;
 static const char *output_path = "b397152_02.txt";
+static char automatic_output_path[64];
 static bool write_bfile = true;
 
 static _Atomic uint64_t live_call_chunks;
@@ -146,6 +166,20 @@ static int parse_bounded(const char *text, int low, int high,
         exit(EXIT_FAILURE);
     }
     return (int)value;
+}
+
+static uint32_t parse_coefficient(const char *text)
+{
+    char *end = NULL;
+    errno = 0;
+    const unsigned long long value = strtoull(text, &end, 10);
+    if (errno != 0 || end == text || *end != '\0' ||
+        value == 0 || value > MAX_C) {
+        fprintf(stderr, "error: c must be in 1..%" PRIu32 ": %s\n",
+                (uint32_t)MAX_C, text);
+        exit(EXIT_FAILURE);
+    }
+    return (uint32_t)value;
 }
 
 static double now_seconds(void)
@@ -314,8 +348,9 @@ static void record_term(int n, U128 value)
     }
     free(temporary);
     unlock_bfile(lock_fd);
-    fprintf(stderr, "397152_02: recorded computed term n=%d in %s\n",
-            n, output_path);
+    fprintf(stderr,
+            "397152_02: recorded computed term c=%" PRIu32
+            ", n=%d in %s\n", requested_c, n, output_path);
 }
 
 static void adjacency_add(Adjacency *list, uint32_t row)
@@ -372,10 +407,13 @@ static void generate_rows(int n)
 {
     const unsigned maximum = 3U * (unsigned)n;
     for (unsigned z = 1; z <= maximum; ++z) {
+        const uint64_t target = (uint64_t)requested_c * (uint64_t)z;
+        if (target > 2U * (uint64_t)maximum - 1U) continue;
         for (unsigned x = 1; x <= maximum; ++x) {
-            const int y_signed = 3 * (int)z - (int)x;
-            if (y_signed <= (int)x || y_signed > (int)maximum) continue;
-            const unsigned y = (unsigned)y_signed;
+            if (target <= x) continue;
+            const uint64_t y_wide = target - x;
+            if (y_wide <= x || y_wide > maximum) continue;
+            const unsigned y = (unsigned)y_wide;
             if (x == z || y == z) continue;
             const uint64_t edge = (UINT64_C(1) << (x - 1U)) |
                                   (UINT64_C(1) << (y - 1U)) |
@@ -385,11 +423,11 @@ static void generate_rows(int n)
     }
 }
 
-static int mask_sum(uint64_t mask)
+static unsigned mask_sum(uint64_t mask)
 {
-    int sum = 0;
+    unsigned sum = 0;
     while (mask != 0) {
-        sum += (int)__builtin_ctzll(mask) + 1;
+        sum += (unsigned)__builtin_ctzll(mask) + 1U;
         mask &= mask - 1U;
     }
     return sum;
@@ -451,7 +489,7 @@ static U128 count_state(uint64_t mask, Memo *memo, SearchStats *stats)
         return cached;
     }
 
-    if ((mask_sum(mask) & 3) != 0) {
+    if ((uint64_t)mask_sum(mask) % ((uint64_t)requested_c + 1U) != 0) {
         if (stats->sum_prunes == UINT64_MAX) die("prune counter overflow");
         ++stats->sum_prunes;
         memo_put(memo, mask, 0);
@@ -558,9 +596,10 @@ static void *monitor_main(void *argument)
         if (error != 0 && error != ETIMEDOUT) die("monitor wait failed");
         if (!monitor_finished && error == ETIMEDOUT) {
             fprintf(stderr,
-                    "397152_02: heartbeat n=%d, tasks=%u/%u, "
+                    "397152_02: heartbeat c=%" PRIu32
+                    ", n=%d, tasks=%u/%u, "
                     "calls>=%" PRIu64 ", %.1f s\n",
-                    monitor->n,
+                    requested_c, monitor->n,
                     atomic_load_explicit(&completed_tasks,
                                          memory_order_relaxed),
                     monitor->task_count,
@@ -576,7 +615,10 @@ static void *monitor_main(void *argument)
 static U128 sequence_term(int n)
 {
     if (n == 0) return 1;
-    if (n % 8 != 0 && n % 8 != 5) return 0;
+    const uint64_t maximum = 3U * (uint64_t)n;
+    const uint64_t total = maximum * (maximum + 1U) / 2U;
+    if (total % ((uint64_t)requested_c + 1U) != 0) return 0;
+    if ((uint64_t)requested_c > 2U * maximum - 1U) return 0;
 
     generate_rows(n);
     const uint64_t full = (UINT64_C(1) << (3U * (unsigned)n)) - 1U;
@@ -653,11 +695,13 @@ static U128 sequence_term(int n)
     free(schedule.tasks);
 
     fprintf(stderr,
-            "397152_02: n=%d, exact-cover min-column, rows=%u, "
+            "397152_02: c=%" PRIu32
+            ", n=%d, exact-cover min-column, rows=%u, "
             "tasks=%u, calls=%" PRIu64 ", hits=%" PRIu64
             ", sum-prunes=%" PRIu64 ", threads=%d, memo=2^%u/worker, "
             "%.3f s\n",
-            n, row_count, schedule.count, calls, hits, sum_prunes, threads,
+            requested_c, n, row_count, schedule.count, calls, hits,
+            sum_prunes, threads,
             requested_hash_power, now_seconds() - started);
     free_rows();
     return answer;
@@ -685,6 +729,7 @@ static bool parse_u128(const char *text, U128 *result)
 
 static void verify_known(int n, U128 value)
 {
+    if (requested_c != 3U) return;
     if ((size_t)n >= sizeof(known) / sizeof(known[0])) return;
     U128 expected;
     if (!parse_u128(known[n], &expected)) die("invalid known term");
@@ -699,13 +744,14 @@ static void verify_known(int n, U128 value)
 static void usage(const char *program)
 {
     fprintf(stderr,
-            "usage: %s [N] [--threads T] [--hash-power P] "
+            "usage: %s [N] [--c C] [--threads T] [--hash-power P] "
             "[--output FILE|--no-bfile]\n"
-            "       %s --term N [--threads T] [--hash-power P] "
+            "       %s --term N [--c C] [--threads T] [--hash-power P] "
             "[--output FILE|--no-bfile]\n"
-            "       %s --check [--threads T] [--hash-power P] "
+            "       %s --check [--c 3] [--threads T] [--hash-power P] "
             "[--output FILE|--no-bfile]\n"
-            "N prints a(0)..a(N); --term prints only a(N).\n",
+            "C is a positive integer (default 3).  N prints a_c(0)..a_c(N); "
+            "--term prints only a_c(N).\n",
             program, program, program);
 }
 
@@ -713,8 +759,12 @@ int main(int argc, char **argv)
 {
     int n = DEFAULT_N;
     bool term_only = false, check = false, positional = false;
+    bool output_explicit = false;
     for (int i = 1; i < argc; ++i) {
-        if (strcmp(argv[i], "--threads") == 0) {
+        if (strcmp(argv[i], "--c") == 0) {
+            if (++i == argc) die("--c needs an argument");
+            requested_c = parse_coefficient(argv[i]);
+        } else if (strcmp(argv[i], "--threads") == 0) {
             if (++i == argc) die("--threads needs an argument");
             requested_threads = parse_bounded(argv[i], 1, MAX_THREADS,
                                               "threads");
@@ -725,11 +775,14 @@ int main(int argc, char **argv)
         } else if (strcmp(argv[i], "--output") == 0) {
             if (++i == argc || argv[i][0] == '\0') die("--output needs a file");
             output_path = argv[i];
+            output_explicit = true;
             write_bfile = true;
         } else if (strcmp(argv[i], "--no-bfile") == 0) {
             write_bfile = false;
         } else if (strcmp(argv[i], "--term") == 0) {
-            if (term_only || positional || ++i == argc) die("invalid --term");
+            if (term_only || positional || check || ++i == argc) {
+                die("invalid --term");
+            }
             term_only = true;
             n = parse_bounded(argv[i], 0, MAX_N, "N");
         } else if (strcmp(argv[i], "--check") == 0) {
@@ -744,6 +797,21 @@ int main(int argc, char **argv)
             positional = true;
             n = parse_bounded(argv[i], 0, MAX_N, "N");
         }
+    }
+
+    if (check && requested_c != 3U) {
+        die("--check is the built-in A397152 (c=3) check; use --no-bfile "
+            "with N or --term for another c");
+    }
+    if (!output_explicit && requested_c != 3U) {
+        const int length = snprintf(automatic_output_path,
+                                    sizeof(automatic_output_path),
+                                    "b397152_02_c%" PRIu32 ".txt",
+                                    requested_c);
+        if (length < 0 || (size_t)length >= sizeof(automatic_output_path)) {
+            die("automatic b-file path overflow");
+        }
+        output_path = automatic_output_path;
     }
 
     if (term_only) {
@@ -761,6 +829,6 @@ int main(int argc, char **argv)
         print_term(k, value);
         record_term(k, value);
     }
-    if (check) fprintf(stderr, "397152_02: self-check passed\n");
+    if (check) fprintf(stderr, "397152_02: c=3 self-check passed\n");
     return EXIT_SUCCESS;
 }
