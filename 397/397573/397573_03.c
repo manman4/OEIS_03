@@ -580,9 +580,14 @@ static StateMap build_low_dp(int n, uint64_t *transition_total,
             if ((processed & 65535U) == 0 && now_seconds() >= next_heartbeat) {
                 fprintf(stderr,
                         "397573_03: heartbeat n=%d, sum=%u, states=%zu/%zu, "
-                        "next=%zu, transitions=%" PRIu64 ", %.1f s\n",
+                        "next=%zu, transitions=%" PRIu64
+                        ", allocated=%.2f/%.2f GiB, peak=%.2f GiB, %.1f s\n",
                         n, sum, processed, current.count, next.count,
-                        sum_transitions, now_seconds() - started);
+                        sum_transitions,
+                        (double)memory_used / 1073741824.0,
+                        (double)memory_limit / 1073741824.0,
+                        (double)peak_memory / 1073741824.0,
+                        now_seconds() - started);
                 next_heartbeat = now_seconds() + 10.0;
             }
         }
@@ -592,9 +597,13 @@ static StateMap build_low_dp(int n, uint64_t *transition_total,
         current = next;
         fprintf(stderr,
                 "397573_03: n=%d, sum=%u, pairs=%u, states=%zu, "
-                "transitions=%" PRIu64 ", memory=%.2f MiB, %.3f s\n",
+                "transitions=%" PRIu64
+                ", allocated=%.2f/%.2f GiB, peak=%.2f GiB, %.3f s\n",
                 n, sum, edge_count, current.count, sum_transitions,
-                (double)memory_used / 1048576.0, now_seconds() - started);
+                (double)memory_used / 1073741824.0,
+                (double)memory_limit / 1073741824.0,
+                (double)peak_memory / 1073741824.0,
+                now_seconds() - started);
     }
     return current;
 }
@@ -656,8 +665,12 @@ static U128 join_high_and_central(int n, const StateMap *low,
         if ((processed & 65535U) == 0 && now_seconds() >= next_heartbeat) {
             fprintf(stderr,
                     "397573_03: heartbeat n=%d, join=%zu/%zu, "
-                    "lookups=%" PRIu64 ", %.1f s\n",
+                    "lookups=%" PRIu64
+                    ", allocated=%.2f/%.2f GiB, peak=%.2f GiB, %.1f s\n",
                     n, processed, low->count, *lookups,
+                    (double)memory_used / 1073741824.0,
+                    (double)memory_limit / 1073741824.0,
+                    (double)peak_memory / 1073741824.0,
                     now_seconds() - started);
             next_heartbeat = now_seconds() + 10.0;
         }
@@ -681,9 +694,11 @@ static U128 sequence_term(int n)
     fprintf(stderr,
             "397573_03: n=%d, pair-sum sparse DP, low-states=%zu, "
             "transitions=%" PRIu64 ", join-lookups=%" PRIu64
-            ", peak-memory=%.2f MiB, %.3f s\n",
+            ", peak-memory=%.2f GiB, limit=%.2f GiB, %.3f s\n",
             n, low_states, transitions, lookups,
-            (double)peak_memory / 1048576.0, now_seconds() - started);
+            (double)peak_memory / 1073741824.0,
+            (double)memory_limit / 1073741824.0,
+            now_seconds() - started);
     return answer;
 }
 
