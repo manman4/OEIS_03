@@ -22,8 +22,8 @@
  *   ./320129_01 --upto 12 --start 13
  *   ./320129_01 --check 7
  *
- * A positional N is shorthand for --upto N.  --upto writes b320129.txt
- * beside the executable through interruption-safe b320129_part.txt.  With
+ * A positional N is shorthand for --upto N.  --upto writes b320129_1.txt
+ * beside the executable through interruption-safe b320129_1_part.txt.  With
  * --start S, the verified built-in prefix n<S is copied without recomputing
  * it, then S..N are calculated.  --term never changes the b-file.
  */
@@ -327,9 +327,9 @@ static void produce_b_file(const char *argv0, int maximum_n, int start_n)
         exit(EXIT_FAILURE);
     }
 
-    char *final_path = path_beside_executable(argv0, "b320129.txt");
+    char *final_path = path_beside_executable(argv0, "b320129_1.txt");
     char *part_path =
-        path_beside_executable(argv0, "b320129_part.txt");
+        path_beside_executable(argv0, "b320129_1_part.txt");
     FILE *output = fopen(part_path, "w");
     if (output == NULL) {
         fprintf(stderr, "error: cannot open %s: %s\n",
