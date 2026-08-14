@@ -16,18 +16,22 @@
  * disjoint mask ranges merge the deltas into dp.  Thus there are no
  * concurrent writes to the same object, no recursion, and no hash table.
  * When at least two full tables fit, this private-delta method is used.
- * When only one table fits, an in-place variant processes source-cardinality
- * layers in descending order.  A source layer is therefore still unchanged
- * when read, so the update still selects at most one pair from each sum.
+ * When two full tables do not fit, an in-place variant processes
+ * source-cardinality layers in descending order.  A source layer is therefore
+ * still unchanged when read, so the update still selects at most one pair
+ * from each sum.  Only even-cardinality masks can occur.  The in-place table
+ * stores them in contiguous cardinality layers indexed by combinatorial rank,
+ * and therefore stores exactly half of the full subset space while improving
+ * memory locality.
  *
  * The unrestricted number (2*n-1)!! of pair partitions is checked to fit
  * uint64_t and bounds every DP entry.  Every DP addition is checked as well.
  * --memory-mib is a hard budget for the dense DP arrays and can reduce the
  * actual worker count below --threads.  The one-table method parallelizes
  * disjoint source combinations for one pair at a time, so its workers write
- * disjoint destinations without atomics.  At n=13 one table is 512 MiB.  At
- * n=14 one table is 2048 MiB, which is now sufficient; 4096 MiB selects the
- * two-table method instead.
+ * disjoint destinations without atomics.  At n=14 the compressed in-place
+ * table is 1024 MiB.  At n=15 it is 4096 MiB, instead of 8192 MiB for a full
+ * table.
  *
  * Build:
  *   clang -O3 -std=c11 -Wall -Wextra -Wpedantic -pthread \
@@ -35,8 +39,8 @@
  *
  * Usage:
  *   ./320129_03 --term 13 --threads 4 --memory-mib 1024
- *   ./320129_03 --term 14 --memory-mib 2048
- *   ./320129_03 --upto 14 --start 14 --memory-mib 2048
+ *   ./320129_03 --term 15 --threads 4 --memory-mib 4096
+ *   ./320129_03 --upto 15 --start 15 --threads 4 --memory-mib 4096
  *   ./320129_03 --check 12 --threads 4 --memory-mib 1024
  *
  * A positional N is shorthand for --upto N.  --upto writes b320129_3.txt
@@ -66,8 +70,8 @@
 #endif
 
 #define MIN_N 0
-#define MAX_N 14
-#define KNOWN_MAX_N 14
+#define MAX_N 15
+#define KNOWN_MAX_N 15
 #define DEFAULT_CHECK_N 10
 #define DEFAULT_THREADS 4
 #define MAX_THREADS 32
@@ -78,6 +82,9 @@
 #define MAX_PROGRESS_SECONDS 3600
 #define MAX_PAIR_SUM (4 * MAX_N - 1)
 #define IN_PLACE_THREAD_MIN_COMBINATIONS UINT64_C(65536)
+#define RANK_HALF_BITS 15U
+#define RANK_HALF_SIZE (1U << RANK_HALF_BITS)
+#define MAX_ELEMENT_COUNT (2 * MAX_N)
 
 typedef enum {
     MODE_TERM,
@@ -118,7 +125,14 @@ typedef struct {
 } ReduceJob;
 
 typedef struct {
-    uint64_t *dp;
+    uint64_t *layers[MAX_ELEMENT_COUNT + 1];
+    size_t layer_sizes[MAX_ELEMENT_COUNT + 1];
+    uint32_t *low_ranks;
+    uint32_t *high_ranks;
+} LayeredDp;
+
+typedef struct {
+    LayeredDp *dp;
     uint64_t pair;
     unsigned available;
     unsigned source_size;
@@ -151,7 +165,8 @@ static const uint64_t known_terms[KNOWN_MAX_N + 1] = {
     UINT64_C(1970286922),
     UINT64_C(37676184205),
     UINT64_C(783085946488),
-    UINT64_C(17578302627044)
+    UINT64_C(17578302627044),
+    UINT64_C(423817847191746)
 };
 
 static _Noreturn void die(const char *message)
@@ -455,6 +470,106 @@ static uint64_t binomial_small(unsigned n, unsigned k)
     return value;
 }
 
+static void initialize_rank_tables(LayeredDp *dp)
+{
+    size_t low_entries = RANK_HALF_SIZE;
+    size_t high_entries =
+        (RANK_HALF_BITS + 1U) * (size_t)RANK_HALF_SIZE;
+    dp->low_ranks = malloc(low_entries * sizeof(*dp->low_ranks));
+    dp->high_ranks = malloc(high_entries * sizeof(*dp->high_ranks));
+    if (dp->low_ranks == NULL || dp->high_ranks == NULL) {
+        die("cannot allocate subset-rank lookup tables");
+    }
+
+    for (unsigned pattern = 0; pattern < RANK_HALF_SIZE; ++pattern) {
+        unsigned selected = 0;
+        uint64_t contribution = 0;
+        for (unsigned position = 0;
+             position < RANK_HALF_BITS; ++position) {
+            if ((pattern & (1U << position)) != 0) {
+                ++selected;
+                contribution += binomial_small(position, selected);
+            }
+        }
+        if (contribution > UINT32_MAX) {
+            die("low subset-rank contribution exceeds uint32_t");
+        }
+        dp->low_ranks[pattern] = (uint32_t)contribution;
+
+        for (unsigned lower_count = 0;
+             lower_count <= RANK_HALF_BITS; ++lower_count) {
+            selected = lower_count;
+            contribution = 0;
+            for (unsigned position = 0;
+                 position < RANK_HALF_BITS; ++position) {
+                if ((pattern & (1U << position)) != 0) {
+                    ++selected;
+                    contribution += binomial_small(
+                        RANK_HALF_BITS + position, selected);
+                }
+            }
+            if (contribution > UINT32_MAX) {
+                die("high subset-rank contribution exceeds uint32_t");
+            }
+            size_t index =
+                (size_t)lower_count * RANK_HALF_SIZE + pattern;
+            dp->high_ranks[index] = (uint32_t)contribution;
+        }
+    }
+}
+
+static void initialize_layered_dp(LayeredDp *dp,
+                                  unsigned element_count)
+{
+    memset(dp, 0, sizeof(*dp));
+    initialize_rank_tables(dp);
+    uint64_t total_states = 0;
+    for (unsigned cardinality = 0;
+         cardinality <= element_count; cardinality += 2U) {
+        uint64_t count = binomial_small(element_count, cardinality);
+        if (count > SIZE_MAX / sizeof(uint64_t)) {
+            die("cardinality-layer size overflow");
+        }
+        dp->layer_sizes[cardinality] = (size_t)count;
+        dp->layers[cardinality] =
+            calloc((size_t)count, sizeof(uint64_t));
+        if (dp->layers[cardinality] == NULL) {
+            die("cannot allocate a cardinality-layer DP table");
+        }
+        if (total_states > UINT64_MAX - count) {
+            die("cardinality-layer total size overflow");
+        }
+        total_states += count;
+    }
+    uint64_t expected = UINT64_C(1) << (element_count - 1U);
+    if (total_states != expected) {
+        die("internal even-cardinality layer size mismatch");
+    }
+}
+
+static void destroy_layered_dp(LayeredDp *dp)
+{
+    for (unsigned cardinality = 0;
+         cardinality <= MAX_ELEMENT_COUNT; ++cardinality) {
+        free(dp->layers[cardinality]);
+    }
+    free(dp->high_ranks);
+    free(dp->low_ranks);
+    memset(dp, 0, sizeof(*dp));
+}
+
+static size_t rank_subset(const LayeredDp *dp, uint64_t subset)
+{
+    unsigned low = (unsigned)(subset & (RANK_HALF_SIZE - 1U));
+    unsigned high = (unsigned)(
+        (subset >> RANK_HALF_BITS) & (RANK_HALF_SIZE - 1U));
+    unsigned lower_count = (unsigned)__builtin_popcount(low);
+    size_t high_index =
+        (size_t)lower_count * RANK_HALF_SIZE + high;
+    return (size_t)dp->low_ranks[low] +
+           (size_t)dp->high_ranks[high_index];
+}
+
 static uint64_t insert_zero_bit(uint64_t value, unsigned position)
 {
     uint64_t lower_mask =
@@ -510,11 +625,23 @@ static void *in_place_worker_main(void *argument)
             compressed, job->first_position);
         uint64_t subset = insert_zero_bit(
             expanded, job->second_position);
-        uint64_t value = job->dp[(size_t)subset];
+        size_t source_index = rank_subset(job->dp, subset);
+        if (source_index >= job->dp->layer_sizes[job->source_size]) {
+            die("source subset rank exceeds its cardinality layer");
+        }
+        uint64_t value =
+            job->dp->layers[job->source_size][source_index];
         if (value != 0) {
-            size_t destination = (size_t)(subset | job->pair);
-            job->dp[destination] = checked_add(
-                job->dp[destination], value);
+            size_t destination = rank_subset(
+                job->dp, subset | job->pair);
+            unsigned destination_size = job->source_size + 2U;
+            if (destination >=
+                job->dp->layer_sizes[destination_size]) {
+                die("destination subset rank exceeds its cardinality layer");
+            }
+            uint64_t *entry =
+                &job->dp->layers[destination_size][destination];
+            *entry = checked_add(*entry, value);
             if (nonzero_sources != UINT64_MAX) {
                 ++nonzero_sources;
             }
@@ -536,7 +663,7 @@ static void *in_place_worker_main(void *argument)
 }
 
 static uint64_t update_from_fixed_size_sources(
-    uint64_t *dp, uint64_t pair, unsigned available,
+    LayeredDp *dp, uint64_t pair, unsigned available,
     unsigned source_size, unsigned requested_threads,
     unsigned *maximum_workers)
 {
@@ -605,8 +732,9 @@ static uint64_t update_from_fixed_size_sources(
 
 static void run_sum_group_in_place(
     const Pair *pairs, size_t pair_count,
-    unsigned element_count, uint64_t *dp, unsigned requested_threads,
-    unsigned *maximum_workers, DpStats *stats)
+    unsigned element_count, LayeredDp *dp,
+    unsigned requested_threads, unsigned *maximum_workers,
+    DpStats *stats)
 {
     unsigned available = element_count - 2U;
     uint64_t probes_per_pair = 0;
@@ -657,11 +785,11 @@ static void report_progress(int n, const DpStats *stats,
 
 static uint64_t compute_in_place_dp(
     int n, unsigned element_count, const PairTable *table,
-    uint64_t full_mask, uint64_t *dp, unsigned requested_threads,
-    unsigned progress_seconds, bool show_progress, DpStats *stats,
-    unsigned *actual_workers)
+    LayeredDp *dp,
+    unsigned requested_threads, unsigned progress_seconds,
+    bool show_progress, DpStats *stats, unsigned *actual_workers)
 {
-    dp[0] = 1;
+    dp->layers[0][0] = 1;
     *actual_workers = 1;
     double start = monotonic_seconds();
     double next_report = start + (double)progress_seconds;
@@ -694,7 +822,7 @@ static uint64_t compute_in_place_dp(
         report_progress(n, stats, table->nonempty_groups,
                         table->total_pairs, start, terminal, true);
     }
-    return dp[(size_t)full_mask];
+    return dp->layers[element_count][0];
 }
 
 static uint64_t compute_term(int n, unsigned requested_threads,
@@ -722,11 +850,12 @@ static uint64_t compute_term(int n, unsigned requested_threads,
         die("DP table size overflow");
     }
     size_t array_bytes = state_count * sizeof(uint64_t);
+    size_t in_place_array_bytes = array_bytes / 2U;
     uint64_t memory_bytes = (uint64_t)memory_mib *
                             UINT64_C(1024) * UINT64_C(1024);
-    if ((uint64_t)array_bytes > memory_bytes) {
+    if ((uint64_t)in_place_array_bytes > memory_bytes) {
         uint64_t required_mib =
-            ((uint64_t)array_bytes + UINT64_C(1048575)) /
+            ((uint64_t)in_place_array_bytes + UINT64_C(1048575)) /
             UINT64_C(1048576);
         fprintf(stderr,
                 "error: n=%d needs at least %" PRIu64
@@ -739,20 +868,17 @@ static uint64_t compute_term(int n, unsigned requested_threads,
     uint64_t arrays_allowed = memory_bytes / (uint64_t)array_bytes;
     uint64_t full_mask =
         (UINT64_C(1) << element_count) - UINT64_C(1);
-    bool use_in_place = arrays_allowed < 2U;
+    bool use_in_place = (uint64_t)array_bytes > memory_bytes / 2U;
     if (use_in_place) {
-        uint64_t *dp = calloc(state_count, sizeof(*dp));
-        if (dp == NULL) {
-            destroy_pair_table(&table);
-            die("cannot allocate the in-place pair subset-DP table");
-        }
+        LayeredDp dp;
+        initialize_layered_dp(&dp, element_count);
         uint64_t answer = compute_in_place_dp(
-            n, element_count, &table, full_mask, dp,
+            n, element_count, &table, &dp,
             requested_threads, progress_seconds, show_progress,
             stats, actual_workers);
-        free(dp);
+        destroy_layered_dp(&dp);
         destroy_pair_table(&table);
-        *actual_memory_bytes = array_bytes;
+        *actual_memory_bytes = in_place_array_bytes;
         *used_in_place = true;
         return answer;
     }
@@ -872,7 +998,7 @@ static uint64_t compute_checked(int n, unsigned requested_threads,
                 "subset-probes=%" PRIu64
                 ", nonzero-sources=%" PRIu64 ", %u worker%s, "
                 "memory=%.1f MiB, %.3f s\n",
-                n, used_in_place ? "in-place" : "parallel",
+                n, used_in_place ? "layered in-place" : "parallel",
                 stats.subset_probes, stats.nonzero_sources,
                 workers, workers == 1 ? "" : "s",
                 (double)memory_bytes / (1024.0 * 1024.0),
