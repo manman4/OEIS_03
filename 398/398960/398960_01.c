@@ -24,9 +24,10 @@
  * fewest active incident edges.  Branching over that vertex's edges counts
  * each unordered pairing once, with no division by n! or 2^n.
  *
- * Root branches (the possible partners of vertex 1) are dynamically shared
- * by pthread workers.  Search state and answer accumulators are private to a
- * worker.  The edge/conflict tables are immutable after construction.
+ * Two-edge root branches are dynamically shared by pthread workers.  Splitting
+ * one level beyond the possible partners of vertex 1 reduces parallel load
+ * imbalance.  Search state and answer accumulators are private to a worker.
+ * The edge/conflict tables are immutable after construction.
  *
  * Every answer addition is checked in unsigned __int128.  The unrestricted
  * pairing count (2*n-1)!! bounds the answer and fits unsigned __int128 for
@@ -114,8 +115,13 @@ typedef struct {
 } Problem;
 
 typedef struct {
+    unsigned first_edge;
+    unsigned second_edge;
+} RootTask;
+
+typedef struct {
     const Problem *problem;
-    const unsigned *root_edges;
+    const RootTask *root_tasks;
     unsigned root_count;
     _Atomic unsigned next_root;
     _Atomic unsigned completed_roots;
@@ -395,6 +401,39 @@ static void flush_nodes(Worker *worker)
     }
 }
 
+static unsigned select_best_vertex(
+    const Problem *problem, uint64_t remaining_vertices,
+    const uint64_t active_edges[static problem->word_count],
+    unsigned *best_degree_out)
+{
+    unsigned best_vertex = UINT_MAX;
+    unsigned best_degree = UINT_MAX;
+    uint64_t vertices = remaining_vertices;
+    while (vertices != 0) {
+        const unsigned vertex = (unsigned)__builtin_ctzll(vertices);
+        vertices &= vertices - 1;
+        const uint64_t *incident = const_row(
+            problem->incidence, vertex, problem->word_count);
+        unsigned degree = 0;
+        for (unsigned word = 0; word < problem->word_count; ++word) {
+            degree += (unsigned)__builtin_popcountll(
+                active_edges[word] & incident[word]);
+        }
+        if (degree < best_degree) {
+            best_degree = degree;
+            best_vertex = vertex;
+            if (degree <= 1) {
+                break;
+            }
+        }
+    }
+    if (best_vertex == UINT_MAX) {
+        die("internal failure while selecting a primary column");
+    }
+    *best_degree_out = best_degree;
+    return best_vertex;
+}
+
 static U128 search(Worker *worker, uint64_t remaining_vertices,
                    unsigned word_count,
                    const uint64_t active_edges[static word_count])
@@ -408,32 +447,11 @@ static U128 search(Worker *worker, uint64_t remaining_vertices,
         return 1;
     }
 
-    unsigned best_vertex = UINT_MAX;
-    unsigned best_degree = UINT_MAX;
-    uint64_t vertices = remaining_vertices;
-    while (vertices != 0) {
-        const unsigned vertex = (unsigned)__builtin_ctzll(vertices);
-        vertices &= vertices - 1;
-        const uint64_t *incident = const_row(
-            problem->incidence, vertex, word_count);
-        unsigned degree = 0;
-        for (unsigned word = 0; word < word_count; ++word) {
-            degree += (unsigned)__builtin_popcountll(
-                active_edges[word] & incident[word]);
-        }
-        if (degree == 0) {
-            return 0;
-        }
-        if (degree < best_degree) {
-            best_degree = degree;
-            best_vertex = vertex;
-            if (degree == 1) {
-                break;
-            }
-        }
-    }
-    if (best_vertex == UINT_MAX) {
-        die("internal failure while selecting a primary column");
+    unsigned best_degree = 0;
+    const unsigned best_vertex = select_best_vertex(
+        problem, remaining_vertices, active_edges, &best_degree);
+    if (best_degree == 0) {
+        return 0;
     }
 
     const uint64_t *incident = const_row(
@@ -482,15 +500,23 @@ static void *worker_main(void *argument)
         if (task >= queue->root_count) {
             break;
         }
-        const unsigned edge_index = queue->root_edges[task];
+        const RootTask *root_task = &queue->root_tasks[task];
         uint64_t next_active[problem->word_count];
-        const uint64_t *conflicts = const_row(
-            problem->conflicts, edge_index, problem->word_count);
+        const uint64_t *first_conflicts = const_row(
+            problem->conflicts, root_task->first_edge,
+            problem->word_count);
+        const uint64_t *second_conflicts = const_row(
+            problem->conflicts, root_task->second_edge,
+            problem->word_count);
         for (unsigned word = 0; word < problem->word_count; ++word) {
-            next_active[word] = full_active[word] & ~conflicts[word];
+            next_active[word] = full_active[word] &
+                                ~first_conflicts[word] &
+                                ~second_conflicts[word];
         }
         const uint64_t remaining =
-            problem->full_vertices & ~problem->edges[edge_index].endpoints;
+            problem->full_vertices &
+            ~problem->edges[root_task->first_edge].endpoints &
+            ~problem->edges[root_task->second_edge].endpoints;
         add_u128(&worker->result,
                  search(worker, remaining, problem->word_count, next_active));
         flush_nodes(worker);
@@ -544,40 +570,97 @@ static void *progress_main(void *argument)
 static U128 compute_term(unsigned n, unsigned requested_threads,
                          unsigned progress_seconds)
 {
-    if (n == 0) {
+    if (n <= 1) {
         return 1;
     }
     Problem *problem = make_problem(n);
     const uint64_t *root_incidence = const_row(
         problem->incidence, 0, problem->word_count);
-    unsigned *root_edges = malloc(
-        (size_t)(problem->vertex_count - 1) * sizeof(*root_edges));
-    if (root_edges == NULL) {
+    const unsigned root_capacity =
+        (problem->vertex_count - 1) * (problem->vertex_count - 3);
+    RootTask *root_tasks = malloc(
+        (size_t)root_capacity * sizeof(*root_tasks));
+    if (root_tasks == NULL) {
         die("could not allocate the root task list");
     }
-    unsigned root_count = 0;
+    uint64_t full_active[problem->word_count];
     for (unsigned word = 0; word < problem->word_count; ++word) {
-        uint64_t candidates = root_incidence[word];
-        while (candidates != 0) {
-            const unsigned bit = (unsigned)__builtin_ctzll(candidates);
-            candidates &= candidates - 1;
-            const unsigned edge = 64 * word + bit;
-            if (edge >= problem->edge_count ||
-                root_count >= problem->vertex_count - 1) {
+        full_active[word] = UINT64_MAX;
+    }
+    if ((problem->edge_count & 63U) != 0) {
+        full_active[problem->word_count - 1] =
+            (UINT64_C(1) << (problem->edge_count & 63U)) - 1;
+    }
+
+    unsigned root_count = 0;
+    unsigned first_root_count = 0;
+    for (unsigned word = 0; word < problem->word_count; ++word) {
+        uint64_t first_candidates = root_incidence[word];
+        while (first_candidates != 0) {
+            const unsigned first_bit =
+                (unsigned)__builtin_ctzll(first_candidates);
+            first_candidates &= first_candidates - 1;
+            const unsigned first_edge = 64 * word + first_bit;
+            if (first_edge >= problem->edge_count ||
+                first_root_count >= problem->vertex_count - 1) {
                 die("internal out-of-range root edge");
             }
-            root_edges[root_count++] = edge;
+            ++first_root_count;
+
+            uint64_t first_active[problem->word_count];
+            const uint64_t *first_conflicts = const_row(
+                problem->conflicts, first_edge, problem->word_count);
+            for (unsigned index = 0; index < problem->word_count; ++index) {
+                first_active[index] =
+                    full_active[index] & ~first_conflicts[index];
+            }
+            const uint64_t first_remaining =
+                problem->full_vertices &
+                ~problem->edges[first_edge].endpoints;
+            unsigned second_degree = 0;
+            const unsigned second_vertex = select_best_vertex(
+                problem, first_remaining, first_active, &second_degree);
+            if (second_degree == 0) {
+                continue;
+            }
+            const uint64_t *second_incidence = const_row(
+                problem->incidence, second_vertex, problem->word_count);
+            for (unsigned second_word = 0;
+                 second_word < problem->word_count; ++second_word) {
+                uint64_t second_candidates =
+                    first_active[second_word] & second_incidence[second_word];
+                while (second_candidates != 0) {
+                    const unsigned second_bit =
+                        (unsigned)__builtin_ctzll(second_candidates);
+                    second_candidates &= second_candidates - 1;
+                    const unsigned second_edge =
+                        64 * second_word + second_bit;
+                    if (second_edge >= problem->edge_count ||
+                        root_count >= root_capacity) {
+                        die("internal out-of-range second root edge");
+                    }
+                    root_tasks[root_count++] = (RootTask) {
+                        .first_edge = first_edge,
+                        .second_edge = second_edge
+                    };
+                }
+            }
         }
     }
-    if (root_count != problem->vertex_count - 1) {
+    if (first_root_count != problem->vertex_count - 1) {
         die("internal root-task count mismatch");
+    }
+    if (root_count == 0) {
+        free(root_tasks);
+        free_problem(problem);
+        return 0;
     }
 
     const unsigned thread_count = requested_threads < root_count
         ? requested_threads : root_count;
     TaskQueue queue = {
         .problem = problem,
-        .root_edges = root_edges,
+        .root_tasks = root_tasks,
         .root_count = root_count,
         .next_root = 0,
         .completed_roots = 0,
@@ -643,7 +726,7 @@ static U128 compute_term(unsigned n, unsigned requested_threads,
     }
     free(threads);
     free(workers);
-    free(root_edges);
+    free(root_tasks);
     free_problem(problem);
     return answer;
 }
