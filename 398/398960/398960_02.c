@@ -11,15 +11,17 @@
  *
  *     remaining vertices, used shifted-sum-or-difference values.
  *
- * The shifted sums and positive differences share one unsigned __int128 mask.
- * Equality between a shifted sum and a difference is rejected as well.  Fixing
- * the smallest unused x gives every unordered pairing one unique recursion
- * path; no division by n! or 2^n is needed.  No memo table is used, making
- * this a bounded-memory independent check of 398960_01.c.
+ * The shifted sums and positive differences share one value mask.  A 64-bit
+ * mask and count accumulator are sufficient for n<=16; larger n use unsigned
+ * __int128.  Equality between a shifted sum and a difference is rejected as
+ * well.  Fixing the smallest unused x gives every unordered pairing one unique
+ * recursion path; no division by n! or 2^n is needed.  No memo table is used,
+ * making this a bounded-memory independent check of 398960_01.c.
  *
- * Root branches (the possible partners of vertex 1) are dynamically shared
- * by pthread workers.  Search states and answer accumulators are private to
- * workers.  Only task and progress counters are atomic.
+ * Two-pair root branches are dynamically shared by pthread workers.  Splitting
+ * one level beyond the possible partners of vertex 1 reduces parallel load
+ * imbalance.  Search states and answer accumulators are private to workers.
+ * Only task and progress counters are atomic.
  *
  * Values are at most 4*n-2=110 for n<=28 and therefore fit the 128-bit mask.
  * Every answer addition is checked.  The unrestricted count (2*n-1)!! also
@@ -66,12 +68,16 @@ __extension__ typedef unsigned __int128 U128;
 
 #define MIN_N 0
 #define MAX_N 28
+#define MAX_U64_N 16
 #define KNOWN_MAX_N 13
 #define DEFAULT_THREADS 4
 #define MAX_THREADS 64
 #define DEFAULT_PROGRESS_SECONDS 30
 #define MAX_PROGRESS_SECONDS 3600
 #define NODE_FLUSH_INTERVAL UINT64_C(65536)
+
+_Static_assert(4 * MAX_U64_N - 2 < 64,
+               "the narrow value mask must fit in uint64_t");
 
 #define BFILE_NAME "b398960_02.txt"
 #define PART_FILE_NAME "b398960_02_part.txt"
@@ -91,7 +97,13 @@ typedef struct {
 } Problem;
 
 typedef struct {
+    uint64_t remaining;
+    U128 used_values;
+} RootTask;
+
+typedef struct {
     const Problem *problem;
+    const RootTask *root_tasks;
     unsigned root_count;
     _Atomic unsigned next_root;
     _Atomic unsigned completed_roots;
@@ -211,6 +223,14 @@ static void add_u128(U128 *destination, U128 addend)
     *destination += addend;
 }
 
+static void add_u64(uint64_t *destination, uint64_t addend)
+{
+    if (*destination > UINT64_MAX - addend) {
+        die("answer overflow in uint64_t");
+    }
+    *destination += addend;
+}
+
 static U128 pairing_upper_bound(unsigned n)
 {
     U128 result = 1;
@@ -233,6 +253,18 @@ static inline U128 pair_values(unsigned x, unsigned y)
         die("internal shifted sum or difference is out of range");
     }
     return ((U128)1 << shifted_sum) | ((U128)1 << difference);
+}
+
+static inline uint64_t pair_values_u64(unsigned x, unsigned y)
+{
+    const unsigned shifted_sum = x + y + 1;
+    const unsigned difference = y - x;
+    if (shifted_sum >= 64 || difference >= 64 ||
+        shifted_sum == difference) {
+        die("internal 64-bit shifted sum or difference is out of range");
+    }
+    return (UINT64_C(1) << shifted_sum) |
+           (UINT64_C(1) << difference);
 }
 
 static inline void record_node(Worker *worker)
@@ -282,6 +314,33 @@ static U128 search(Worker *worker, uint64_t remaining, U128 used_values)
     return total;
 }
 
+static uint64_t search_u64(Worker *worker, uint64_t remaining,
+                           uint64_t used_values)
+{
+    record_node(worker);
+    if (remaining == 0) {
+        return 1;
+    }
+
+    const unsigned x = (unsigned)__builtin_ctzll(remaining);
+    const uint64_t x_bit = UINT64_C(1) << x;
+    uint64_t partners = remaining ^ x_bit;
+    uint64_t total = 0;
+    while (partners != 0) {
+        const unsigned y = (unsigned)__builtin_ctzll(partners);
+        const uint64_t y_bit = UINT64_C(1) << y;
+        partners ^= y_bit;
+        const uint64_t values = pair_values_u64(x, y);
+        if ((used_values & values) != 0) {
+            continue;
+        }
+        add_u64(&total,
+                search_u64(worker, remaining ^ x_bit ^ y_bit,
+                           used_values | values));
+    }
+    return total;
+}
+
 static void *worker_main(void *argument)
 {
     Worker *worker = argument;
@@ -293,11 +352,19 @@ static void *worker_main(void *argument)
         if (task >= queue->root_count) {
             break;
         }
-        const unsigned y = task + 1;
-        const uint64_t endpoints = UINT64_C(1) | (UINT64_C(1) << y);
-        add_u128(&worker->result,
-                 search(worker, problem->full_vertices ^ endpoints,
-                        pair_values(0, y)));
+        const RootTask *root_task = &queue->root_tasks[task];
+        if (problem->n <= MAX_U64_N) {
+            if ((root_task->used_values >> 64) != 0) {
+                die("internal root value mask exceeds 64 bits");
+            }
+            add_u128(&worker->result,
+                     search_u64(worker, root_task->remaining,
+                                (uint64_t)root_task->used_values));
+        } else {
+            add_u128(&worker->result,
+                     search(worker, root_task->remaining,
+                            root_task->used_values));
+        }
         flush_nodes(worker);
         atomic_fetch_add_explicit(&queue->completed_roots, 1,
                                   memory_order_relaxed);
@@ -349,7 +416,7 @@ static void *progress_main(void *argument)
 static U128 compute_term(unsigned n, unsigned requested_threads,
                          unsigned progress_seconds)
 {
-    if (n == 0) {
+    if (n <= 1) {
         return 1;
     }
     Problem problem = {
@@ -357,11 +424,52 @@ static U128 compute_term(unsigned n, unsigned requested_threads,
         .vertex_count = 2 * n,
         .full_vertices = (UINT64_C(1) << (2 * n)) - 1
     };
-    const unsigned root_count = problem.vertex_count - 1;
+    const unsigned root_capacity =
+        (problem.vertex_count - 1) * (problem.vertex_count - 3);
+    RootTask *root_tasks = malloc(
+        (size_t)root_capacity * sizeof(*root_tasks));
+    if (root_tasks == NULL) {
+        die("could not allocate the root task list");
+    }
+    unsigned root_count = 0;
+    for (unsigned first_y = 1; first_y < problem.vertex_count; ++first_y) {
+        const uint64_t first_endpoints =
+            UINT64_C(1) | (UINT64_C(1) << first_y);
+        const uint64_t first_remaining =
+            problem.full_vertices ^ first_endpoints;
+        const U128 first_values = pair_values(0, first_y);
+        const unsigned second_x =
+            (unsigned)__builtin_ctzll(first_remaining);
+        const uint64_t second_x_bit = UINT64_C(1) << second_x;
+        uint64_t second_partners = first_remaining ^ second_x_bit;
+        while (second_partners != 0) {
+            const unsigned second_y =
+                (unsigned)__builtin_ctzll(second_partners);
+            const uint64_t second_y_bit = UINT64_C(1) << second_y;
+            second_partners ^= second_y_bit;
+            const U128 second_values = pair_values(second_x, second_y);
+            if ((first_values & second_values) != 0) {
+                continue;
+            }
+            if (root_count >= root_capacity) {
+                die("internal root-task overflow");
+            }
+            root_tasks[root_count++] = (RootTask) {
+                .remaining = first_remaining ^
+                             second_x_bit ^ second_y_bit,
+                .used_values = first_values | second_values
+            };
+        }
+    }
+    if (root_count == 0) {
+        free(root_tasks);
+        return 0;
+    }
     const unsigned thread_count = requested_threads < root_count
         ? requested_threads : root_count;
     TaskQueue queue = {
         .problem = &problem,
+        .root_tasks = root_tasks,
         .root_count = root_count,
         .next_root = 0,
         .completed_roots = 0,
@@ -429,6 +537,7 @@ static U128 compute_term(unsigned n, unsigned requested_threads,
     }
     free(threads);
     free(workers);
+    free(root_tasks);
     return answer;
 }
 
@@ -648,4 +757,3 @@ int main(int argc, char **argv)
     }
     return EXIT_SUCCESS;
 }
-
