@@ -26,8 +26,9 @@
  *
  * Two-edge root branches are dynamically shared by pthread workers.  Splitting
  * one level beyond the possible partners of vertex 1 reduces parallel load
- * imbalance.  Search state and answer accumulators are private to a worker.
- * The edge/conflict tables are immutable after construction.
+ * imbalance.  Tasks with more surviving edges are queued first to reduce the
+ * final straggler.  Search state and answer accumulators are private to a
+ * worker.  The edge/conflict tables are immutable after construction.
  *
  * Every answer addition is checked in unsigned __int128.  The unrestricted
  * pairing count (2*n-1)!! bounds the answer and fits unsigned __int128 for
@@ -117,6 +118,7 @@ typedef struct {
 typedef struct {
     unsigned first_edge;
     unsigned second_edge;
+    unsigned weight;
 } RootTask;
 
 typedef struct {
@@ -567,6 +569,23 @@ static void *progress_main(void *argument)
     return NULL;
 }
 
+static int compare_root_tasks(const void *left_pointer,
+                              const void *right_pointer)
+{
+    const RootTask *left = left_pointer;
+    const RootTask *right = right_pointer;
+    if (left->weight != right->weight) {
+        return left->weight < right->weight ? 1 : -1;
+    }
+    if (left->first_edge != right->first_edge) {
+        return left->first_edge < right->first_edge ? -1 : 1;
+    }
+    if (left->second_edge != right->second_edge) {
+        return left->second_edge < right->second_edge ? -1 : 1;
+    }
+    return 0;
+}
+
 static U128 compute_term(unsigned n, unsigned requested_threads,
                          unsigned progress_seconds)
 {
@@ -639,9 +658,19 @@ static U128 compute_term(unsigned n, unsigned requested_threads,
                         root_count >= root_capacity) {
                         die("internal out-of-range second root edge");
                     }
+                    const uint64_t *second_conflicts = const_row(
+                        problem->conflicts, second_edge,
+                        problem->word_count);
+                    unsigned weight = 0;
+                    for (unsigned index = 0;
+                         index < problem->word_count; ++index) {
+                        weight += (unsigned)__builtin_popcountll(
+                            first_active[index] & ~second_conflicts[index]);
+                    }
                     root_tasks[root_count++] = (RootTask) {
                         .first_edge = first_edge,
-                        .second_edge = second_edge
+                        .second_edge = second_edge,
+                        .weight = weight
                     };
                 }
             }
@@ -655,6 +684,7 @@ static U128 compute_term(unsigned n, unsigned requested_threads,
         free_problem(problem);
         return 0;
     }
+    qsort(root_tasks, root_count, sizeof(*root_tasks), compare_root_tasks);
 
     const unsigned thread_count = requested_threads < root_count
         ? requested_threads : root_count;
