@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 /* A320129: number of ways to group 1..2n into n pairs whose sums are
  * pairwise distinct.
  *
@@ -29,6 +31,8 @@
  * The second form computes chunks in the half-open interval
  * [chunk_lo,chunk_hi).  A complete distributed run must cover
  * [0,2^split) exactly once.
+ * --upto writes b320129_5.txt beside the executable.  While it is running,
+ * completed terms are kept in b320129_5_part.txt.
  */
 
 #include <errno.h>
@@ -38,6 +42,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#if defined(_WIN32)
+#include <io.h>
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 
 #if defined(_MSC_VER)
 #include <intrin.h>
@@ -188,6 +203,74 @@ static int parse_ll(const char *text, long long *value)
     return 1;
 }
 
+static char *path_beside_executable(const char *argv0, const char *filename)
+{
+    char executable[4096];
+    int found = 0;
+
+#if defined(_WIN32)
+    DWORD length = GetModuleFileNameA(NULL, executable,
+                                      (DWORD)sizeof(executable));
+    if (length > 0 && length < (DWORD)sizeof(executable)) found = 1;
+#elif defined(__APPLE__)
+    uint32_t size = (uint32_t)sizeof(executable);
+    if (_NSGetExecutablePath(executable, &size) == 0) found = 1;
+#elif defined(__linux__)
+    ssize_t length = readlink("/proc/self/exe", executable,
+                              sizeof(executable) - 1U);
+    if (length >= 0) {
+        executable[(size_t)length] = '\0';
+        found = 1;
+    }
+#endif
+
+    if (!found) {
+        size_t length = strlen(argv0);
+        if (length >= sizeof(executable)) return NULL;
+        memcpy(executable, argv0, length + 1U);
+    }
+
+    {
+        const char *slash = strrchr(executable, '/');
+#if defined(_WIN32)
+        const char *backslash = strrchr(executable, '\\');
+        if (backslash != NULL && (slash == NULL || backslash > slash))
+            slash = backslash;
+#endif
+        size_t directory_length =
+            (slash == NULL) ? 1U : (size_t)(slash - executable);
+        size_t filename_length = strlen(filename);
+        char *path;
+
+        if (slash != NULL && directory_length == 0U) directory_length = 1U;
+        if (directory_length > SIZE_MAX - filename_length - 2U) return NULL;
+        path = (char *)malloc(directory_length + filename_length + 2U);
+        if (path == NULL) return NULL;
+
+        if (slash == NULL) {
+            path[0] = '.';
+        } else if (slash == executable) {
+            path[0] = '/';
+        } else {
+            memcpy(path, executable, directory_length);
+        }
+        path[directory_length] = '/';
+        memcpy(path + directory_length + 1U, filename,
+               filename_length + 1U);
+        return path;
+    }
+}
+
+static int flush_b_file(FILE *stream)
+{
+    if (fflush(stream) != 0) return 0;
+#if defined(_WIN32)
+    return _commit(_fileno(stream)) == 0;
+#else
+    return fsync(fileno(stream)) == 0;
+#endif
+}
+
 static void usage(const char *program)
 {
     fprintf(stderr,
@@ -198,7 +281,7 @@ static void usage(const char *program)
             "\n"
             "options:\n"
             "  --term N       compute only a(N)\n"
-            "  --upto N       print a(0) through a(N) in b-file format\n"
+            "  --upto N       print a(0)..a(N) and write b320129_5.txt\n"
             "  --split K      divide the subset space into 2^K chunks\n"
             "                 (default: min(6, 2*N))\n"
             "  --slice LO HI  compute the half-open chunk interval [LO,HI)\n"
@@ -213,7 +296,7 @@ static void usage(const char *program)
             program, program, program, program, program, program, program);
 }
 
-static void print_acc(Acc value)
+static int write_acc(FILE *stream, Acc value)
 {
     char decimal[64];
     int length = 0;
@@ -224,7 +307,10 @@ static void print_acc(Acc value)
         ACC_DIVMOD10(value, digit);
         decimal[length++] = (char)('0' + digit);
     }
-    while (length > 0) putchar(decimal[--length]);
+    while (length > 0) {
+        if (fputc(decimal[--length], stream) == EOF) return 0;
+    }
+    return 1;
 }
 
 static Acc compute_term(int n, int split, long long chunk_lo,
@@ -391,6 +477,27 @@ int main(int argc, char **argv)
     if (mode == 2) {
         int n;
         double start = now_seconds();
+        char *final_path =
+            path_beside_executable(argv[0], "b320129_5.txt");
+        char *part_path =
+            path_beside_executable(argv[0], "b320129_5_part.txt");
+        FILE *bfile;
+
+        if (final_path == NULL || part_path == NULL) {
+            fprintf(stderr, "error: cannot construct the b-file path\n");
+            free(final_path);
+            free(part_path);
+            return EXIT_FAILURE;
+        }
+        bfile = fopen(part_path, "w");
+        if (bfile == NULL) {
+            fprintf(stderr, "error: cannot open %s: %s\n",
+                    part_path, strerror(errno));
+            free(final_path);
+            free(part_path);
+            return EXIT_FAILURE;
+        }
+
         for (n = 0; n <= (int)input_n; ++n) {
             Acc answer;
 
@@ -404,12 +511,44 @@ int main(int argc, char **argv)
                     (long long)(UINT64_C(1) << split);
                 answer = compute_term(n, split, 0, all_chunks);
             }
-            printf("%d ", n);
-            print_acc(answer);
-            putchar('\n');
-            fflush(stdout);
+
+            if (fprintf(bfile, "%d ", n) < 0 ||
+                !write_acc(bfile, answer) || fputc('\n', bfile) == EOF ||
+                !flush_b_file(bfile)) {
+                fprintf(stderr, "error: cannot write %s: %s\n",
+                        part_path, strerror(errno));
+                (void)fclose(bfile);
+                free(final_path);
+                free(part_path);
+                return EXIT_FAILURE;
+            }
+            if (printf("%d ", n) < 0 || !write_acc(stdout, answer) ||
+                putchar('\n') == EOF || fflush(stdout) != 0) {
+                fprintf(stderr, "error: cannot write standard output\n");
+                (void)fclose(bfile);
+                free(final_path);
+                free(part_path);
+                return EXIT_FAILURE;
+            }
         }
+        if (fclose(bfile) != 0) {
+            fprintf(stderr, "error: cannot close %s: %s\n",
+                    part_path, strerror(errno));
+            free(final_path);
+            free(part_path);
+            return EXIT_FAILURE;
+        }
+        if (rename(part_path, final_path) != 0) {
+            fprintf(stderr, "error: cannot rename %s to %s: %s\n",
+                    part_path, final_path, strerror(errno));
+            free(final_path);
+            free(part_path);
+            return EXIT_FAILURE;
+        }
+        fprintf(stderr, "wrote %s (n=0..%lld)\n", final_path, input_n);
         fprintf(stderr, "%.1fs\n", now_seconds() - start);
+        free(final_path);
+        free(part_path);
         return EXIT_SUCCESS;
     }
 
@@ -464,7 +603,10 @@ int main(int argc, char **argv)
                    (unsigned long long)ACC_LO(answer));
         } else {
             printf("a(%d) = ", n);
-            print_acc(answer);
+            if (!write_acc(stdout, answer)) {
+                fprintf(stderr, "error: cannot write standard output\n");
+                return EXIT_FAILURE;
+            }
             putchar('\n');
         }
         fprintf(stderr, "%.1fs\n", now_seconds() - start);
