@@ -210,12 +210,12 @@ if __FILE__ == $PROGRAM_NAME
   if ARGV.include?('--known')
     A328151.check_known
   elsif ARGV.include?('--verify')
-    nums = ARGV.select { |s| s =~ /\A\d+\z/ }.map(&:to_i)
+    nums = ARGV.select{|s| s =~ /\A\d+\z/}.map(&:to_i)
     A328151.verify(nums[0] || 5_000_000, nums[1] || 40)
   else
     nmax = (ARGV[0] || 100).to_i
-    A328151.sequence(nmax).each_with_index do |v, n|
+    A328151.sequence(nmax).each_with_index{|v, n|
       puts "#{n} #{v}"
-    end
+    }
   end
 end
