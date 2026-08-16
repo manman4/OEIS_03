@@ -215,7 +215,7 @@ if __FILE__ == $PROGRAM_NAME
   else
     nmax = (ARGV[0] || 100).to_i
     A328151.sequence(nmax).each_with_index do |v, n|
-      puts format('%3d  %s', n, v)
+      puts "#{n} #{v}"
     end
   end
 end
