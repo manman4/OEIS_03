@@ -1,4 +1,4 @@
-M=20;
+M=22;
 
 a136630(n, k) = 1/(2^k*k!)*sum(j=0, k, (-1)^(k-j)*(2*j-k)^n*binomial(k, j));
 for(n=0, 10, for(k=0, n, print1(a136630(n, k), ", ")));
