@@ -67,4 +67,4 @@ check_formula(N) =
   F
 };
 
-F = check_formula(9);
+for(n=1, 12, check_formula(n));
