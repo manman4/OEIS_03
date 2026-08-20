@@ -24,31 +24,25 @@ triangle_xexp_by_iteration(9);
 triangle_xexp(N) =
 {
   my(T = vector(N, n, vector(n)));
-
   T[1][1] = 1;
-
   for(n = 2, N,
     for(k = 1, n-1,
       T[n][k+1] = sum(j = k, n-1,
         j^(n-j)*binomial(n-1,j-1)*T[j][k])
     )
   );
-
   T
 };
-
 
 /* Reconstruct the right-hand side from T(n,k). */
 formal_iterate_from_T(T, N) =
 {
   my(x = 'x, t = 't);
-
   sum(n = 1, N,
     x^n/(n-1)! *
       sum(k = 0, n-1, T[n][k+1]*binomial(t,k))
   ) + O(x^(N+1))
 };
-
 
 /* Compare the reconstruction with f^r(x), r=0,...,N-1. */
 check_formula(N) =
@@ -62,17 +56,13 @@ check_formula(N) =
     g = x + O(x^(N+1)),
     h
   );
-
   for(r = 0, N-1,
     h = subst(F, t, r);
-
     if(h != g,
       error(Str("Failed at t=", r))
     );
-
     g = subst(f, x, g);
   );
-
   print("OK through x^", N);
   F
 };
