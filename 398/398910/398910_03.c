@@ -754,8 +754,7 @@ static U128 sequence_term(int n)
 
 static const char *const known[] = {
     "1", "0", "0", "2", "46", "1413", "63060", "3777584",
-    "302149153", "30550415691", "3874612933867",
-    "594970967085179"
+    "302149153", "30550415691", "3874612933867"
 };
 
 static bool parse_u128(const char *text, U128 *result)
