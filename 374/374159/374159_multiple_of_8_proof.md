@@ -2,13 +2,17 @@
 
 ## 定義
 
-A374159 を
+非負整数 $k$ に対して、$R(k)$ を
 
 $$
-a(n)=\min\{k\ge 0:\#\{(x,y)\in\mathbb Z_{>0}^2:x^2+7y^2=k\}=n\}
+x^2+7y^2=k
 $$
 
-とする。
+を満たす正整数の組 $(x,y)$ の個数とする。$R(k)=n$ を満たす非負整数 $k$ のうち最小のものを $a(n)$ とする。すなわち、
+
+$$
+R(a(n))=n,\qquad R(k)\ne n\quad(0\le k<a(n)).
+$$
 
 このとき、すべての $n\ge0$ について
 
@@ -106,13 +110,7 @@ $$
 \mathcal O_K/2\mathcal O_K\cong\mathbb F_2\times\mathbb F_2
 $$
 
-であり、部分環 $\mathcal O=\mathbb Z+2\mathcal O_K$ の像は対角成分
-
-$$
-\{(0,0),(1,1)\}
-$$
-
-である。ノルムの2進付値を $e$ とし、対応する主イデアルの2進部分を
+であり、部分環 $\mathcal O=\mathbb Z+2\mathcal O_K$ の像は、2つの対角成分 $(0,0)$ と $(1,1)$ からなる。ノルムの2進付値を $e$ とし、対応する主イデアルの2進部分を
 
 $$
 \mathfrak p^i\overline{\mathfrak p}^{\,j},
