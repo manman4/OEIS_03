@@ -14,11 +14,16 @@
  * so induction proves that every unordered partition is counted exactly once.
  * Rows are indexed only by their largest element, avoiding a column scan.
  *
- * The remaining-value mask completely determines a subproblem.  Each worker
- * has a bounded direct-mapped cache of exact U128 results.  A hash collision
- * replaces an old entry and merely causes recomputation.  Thus hashing can
- * affect time but never the answer: this is deterministic exact counting,
- * not probabilistic hashing.  One maximum-first step is expanded before the
+ * The remaining-value mask completely determines a subproblem.  All workers
+ * share one bounded direct-mapped cache.  A cache slot contains an exact
+ * 64-bit result; a U128 result larger than UINT64_MAX is simply not cached.
+ * Thus compression can only cause recomputation and can never truncate an
+ * answer.  An atomic per-slot generation counter is odd during replacement;
+ * a reader accepts a key/value pair only when equal even generations bracket
+ * its reads.  This seqlock rule also excludes ABA replacement races.  A
+ * collision or busy slot is just a cache miss.  Hashing therefore affects
+ * time but never the answer: this remains deterministic exact counting, not
+ * probabilistic hashing.  One maximum-first step is expanded before the
  * dynamically scheduled parallel work queue.
  *
  * The feasibility pruning uses only proved necessary conditions.  For a
@@ -50,7 +55,8 @@
  *
  * Usage:
  *   ./398910_03 10
- *   ./398910_03 --term 10 --hash-power 22
+ *   ./398910_03 --term 10 --threads 8 --hash-power 24
+ *   ./398910_03 --term 11 --threads 8 --hash-power 25
  *   ./398910_03 --check
  *
  * Completed terms are atomically recorded in b398910_03.txt.  --term N is
@@ -58,10 +64,10 @@
  * Interrupted work never records an unfinished term.  --no-bfile suppresses
  * b-file access; --output FILE selects another path.
  *
- * Cache memory is approximately 24*2^P bytes per active worker.  The default
- * P=22 and one worker use about 96 MiB.  A smaller cache is always exact but
- * can cause more recomputation.  Multiple workers can duplicate subproblems,
- * so --threads 1 is intentionally the default; extra threads are optional.
+ * Cache memory is approximately 24*2^P bytes total, independent of the thread
+ * count.  The default P=22 uses about 96 MiB; P=25 uses about 768 MiB.  A
+ * smaller cache is always exact but can cause more recomputation.  The shared
+ * cache also lets different root tasks reuse completed subproblems.
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -87,10 +93,10 @@ __extension__ typedef unsigned __int128 U128;
 #define MAX_VALUES (3 * MAX_N)
 #define MAX_THREADS 64
 #define DEFAULT_N 10
-#define DEFAULT_THREADS 1
+#define DEFAULT_THREADS 4
 #define DEFAULT_HASH_POWER 22
 #define MIN_HASH_POWER 16
-#define MAX_HASH_POWER 22
+#define MAX_HASH_POWER 26
 
 _Static_assert(MAX_VALUES < 64, "search mask must fit in uint64_t");
 
@@ -109,8 +115,9 @@ typedef struct {
 } RootTask;
 
 typedef struct {
-    uint64_t *keys;
-    U128 *values;
+    _Atomic uint64_t *generations;
+    _Atomic uint64_t *keys;
+    _Atomic uint64_t *values;
     size_t mask;
 } Memo;
 
@@ -123,7 +130,7 @@ typedef struct {
 typedef struct RootSchedule RootSchedule;
 typedef struct {
     RootSchedule *schedule;
-    Memo memo;
+    Memo *memo;
     U128 answer;
     SearchStats stats;
 } Worker;
@@ -469,16 +476,39 @@ static int maximum_column(uint64_t mask)
 static bool memo_get(const Memo *memo, uint64_t key, U128 *value)
 {
     const size_t slot = (size_t)mix64(key) & memo->mask;
-    if (memo->keys[slot] != key) return false;
-    *value = memo->values[slot];
+    const uint64_t first_generation = atomic_load_explicit(
+        &memo->generations[slot], memory_order_seq_cst);
+    if ((first_generation & UINT64_C(1)) != 0) return false;
+    const uint64_t cached_key = atomic_load_explicit(
+        &memo->keys[slot], memory_order_seq_cst);
+    if (cached_key != key) return false;
+    const uint64_t cached = atomic_load_explicit(
+        &memo->values[slot], memory_order_seq_cst);
+    const uint64_t second_generation = atomic_load_explicit(
+        &memo->generations[slot], memory_order_seq_cst);
+    if (first_generation != second_generation) return false;
+    *value = (U128)cached;
     return true;
 }
 
 static void memo_put(Memo *memo, uint64_t key, U128 value)
 {
+    if (value > (U128)UINT64_MAX) return;
     const size_t slot = (size_t)mix64(key) & memo->mask;
-    memo->values[slot] = value;
-    memo->keys[slot] = key;
+    uint64_t generation = atomic_load_explicit(
+        &memo->generations[slot], memory_order_seq_cst);
+    if ((generation & UINT64_C(1)) != 0 ||
+        generation > UINT64_MAX - UINT64_C(2) ||
+        !atomic_compare_exchange_strong_explicit(
+            &memo->generations[slot], &generation, generation + UINT64_C(1),
+            memory_order_seq_cst, memory_order_seq_cst)) {
+        return;
+    }
+    atomic_store_explicit(&memo->keys[slot], key, memory_order_seq_cst);
+    atomic_store_explicit(&memo->values[slot], (uint64_t)value,
+                          memory_order_seq_cst);
+    atomic_store_explicit(&memo->generations[slot], generation + UINT64_C(2),
+                          memory_order_seq_cst);
 }
 
 static U128 count_state(uint64_t mask, Memo *memo, SearchStats *stats)
@@ -564,7 +594,7 @@ static void *worker_main(void *argument)
             &worker->schedule->next, 1U, memory_order_relaxed);
         if (index >= worker->schedule->count) break;
         const U128 addend = count_state(worker->schedule->tasks[index].mask,
-                                       &worker->memo, &worker->stats);
+                                       worker->memo, &worker->stats);
         if (!add_u128(&worker->answer, addend)) die("worker U128 overflow");
         atomic_fetch_add_explicit(&completed_tasks, 1U, memory_order_relaxed);
     }
@@ -629,14 +659,35 @@ static U128 sequence_term(int n)
         free(workers); free(ids); die("cannot allocate workers");
     }
     const size_t memo_size = (size_t)1U << requested_hash_power;
+    if (memo_size > SIZE_MAX / sizeof(_Atomic uint64_t)) {
+        die("shared memo size overflow");
+    }
+    Memo memo = {
+        .generations = malloc(memo_size * sizeof(*memo.generations)),
+        .keys = malloc(memo_size * sizeof(*memo.keys)),
+        .values = malloc(memo_size * sizeof(*memo.values)),
+        .mask = memo_size - 1U
+    };
+    if (memo.generations == NULL || memo.keys == NULL ||
+        memo.values == NULL) {
+        free(memo.values);
+        free(memo.keys);
+        free(memo.generations);
+        die("cannot allocate shared memo cache");
+    }
+    for (size_t slot = 0; slot < memo_size; ++slot) {
+        atomic_init(&memo.generations[slot], UINT64_C(0));
+        atomic_init(&memo.keys[slot], UINT64_C(0));
+        atomic_init(&memo.values[slot], UINT64_C(0));
+    }
+    if (!atomic_is_lock_free(&memo.generations[0]) ||
+        !atomic_is_lock_free(&memo.keys[0]) ||
+        !atomic_is_lock_free(&memo.values[0])) {
+        die("shared memo requires lock-free 64-bit atomics");
+    }
     for (int id = 0; id < threads; ++id) {
         workers[id].schedule = &schedule;
-        workers[id].memo.keys = calloc(memo_size, sizeof(uint64_t));
-        workers[id].memo.values = malloc(memo_size * sizeof(U128));
-        workers[id].memo.mask = memo_size - 1U;
-        if (workers[id].memo.keys == NULL || workers[id].memo.values == NULL) {
-            die("cannot allocate per-worker memo cache");
-        }
+        workers[id].memo = &memo;
     }
 
     const double started = now_seconds();
@@ -677,10 +728,9 @@ static U128 sequence_term(int n)
     if (pthread_mutex_unlock(&monitor_mutex) != 0) die("monitor unlock failed");
     if (pthread_join(monitor_id, NULL) != 0) die("cannot join monitor thread");
 
-    for (int id = 0; id < threads; ++id) {
-        free(workers[id].memo.keys);
-        free(workers[id].memo.values);
-    }
+    free(memo.values);
+    free(memo.keys);
+    free(memo.generations);
     free(workers);
     free(ids);
     free(schedule.tasks);
@@ -689,17 +739,23 @@ static U128 sequence_term(int n)
             "398910_03: n=%d, sparse DP, maximum-first, rows=%u, "
             "tasks=%u, calls=%" PRIu64 ", hits=%" PRIu64
             ", feasibility-prunes=%" PRIu64
-            ", threads=%d, memo=2^%u/worker, %.3f s\n",
+            ", threads=%d, shared-memo=2^%u (%.2f MiB), %.3f s\n",
             n, row_count, schedule.count, calls, hits,
             feasibility_prunes, threads,
-            requested_hash_power, now_seconds() - started);
+            requested_hash_power,
+            (double)memo_size *
+                (double)(sizeof(*memo.generations) + sizeof(*memo.keys) +
+                         sizeof(*memo.values)) /
+                (1024.0 * 1024.0),
+            now_seconds() - started);
     free_rows();
     return answer;
 }
 
 static const char *const known[] = {
     "1", "0", "0", "2", "46", "1413", "63060", "3777584",
-    "302149153", "30550415691"
+    "302149153", "30550415691", "3874612933867",
+    "594970967085179"
 };
 
 static bool parse_u128(const char *text, U128 *result)
