@@ -68,13 +68,18 @@
 # ------------------------------------------------------------------
 #
 # 使い方:
-#   ruby 374090_03.rb           # n = 0..100 を出力
-#   ruby 374090_03.rb 30        # n = 0..30 を出力
+#   ruby 374090_03.rb           # a(n) が 1000 桁を超える手前まで出力
+#   ruby 374090_03.rb 30        # n = 0..30 を出力（桁数制限も併用）
+#   ruby 374090_03.rb --digits=200   # 桁数の上限を変更
 #   ruby 374090_03.rb --known   # 総当たりで確定済みの項と照合
 #   ruby 374090_03.rb --verify  # 総当たりと突き合わせて検証
 
 module A374090
   module_function
+
+  # 出力する a(n) の桁数上限。ちょうどこの桁数までは出力し、
+  # 超えた時点で打ち切る（1000 桁は OK、1001 桁で停止）。
+  MAX_DIGITS = 1000
 
   # ---------- 素数まわり（prime gem に依存しない） ----------
 
@@ -163,8 +168,22 @@ module A374090
     end
   end
 
-  def sequence(nmax)
-    (0..nmax).map { |n| a(n) }
+  # a(n) の桁数が max_digits を超えた時点で打ち切る。
+  # nmax を与えた場合はそこでも打ち切る（どちらか早いほう）。
+  # 戻り値は [n, a(n)] の配列。
+  def sequence(nmax = nil, max_digits = MAX_DIGITS)
+    out = []
+    n = 0
+    loop {
+      break if nmax && n > nmax
+
+      v = a(n)
+      break if v.to_s.size > max_digits
+
+      out << [n, v]
+      n += 1
+    }
+    out
   end
 
   # k <= 6*10^7 の総当たり走査で確定した項
@@ -255,7 +274,15 @@ if __FILE__ == $PROGRAM_NAME
     nums = ARGV.select { |s| s =~ /\A\d+\z/ }.map(&:to_i)
     A374090.verify(nums[0] || 5_000_000, nums[1] || 40)
   else
-    nmax = (ARGV[0] || 100).to_i
-    A374090.sequence(nmax).each_with_index { |v, n| puts "#{n} #{v}" }
+    dig = ARGV.find { |t| t =~ /\A--digits=(\d+)\z/ } ? Regexp.last_match(1).to_i
+                                                       : A374090::MAX_DIGITS
+    cap = ARGV.find { |t| t =~ /\A\d+\z/ }&.to_i
+    rows = A374090.sequence(cap, dig)
+    rows.each { |n, v| puts "#{n} #{v}" }
+    last = rows.last
+    if last && (cap.nil? || last[0] < cap)
+      nxt = last[0] + 1
+      warn "stopped: a(#{nxt}) has #{A374090.a(nxt).to_s.size} digits (> #{dig})"
+    end
   end
 end
