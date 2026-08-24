@@ -32,4 +32,4 @@ def prime_set_partitions(n)
   f.call(full)
 end
 
-p (1..16).map{|n| prime_set_partitions(n)}
+p [1] + (1..16).map{|n| prime_set_partitions(n)}
