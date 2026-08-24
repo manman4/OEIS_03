@@ -22,17 +22,19 @@
  * smaller terms do not pay for the n=25 table.  Hash collisions are resolved
  * by the complete mask key.  Counts, table load, allocation sizes, and output
  * are checked.  Sparse tags reserve their top bit as the atomic busy flag and
- * use the lower 31 bits as the complete mask key.  The deliberate cap is n=25.
+ * use the lower 31 bits as the complete mask key.  The deliberate cap is n=27.
  * Sparse values below 2^31 use 32 bits; larger values are placed in compact
- * append-only chunks, without truncating any uint64_t result.  At n=25 the
- * base memo occupies about 128 MiB; the sole sparse root entry is tiny.
+ * append-only chunks, without truncating any uint64_t result.  At n=27 the
+ * dense and sparse base tables together occupy about 640 MiB.  Temporary
+ * compaction storage while growing from n=26 can bring the peak close to
+ * 1 GiB.
  *
  * Build:
  *   clang -O3 -march=native -std=c11 -Wall -Wextra -Wpedantic \
  *       398349_01.c -o 398349_01 -pthread
  *
  * Examples:
- *   ./398349_01 --upto 25 --threads 8 --self-test --stats
+ *   ./398349_01 --upto 27 --threads 8 --self-test --stats
  *   ./398349_01 --upto 24 --self-test
  *
  * Every result line is also written immediately to b398349_01.txt in the
@@ -54,18 +56,22 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MAX_N 25U
+#define MAX_N 27U
 #define DEFAULT_N 24U
 #define KNOWN_N 19U
 #define DENSE_MEMO_MAX_N 24U
 #define MITM_MIN_REST_SIZE 8U
 #define PARALLEL_MIN_N 18U
 #define TASK_CHUNK 64U
+#define LARGE_TERM_TASK_CHUNK 1U
+#ifndef PROGRESS_MIN_N
 #define PROGRESS_MIN_N 24U
+#endif
 #define PROGRESS_INTERVAL_SECONDS 60.0
 #define PROGRESS_POLL_NANOSECONDS 100000000L
 #define BFILE_NAME "b398349_01.txt"
 #define SPARSE_BUSY_BIT UINT32_C(0x80000000)
+#define SPARSE_MAX_LOAD_PERCENT 78U
 #define WIDE_VALUE_BIT UINT32_C(0x80000000)
 #define WIDE_CHUNK_BITS 16U
 #define WIDE_CHUNK_SIZE (UINT32_C(1) << WIDE_CHUNK_BITS)
@@ -361,8 +367,9 @@ static bool memo_claim(Shared *shared, uint32_t mask, uint64_t *value,
                 const size_t size =
                     atomic_fetch_add_explicit(&memo->size, 1,
                                               memory_order_relaxed) + 1U;
-                if (size * 10U >= memo->capacity * 7U)
-                    die("concurrent memo table exceeded 70% load");
+                if (size * 100U >=
+                    memo->capacity * SPARSE_MAX_LOAD_PERCENT)
+                    die("concurrent memo table exceeded safe load");
                 token->dense = false;
                 token->index = index;
                 return true;
@@ -562,7 +569,7 @@ static double monotonic_seconds(void);
 static size_t sparse_capacity_for_n(unsigned n)
 {
     if (n < 25U) return 0;
-    const unsigned sparse_bits = n == 25U ? 10U : n - 2U;
+    const unsigned sparse_bits = n == 25U ? 10U : n - 1U;
     return (size_t)1U << sparse_bits;
 }
 
@@ -741,6 +748,7 @@ typedef struct {
     uint64_t initial_state_count;
     double start_time;
     unsigned term;
+    size_t task_chunk;
 } RootQueue;
 
 typedef struct {
@@ -761,6 +769,10 @@ static void report_progress(const RootQueue *queue, bool finished)
     const size_t completed =
         atomic_load_explicit(&queue->completed_tasks,
                              memory_order_relaxed);
+    size_t claimed =
+        atomic_load_explicit(&queue->next_task, memory_order_relaxed);
+    if (claimed > queue->block_count) claimed = queue->block_count;
+    if (claimed < completed) claimed = completed;
     const uint64_t states =
         atomic_load_explicit(&queue->shared->computed_states,
                              memory_order_relaxed);
@@ -770,8 +782,10 @@ static void report_progress(const RootQueue *queue, bool finished)
         : 100.0 * (double)completed / (double)queue->block_count;
     fprintf(stderr,
             "progress n=%u: root jobs %zu/%zu (%.1f%%), "
-            "new states=%" PRIu64 ", elapsed=%.1fs%s\n",
+            "active=%zu, remaining=%zu, new states=%" PRIu64
+            ", elapsed=%.1fs%s\n",
             queue->term, completed, queue->block_count, percent,
+            claimed - completed, queue->block_count - completed,
             new_states, monotonic_seconds() - queue->start_time,
             finished ? ", done" : "");
     if (fflush(stderr) == EOF)
@@ -853,6 +867,9 @@ static uint32_t *build_root_blocks(const Shared *shared, uint32_t mask,
     const unsigned maximum_block_sum =
         pivot_value + subset_sum(shared, rest);
     size_t total = 0;
+    size_t bucket_counts[MAX_N];
+    size_t bucket_offsets[MAX_N + 1U];
+    memset(bucket_counts, 0, sizeof(bucket_counts));
     uint32_t low = low_elements;
     for (;;) {
         const unsigned low_value = subset_sum(shared, low);
@@ -862,8 +879,12 @@ static uint32_t *build_root_blocks(const Shared *shared, uint32_t mask,
              target = shared->next_prime[target + 1U]) {
             const unsigned high_value =
                 target - pivot_value - low_value;
-            if (high_value <= maximum_high_sum)
-                total += counts[high_value];
+            if (high_value > maximum_high_sum) continue;
+            for (uint32_t i = offsets[high_value];
+                 i < offsets[high_value + 1U]; ++i) {
+                ++total;
+                ++bucket_counts[bit_count(low | grouped[i])];
+            }
         }
         if (low == 0) break;
         low = (low - 1U) & low_elements;
@@ -874,7 +895,12 @@ static uint32_t *build_root_blocks(const Shared *shared, uint32_t mask,
     if (blocks == NULL && total != 0)
         die("could not allocate the root block list");
 
-    size_t used = 0;
+    bucket_offsets[0] = 0;
+    for (unsigned size = 0; size < MAX_N; ++size)
+        bucket_offsets[size + 1U] =
+            bucket_offsets[size] + bucket_counts[size];
+    size_t bucket_cursors[MAX_N];
+    memcpy(bucket_cursors, bucket_offsets, sizeof(bucket_cursors));
     low = low_elements;
     for (;;) {
         const unsigned low_value = subset_sum(shared, low);
@@ -886,14 +912,20 @@ static uint32_t *build_root_blocks(const Shared *shared, uint32_t mask,
                 target - pivot_value - low_value;
             if (high_value > maximum_high_sum) continue;
             for (uint32_t i = offsets[high_value];
-                 i < offsets[high_value + 1U]; ++i)
-                blocks[used++] = low | grouped[i];
+                 i < offsets[high_value + 1U]; ++i) {
+                const uint32_t block_rest = low | grouped[i];
+                const unsigned size = bit_count(block_rest);
+                blocks[bucket_cursors[size]++] = block_rest;
+            }
         }
         if (low == 0) break;
         low = (low - 1U) & low_elements;
     }
     free(grouped);
-    if (used != total) die("internal root block list size mismatch");
+    for (unsigned size = 0; size < MAX_N; ++size) {
+        if (bucket_cursors[size] != bucket_offsets[size + 1U])
+            die("internal root block list size mismatch");
+    }
     *result_count = total;
     return blocks;
 }
@@ -906,10 +938,11 @@ static void *root_worker(void *opaque)
     uint64_t total = 0;
     for (;;) {
         const size_t begin =
-            atomic_fetch_add_explicit(&queue->next_task, TASK_CHUNK,
+            atomic_fetch_add_explicit(&queue->next_task,
+                                      queue->task_chunk,
                                       memory_order_relaxed);
         if (begin >= queue->block_count) break;
-        size_t end = begin + TASK_CHUNK;
+        size_t end = begin + queue->task_chunk;
         if (end > queue->block_count) end = queue->block_count;
         for (size_t i = begin; i < end; ++i)
             checked_add(&total,
@@ -952,6 +985,8 @@ static uint64_t count_full(Shared *shared, uint32_t mask)
     queue.block_rests = blocks;
     queue.block_count = block_count;
     queue.term = term;
+    queue.task_chunk = term >= PROGRESS_MIN_N
+        ? LARGE_TERM_TASK_CHUNK : TASK_CHUNK;
     queue.initial_state_count =
         atomic_load_explicit(&shared->computed_states,
                              memory_order_relaxed);
@@ -1036,7 +1071,8 @@ static void usage(FILE *stream, const char *program)
             "  --upto N     print a(0)..a(N), 0 <= N <= %u (default %u)\n"
             "  --target N   print only a(N)\n"
             "               appends when the b-file contains n=0..N-1\n"
-            "               n=25 uses about 128 MiB of base memo storage\n"
+            "               n=27 uses about 640 MiB of base memo storage\n"
+            "               peak storage while growing is about 1 GiB\n"
             "  --threads T  use 1..64 workers (default: up to 8 CPUs)\n"
             "  --self-test  compare computed terms with regression values\n"
             "  --stats      report states, waits, and sparse-table load\n"
