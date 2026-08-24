@@ -62,7 +62,10 @@
 #endif
 #define PARALLEL_MIN_N 12U
 #define TASK_CHUNK 16U
+#define LARGE_TERM_TASK_CHUNK 1U
+#ifndef PROGRESS_MIN_N
 #define PROGRESS_MIN_N 23U
+#endif
 #define PROGRESS_INTERVAL_SECONDS 60.0
 #define PROGRESS_POLL_NANOSECONDS 100000000L
 #define MEMO_EMPTY 0U
@@ -833,6 +836,7 @@ typedef struct {
     uint64_t initial_state_count;
     double start_time;
     unsigned term;
+    size_t task_chunk;
 } RootQueue;
 
 typedef struct {
@@ -853,6 +857,10 @@ static void report_progress(const RootQueue *queue, bool finished)
     const size_t completed =
         atomic_load_explicit(&queue->completed_tasks,
                              memory_order_relaxed);
+    size_t claimed =
+        atomic_load_explicit(&queue->next_task, memory_order_relaxed);
+    if (claimed > queue->task_count) claimed = queue->task_count;
+    if (claimed < completed) claimed = completed;
     const uint64_t states =
         atomic_load_explicit(&queue->context->computed_states,
                              memory_order_relaxed);
@@ -860,8 +868,11 @@ static void report_progress(const RootQueue *queue, bool finished)
         : 100.0 * (double)completed / (double)queue->task_count;
     fprintf(stderr,
             "progress n=%u: root jobs %zu/%zu (%.1f%%), "
-            "new evaluations=%" PRIu64 ", elapsed=%.1fs%s\n",
+            "active=%zu, remaining=%zu, new evaluations=%" PRIu64
+            ", elapsed=%.1fs%s\n",
             queue->term, completed, queue->task_count, percent,
+            claimed - completed,
+            queue->task_count - completed,
             states - queue->initial_state_count,
             monotonic_seconds() - queue->start_time,
             finished ? ", done" : "");
@@ -897,11 +908,17 @@ static RootTask *build_root_tasks(const Context *context, uint32_t mask,
     const uint32_t rest = mask ^ pivot;
     const unsigned pivot_value = pivot_index + 1U;
     size_t total = 0;
+    size_t bucket_counts[MAX_N];
+    size_t bucket_offsets[MAX_N + 1U];
+    memset(bucket_counts, 0, sizeof(bucket_counts));
     uint32_t block_rest = rest;
     for (;;) {
         const unsigned block_sum =
             pivot_value + subset_sum(context, block_rest);
-        if (!prime_mask_is_zero(context->prime_bit[block_sum])) ++total;
+        if (!prime_mask_is_zero(context->prime_bit[block_sum])) {
+            ++total;
+            ++bucket_counts[bit_count(block_rest)];
+        }
         if (block_rest == 0) break;
         block_rest = (block_rest - 1U) & rest;
     }
@@ -910,21 +927,31 @@ static RootTask *build_root_tasks(const Context *context, uint32_t mask,
     RootTask *tasks = total == 0 ? NULL : malloc(total * sizeof(*tasks));
     if (total != 0 && tasks == NULL)
         die("could not allocate root task list");
-    size_t used = 0;
+    bucket_offsets[0] = 0;
+    for (unsigned size = 0; size < MAX_N; ++size)
+        bucket_offsets[size + 1U] =
+            bucket_offsets[size] + bucket_counts[size];
+    size_t bucket_cursors[MAX_N];
+    memcpy(bucket_cursors, bucket_offsets,
+           sizeof(bucket_cursors));
     block_rest = rest;
     for (;;) {
         const unsigned block_sum =
             pivot_value + subset_sum(context, block_rest);
         const PrimeMask prime_mask = context->prime_bit[block_sum];
         if (!prime_mask_is_zero(prime_mask)) {
-            tasks[used].block_rest = block_rest;
-            tasks[used].block_sum = (uint16_t)block_sum;
-            ++used;
+            const unsigned size = bit_count(block_rest);
+            const size_t index = bucket_cursors[size]++;
+            tasks[index].block_rest = block_rest;
+            tasks[index].block_sum = (uint16_t)block_sum;
         }
         if (block_rest == 0) break;
         block_rest = (block_rest - 1U) & rest;
     }
-    if (used != total) die("internal root task count mismatch");
+    for (unsigned size = 0; size < MAX_N; ++size) {
+        if (bucket_cursors[size] != bucket_offsets[size + 1U])
+            die("internal root task count mismatch");
+    }
     *result_count = total;
     return tasks;
 }
@@ -937,10 +964,11 @@ static void *root_worker(void *opaque)
     uint64_t total = 0;
     for (;;) {
         const size_t begin =
-            atomic_fetch_add_explicit(&queue->next_task, TASK_CHUNK,
+            atomic_fetch_add_explicit(&queue->next_task,
+                                      queue->task_chunk,
                                       memory_order_relaxed);
         if (begin >= queue->task_count) break;
-        size_t end = begin + TASK_CHUNK;
+        size_t end = begin + queue->task_chunk;
         if (end > queue->task_count) end = queue->task_count;
         for (size_t i = begin; i < end; ++i) {
             const RootTask task = queue->tasks[i];
@@ -1000,6 +1028,8 @@ static uint64_t count_full(Context *context, uint32_t mask)
     queue.tasks = tasks;
     queue.task_count = task_count;
     queue.term = term;
+    queue.task_chunk = term >= PROGRESS_MIN_N
+        ? LARGE_TERM_TASK_CHUNK : TASK_CHUNK;
     queue.initial_state_count =
         atomic_load_explicit(&context->computed_states,
                              memory_order_relaxed);
