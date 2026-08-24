@@ -17,16 +17,17 @@
  * Root blocks are distributed through a dynamic pthread work queue.  All
  * For n <= 22, workers share a concurrent full-key memo table; busy entries
  * make duplicate states wait, and decreasing element counts make those waits
- * cycle-free.  For n >= 23, a fixed-size 4-way cache may evict complete
+ * cycle-free.  For n >= 23, a fixed-size 8-way cache may evict complete
  * entries.  Eviction only causes recomputation: every returned count is still
  * calculated from a complete key, so it cannot change the exact result.
  * Prime-use sets are 128 bits wide (79 primes are needed through n=28).
  *
- * A necessary condition for a state to succeed is that sum(M) be a subset
- * sum of the unused primes.  A small bitset subset-sum calculation checks
- * this condition on demand.  Counts, additions, allocations, and table
- * loads are checked.  Known terms are used only by --self-test after a
- * value has been computed.
+ * Used prime sums larger than sum(M) are discarded from the memo key because
+ * no later block can have those sums.  Two stronger subset-sum filters remain
+ * available as compile-time diagnostics, but are disabled by default: their
+ * small reduction in state count costs substantially more than it saves.
+ * Counts, additions, allocations, and table loads are checked.  Known terms
+ * are used only by --self-test after a value has been computed.
  *
  * Build:
  *   clang -O3 -march=native -std=c11 -Wall -Wextra -Wpedantic \
@@ -60,6 +61,12 @@
 #ifndef MITM_MIN_REST_SIZE
 #define MITM_MIN_REST_SIZE 8U
 #endif
+#ifndef ENABLE_ATTAINABLE_CANONICALIZATION
+#define ENABLE_ATTAINABLE_CANONICALIZATION 0
+#endif
+#ifndef ENABLE_UNUSED_PRIME_PRUNE
+#define ENABLE_UNUSED_PRIME_PRUNE 0
+#endif
 #define PARALLEL_MIN_N 12U
 #define TASK_CHUNK 16U
 #define LARGE_TERM_TASK_CHUNK 1U
@@ -76,9 +83,11 @@
 #define BOUNDED_MEMO_MIN_N 23U
 #endif
 #ifndef BOUNDED_MEMO_BITS
-#define BOUNDED_MEMO_BITS 24U
+#define BOUNDED_MEMO_BITS 25U
 #endif
-#define MEMO_WAYS 4U
+#ifndef MEMO_WAYS
+#define MEMO_WAYS 8U
+#endif
 #define MEMO_LOCK_COUNT 4096U
 #define LOW_BITS 16U
 #define LOW_SIZE (UINT32_C(1) << LOW_BITS)
@@ -142,6 +151,9 @@ typedef struct {
 
 _Static_assert(sizeof(RootTask) <= 8U,
                "RootTask must remain compact for n=28");
+_Static_assert(MEMO_WAYS != 0U &&
+               (MEMO_WAYS & (MEMO_WAYS - 1U)) == 0U,
+               "MEMO_WAYS must be a power of two");
 
 static const uint64_t known[KNOWN_N + 1U] = {
     UINT64_C(1), UINT64_C(0), UINT64_C(1), UINT64_C(0),
@@ -226,12 +238,14 @@ static PrimeMask prime_mask_bit(unsigned index)
     return result;
 }
 
+#if ENABLE_UNUSED_PRIME_PRUNE
 static bool prime_mask_has(PrimeMask mask, unsigned index)
 {
     return index < 64U
         ? (mask.low & (UINT64_C(1) << index)) != 0
         : (mask.high & (UINT64_C(1) << (index - 64U))) != 0;
 }
+#endif
 
 static bool prime_mask_equal(PrimeMask left, PrimeMask right)
 {
@@ -293,39 +307,103 @@ static bool memo_claim(Context *context, uint32_t mask,
         const size_t base = ((size_t)hash & (set_count - 1U)) * MEMO_WAYS;
         pthread_mutex_t *lock =
             &memo->locks[(base / MEMO_WAYS) & (memo->lock_count - 1U)];
-        const int lock_error = pthread_mutex_lock(lock);
-        if (lock_error != 0) {
-            fprintf(stderr, "error: pthread_mutex_lock: %s\n",
-                    strerror(lock_error));
-            exit(EXIT_FAILURE);
-        }
-        for (size_t way = 0; way < MEMO_WAYS; ++way) {
-            const size_t candidate = base + way;
-            if (atomic_load_explicit(&memo->status[candidate],
-                                     memory_order_relaxed) == MEMO_COMPLETE &&
-                memo->masks[candidate] == mask &&
-                prime_mask_equal(memo->used_primes[candidate],
-                                 used_primes)) {
-                *value = memo->values[candidate];
+        unsigned waits = 0;
+        for (;;) {
+            const int lock_error = pthread_mutex_lock(lock);
+            if (lock_error != 0) {
+                fprintf(stderr, "error: pthread_mutex_lock: %s\n",
+                        strerror(lock_error));
+                exit(EXIT_FAILURE);
+            }
+            size_t empty = SIZE_MAX;
+            size_t complete[MEMO_WAYS];
+            size_t complete_count = 0;
+            bool matching_busy = false;
+            for (size_t way = 0; way < MEMO_WAYS; ++way) {
+                const size_t candidate = base + way;
+                const uint8_t status =
+                    atomic_load_explicit(&memo->status[candidate],
+                                         memory_order_relaxed);
+                if (status == MEMO_COMPLETE &&
+                    memo->masks[candidate] == mask &&
+                    prime_mask_equal(memo->used_primes[candidate],
+                                     used_primes)) {
+                    *value = memo->values[candidate];
+                    const int unlock_error = pthread_mutex_unlock(lock);
+                    if (unlock_error != 0) {
+                        fprintf(stderr,
+                                "error: pthread_mutex_unlock: %s\n",
+                                strerror(unlock_error));
+                        exit(EXIT_FAILURE);
+                    }
+                    return false;
+                }
+                if (status == MEMO_BUSY &&
+                    memo->masks[candidate] == mask &&
+                    prime_mask_equal(memo->used_primes[candidate],
+                                     used_primes))
+                    matching_busy = true;
+                else if (status == MEMO_EMPTY && empty == SIZE_MAX)
+                    empty = candidate;
+                else if (status == MEMO_COMPLETE)
+                    complete[complete_count++] = candidate;
+            }
+            if (matching_busy) {
                 const int unlock_error = pthread_mutex_unlock(lock);
                 if (unlock_error != 0) {
-                    fprintf(stderr, "error: pthread_mutex_unlock: %s\n",
+                    fprintf(stderr,
+                            "error: pthread_mutex_unlock: %s\n",
                             strerror(unlock_error));
                     exit(EXIT_FAILURE);
                 }
-                return false;
+                atomic_fetch_add_explicit(&context->wait_count, 1,
+                                          memory_order_relaxed);
+                if (++waits == 64U) {
+                    sched_yield();
+                    waits = 0;
+                }
+                continue;
             }
+
+            size_t target = empty;
+            bool added = target != SIZE_MAX;
+            if (target == SIZE_MAX && complete_count != 0) {
+                const uint64_t victim =
+                    atomic_fetch_add_explicit(&memo->victim_counter, 1,
+                                              memory_order_relaxed);
+                target = complete[victim % complete_count];
+            }
+            if (target == SIZE_MAX) {
+                const int unlock_error = pthread_mutex_unlock(lock);
+                if (unlock_error != 0) {
+                    fprintf(stderr,
+                            "error: pthread_mutex_unlock: %s\n",
+                            strerror(unlock_error));
+                    exit(EXIT_FAILURE);
+                }
+                token->index = SIZE_MAX;
+                token->mask = mask;
+                token->used_primes = used_primes;
+                return true;
+            }
+            memo->masks[target] = mask;
+            memo->used_primes[target] = used_primes;
+            atomic_store_explicit(&memo->status[target], MEMO_BUSY,
+                                  memory_order_relaxed);
+            if (added)
+                atomic_fetch_add_explicit(&memo->size, 1,
+                                          memory_order_relaxed);
+            const int unlock_error = pthread_mutex_unlock(lock);
+            if (unlock_error != 0) {
+                fprintf(stderr, "error: pthread_mutex_unlock: %s\n",
+                        strerror(unlock_error));
+                exit(EXIT_FAILURE);
+            }
+            token->index = target;
+            token->mask = mask;
+            token->used_primes = used_primes;
+            return true;
         }
-        const int unlock_error = pthread_mutex_unlock(lock);
-        if (unlock_error != 0) {
-            fprintf(stderr, "error: pthread_mutex_unlock: %s\n",
-                    strerror(unlock_error));
-            exit(EXIT_FAILURE);
-        }
-        token->index = base;
-        token->mask = mask;
-        token->used_primes = used_primes;
-        return true;
     }
 
     size_t index = (size_t)hash & (memo->capacity - 1U);
@@ -391,6 +469,14 @@ static void memo_publish(Context *context, const MemoToken *token,
 {
     ConcurrentMemo *memo = &context->memo;
     if (memo->bounded) {
+        if (token->index == SIZE_MAX) {
+            atomic_fetch_add_explicit(&context->computed_states, 1,
+                                      memory_order_relaxed);
+            if (value != 0)
+                atomic_fetch_add_explicit(&context->nonzero_states, 1,
+                                          memory_order_relaxed);
+            return;
+        }
         const size_t set_count = memo->capacity / MEMO_WAYS;
         const size_t base =
             ((size_t)state_hash(token->mask, token->used_primes) &
@@ -403,40 +489,16 @@ static void memo_publish(Context *context, const MemoToken *token,
                     strerror(lock_error));
             exit(EXIT_FAILURE);
         }
-        size_t target = SIZE_MAX;
-        for (size_t way = 0; way < MEMO_WAYS; ++way) {
-            const size_t candidate = base + way;
-            const uint8_t status =
-                atomic_load_explicit(&memo->status[candidate],
-                                     memory_order_relaxed);
-            if (status == MEMO_COMPLETE &&
-                memo->masks[candidate] == token->mask &&
-                prime_mask_equal(memo->used_primes[candidate],
-                                 token->used_primes)) {
-                target = candidate;
-                break;
-            }
-            if (status == MEMO_EMPTY && target == SIZE_MAX)
-                target = candidate;
-        }
-        bool added = false;
-        if (target == SIZE_MAX) {
-            const uint64_t victim =
-                atomic_fetch_add_explicit(&memo->victim_counter, 1,
-                                          memory_order_relaxed);
-            target = base + (size_t)(victim % MEMO_WAYS);
-        } else if (atomic_load_explicit(&memo->status[target],
-                                        memory_order_relaxed) == MEMO_EMPTY) {
-            added = true;
-        }
-        memo->masks[target] = token->mask;
-        memo->used_primes[target] = token->used_primes;
-        memo->values[target] = value;
-        atomic_store_explicit(&memo->status[target], MEMO_COMPLETE,
+        if (token->index < base || token->index >= base + MEMO_WAYS ||
+            atomic_load_explicit(&memo->status[token->index],
+                                 memory_order_relaxed) != MEMO_BUSY ||
+            memo->masks[token->index] != token->mask ||
+            !prime_mask_equal(memo->used_primes[token->index],
+                              token->used_primes))
+            die("bounded memo reservation was lost");
+        memo->values[token->index] = value;
+        atomic_store_explicit(&memo->status[token->index], MEMO_COMPLETE,
                               memory_order_relaxed);
-        if (added)
-            atomic_fetch_add_explicit(&memo->size, 1,
-                                      memory_order_relaxed);
         const int unlock_error = pthread_mutex_unlock(lock);
         if (unlock_error != 0) {
             fprintf(stderr, "error: pthread_mutex_unlock: %s\n",
@@ -455,6 +517,7 @@ static void memo_publish(Context *context, const MemoToken *token,
                                   memory_order_relaxed);
 }
 
+#if ENABLE_UNUSED_PRIME_PRUNE
 static bool unused_primes_can_sum(const Context *context,
                                   PrimeMask used_primes, unsigned sum)
 {
@@ -480,7 +543,9 @@ static bool unused_primes_can_sum(const Context *context,
     }
     return ((reachable[sum / 64U] >> (sum % 64U)) & UINT64_C(1)) != 0;
 }
+#endif
 
+#if ENABLE_ATTAINABLE_CANONICALIZATION
 static PrimeMask attainable_prime_mask(const Context *context, uint32_t mask)
 {
     uint64_t reachable[REACH_WORDS];
@@ -512,6 +577,7 @@ static PrimeMask attainable_prime_mask(const Context *context, uint32_t mask)
     }
     return result;
 }
+#endif
 
 static uint32_t *mitm_workspace(Worker *worker, unsigned depth,
                                 size_t needed)
@@ -544,22 +610,26 @@ static uint64_t count_partitions(Worker *worker, uint32_t mask,
     if (mask == 0) return 1U;
     Context *context = worker->context;
     const unsigned remaining_sum = subset_sum(context, mask);
-    used_primes = prime_mask_and(
-        used_primes,
-        prime_mask_and(context->relevant_primes[remaining_sum],
-                       attainable_prime_mask(context, mask)));
+    used_primes = prime_mask_and(used_primes,
+                                 context->relevant_primes[remaining_sum]);
+#if ENABLE_ATTAINABLE_CANONICALIZATION
+    used_primes = prime_mask_and(used_primes,
+                                 attainable_prime_mask(context, mask));
+#endif
 
     uint64_t memoized;
     MemoToken token;
     if (!memo_claim(context, mask, used_primes, &memoized, &token))
         return memoized;
 
+#if ENABLE_UNUSED_PRIME_PRUNE
     if (!unused_primes_can_sum(context, used_primes, remaining_sum)) {
         atomic_fetch_add_explicit(&context->pruned_states, 1,
                                   memory_order_relaxed);
         memo_publish(context, &token, 0U);
         return 0U;
     }
+#endif
 
     const unsigned pivot_index = highest_bit_index(mask);
     const uint32_t pivot = UINT32_C(1) << pivot_index;
@@ -864,16 +934,24 @@ static void report_progress(const RootQueue *queue, bool finished)
     const uint64_t states =
         atomic_load_explicit(&queue->context->computed_states,
                              memory_order_relaxed);
+    const size_t cache_entries =
+        atomic_load_explicit(&queue->context->memo.size,
+                             memory_order_relaxed);
+    const uint64_t evictions =
+        atomic_load_explicit(&queue->context->memo.victim_counter,
+                             memory_order_relaxed);
     const double percent = queue->task_count == 0 ? 100.0
         : 100.0 * (double)completed / (double)queue->task_count;
     fprintf(stderr,
             "progress n=%u: root jobs %zu/%zu (%.1f%%), "
             "active=%zu, remaining=%zu, new evaluations=%" PRIu64
+            ", cache=%zu/%zu, evictions=%" PRIu64
             ", elapsed=%.1fs%s\n",
             queue->term, completed, queue->task_count, percent,
             claimed - completed,
             queue->task_count - completed,
             states - queue->initial_state_count,
+            cache_entries, queue->context->memo.capacity, evictions,
             monotonic_seconds() - queue->start_time,
             finished ? ", done" : "");
     if (fflush(stderr) == EOF) die("could not flush progress output");
@@ -1007,6 +1085,7 @@ static uint64_t count_full(Context *context, uint32_t mask)
         worker_destroy(&serial_worker);
         return memoized;
     }
+#if ENABLE_UNUSED_PRIME_PRUNE
     if (!unused_primes_can_sum(context, empty_primes,
                                subset_sum(context, mask))) {
         atomic_fetch_add_explicit(&context->pruned_states, 1,
@@ -1015,6 +1094,7 @@ static uint64_t count_full(Context *context, uint32_t mask)
         worker_destroy(&serial_worker);
         return 0U;
     }
+#endif
 
     size_t task_count = 0;
     RootTask *tasks = build_root_tasks(context, mask, &task_count);
@@ -1149,10 +1229,10 @@ static void usage(FILE *stream, const char *program)
             "  --target N   print only a(N)\n"
             "               n<=22 uses an exact full-key memo; n>=23 uses\n"
             "               a fixed-size exact-result cache with eviction\n"
-            "               peak storage is about 1 GiB (near n=22)\n"
+            "               peak storage is about 1.2 GiB\n"
             "  --threads T  use 1..64 workers (default: up to 8 CPUs)\n"
             "  --self-test  compare computed terms with regression values\n"
-            "  --stats      report memoized and pruned state counts\n"
+            "  --stats      report evaluations, waits, cache load/evictions\n"
             "  Progress is reported every 60 seconds for n>=23.\n"
             "  Results are synchronized to " BFILE_NAME
             " after every term.\n"
@@ -1232,7 +1312,7 @@ int main(int argc, char **argv)
         fprintf(stderr,
                 "memoized states: %" PRIu64 ", nonzero: %" PRIu64
                 ", pruned: %" PRIu64 ", waits: %" PRIu64
-                ", table: %zu/%zu\n",
+                ", table: %zu/%zu, evictions: %" PRIu64 "\n",
                 atomic_load_explicit(&context->computed_states,
                                      memory_order_relaxed),
                 atomic_load_explicit(&context->nonzero_states,
@@ -1243,7 +1323,9 @@ int main(int argc, char **argv)
                                      memory_order_relaxed),
                 atomic_load_explicit(&context->memo.size,
                                      memory_order_relaxed),
-                context->memo.capacity);
+                context->memo.capacity,
+                atomic_load_explicit(&context->memo.victim_counter,
+                                     memory_order_relaxed));
     close_bfile(bfile);
     context_destroy(context);
     return EXIT_SUCCESS;
