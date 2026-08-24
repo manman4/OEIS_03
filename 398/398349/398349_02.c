@@ -21,20 +21,21 @@
  * open-addressed atomic table allocated from a conservative n-dependent
  * bound.  During --upto, tables grow only between consecutive n and all
  * completed entries are rehashed, so no concurrent resize is possible and
- * smaller terms do not pay for the n=25 table.  Hash collisions are resolved
+ * smaller terms do not pay for the n=27 table.  Hash collisions are resolved
  * by the complete mask key.  Counts, table load, allocation sizes, and output
  * are checked.  Sparse tags reserve their top bit as the atomic busy flag and
- * use the lower 31 bits as the complete mask key.  The deliberate cap is n=25.
+ * use the lower 31 bits as the complete mask key.  The deliberate cap is n=27.
  * Sparse values below 2^31 use 32 bits; larger values are placed in compact
- * append-only chunks, without truncating any uint64_t result.  At n=25 the
- * memo, block index, and root job list together use about 330 MiB.
+ * append-only chunks, without truncating any uint64_t result.  Trie nodes are
+ * kept to 12 bytes.  At n=27 the memo, block indexes, and root job list have
+ * an estimated peak near 1.3 GiB.
  *
  * Build:
  *   clang -O3 -march=native -std=c11 -Wall -Wextra -Wpedantic \
  *       398349_02.c -o 398349_02 -pthread
  *
  * Examples:
- *   ./398349_02 --upto 25 --threads 8 --self-test --stats
+ *   ./398349_02 --upto 27 --threads 8 --self-test --stats
  *   ./398349_02 --upto 24 --self-test
  *
  * Every result line is also written immediately to b398349_02.txt in the
@@ -56,17 +57,21 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MAX_N 25U
+#define MAX_N 27U
 #define DEFAULT_N 24U
 #define KNOWN_N 19U
 #define DENSE_MEMO_MAX_N 24U
 #define PARALLEL_MIN_N 18U
 #define TASK_CHUNK 64U
+#define LARGE_TERM_TASK_CHUNK 1U
+#ifndef PROGRESS_MIN_N
 #define PROGRESS_MIN_N 24U
+#endif
 #define PROGRESS_INTERVAL_SECONDS 60.0
 #define PROGRESS_POLL_NANOSECONDS 100000000L
 #define BFILE_NAME "b398349_02.txt"
 #define SPARSE_BUSY_BIT UINT32_C(0x80000000)
+#define SPARSE_MAX_LOAD_PERCENT 78U
 #define WIDE_VALUE_BIT UINT32_C(0x80000000)
 #define WIDE_CHUNK_BITS 16U
 #define WIDE_CHUNK_SIZE (UINT32_C(1) << WIDE_CHUNK_BITS)
@@ -97,14 +102,17 @@ typedef struct {
 typedef struct {
     uint32_t child[2];
     uint32_t required;
-    uint32_t leaf_count;
 } TrieNode;
 
 typedef struct {
     TrieNode *nodes;
     uint32_t node_count;
     uint32_t root;
+    uint32_t leaf_count;
 } BlockCatalog;
+
+_Static_assert(sizeof(TrieNode) == 12U,
+               "TrieNode must remain compact for n=27");
 
 typedef struct {
     ConcurrentMemo memo;
@@ -374,8 +382,9 @@ static bool memo_claim(Shared *shared, uint32_t mask, uint64_t *value,
                 const size_t size =
                     atomic_fetch_add_explicit(&memo->size, 1,
                                               memory_order_relaxed) + 1U;
-                if (size * 10U >= memo->capacity * 7U)
-                    die("concurrent memo table exceeded 70% load");
+                if (size * 100U >=
+                    memo->capacity * SPARSE_MAX_LOAD_PERCENT)
+                    die("concurrent memo table exceeded safe load");
                 token->dense = false;
                 token->index = index;
                 return true;
@@ -433,7 +442,6 @@ static uint32_t build_catalog_node(CatalogBuilder *builder,
         node->child[0] = TRIE_NONE;
         node->child[1] = TRIE_NONE;
         node->required = builder->masks[begin];
-        node->leaf_count = 1U;
         return index;
     }
 
@@ -460,9 +468,6 @@ static uint32_t build_catalog_node(CatalogBuilder *builder,
     const TrieNode *left = &builder->catalog->nodes[node->child[0]];
     const TrieNode *right = &builder->catalog->nodes[node->child[1]];
     node->required = left->required & right->required;
-    if (UINT32_MAX - left->leaf_count < right->leaf_count)
-        die("prime-block trie leaf count overflow");
-    node->leaf_count = left->leaf_count + right->leaf_count;
     return index;
 }
 
@@ -481,6 +486,7 @@ static void build_catalog(Shared *shared, unsigned pivot_index)
     }
     if (valid_count == 0) {
         catalog->root = TRIE_NONE;
+        catalog->leaf_count = 0;
         return;
     }
     if (valid_count > UINT32_MAX / 2U ||
@@ -505,6 +511,7 @@ static void build_catalog(Shared *shared, unsigned pivot_index)
     if (catalog->nodes == NULL)
         die("could not allocate prime-block trie");
     catalog->node_count = (uint32_t)node_count;
+    catalog->leaf_count = (uint32_t)valid_count;
     CatalogBuilder builder = {catalog, masks, 0};
     catalog->root = build_catalog_node(&builder, 0, valid_count);
     free(masks);
@@ -598,7 +605,7 @@ static double monotonic_seconds(void);
 static size_t sparse_capacity_for_n(unsigned n)
 {
     if (n < 25U) return 0;
-    const unsigned sparse_bits = n == 25U ? 10U : n - 2U;
+    const unsigned sparse_bits = n == 25U ? 10U : n - 1U;
     return (size_t)1U << sparse_bits;
 }
 
@@ -782,6 +789,7 @@ typedef struct {
     uint64_t initial_state_count;
     double start_time;
     unsigned term;
+    size_t task_chunk;
 } RootQueue;
 
 typedef struct {
@@ -802,6 +810,10 @@ static void report_progress(const RootQueue *queue, bool finished)
     const size_t completed =
         atomic_load_explicit(&queue->completed_tasks,
                              memory_order_relaxed);
+    size_t claimed =
+        atomic_load_explicit(&queue->next_task, memory_order_relaxed);
+    if (claimed > queue->block_count) claimed = queue->block_count;
+    if (claimed < completed) claimed = completed;
     const uint64_t states =
         atomic_load_explicit(&queue->shared->computed_states,
                              memory_order_relaxed);
@@ -811,8 +823,10 @@ static void report_progress(const RootQueue *queue, bool finished)
         : 100.0 * (double)completed / (double)queue->block_count;
     fprintf(stderr,
             "progress n=%u: root jobs %zu/%zu (%.1f%%), "
-            "new states=%" PRIu64 ", elapsed=%.1fs%s\n",
+            "active=%zu, remaining=%zu, new states=%" PRIu64
+            ", elapsed=%.1fs%s\n",
             queue->term, completed, queue->block_count, percent,
+            claimed - completed, queue->block_count - completed,
             new_states, monotonic_seconds() - queue->start_time,
             finished ? ", done" : "");
     if (fflush(stderr) == EOF)
@@ -840,19 +854,6 @@ static void *progress_worker(void *opaque)
     return NULL;
 }
 
-static void fill_catalog_leaves(const BlockCatalog *catalog,
-                                uint32_t node_index, uint32_t *blocks,
-                                size_t *used)
-{
-    const TrieNode *node = &catalog->nodes[node_index];
-    if (node->child[0] == TRIE_NONE) {
-        blocks[(*used)++] = node->required;
-        return;
-    }
-    fill_catalog_leaves(catalog, node->child[1], blocks, used);
-    fill_catalog_leaves(catalog, node->child[0], blocks, used);
-}
-
 static uint32_t *build_root_blocks(const Shared *shared, uint32_t mask,
                                    size_t *result_count)
 {
@@ -865,14 +866,38 @@ static uint32_t *build_root_blocks(const Shared *shared, uint32_t mask,
         *result_count = 0;
         return NULL;
     }
-    const size_t total = catalog->nodes[catalog->root].leaf_count;
+    const size_t total = catalog->leaf_count;
     if (total > SIZE_MAX / sizeof(uint32_t))
         die("root block list allocation size overflow");
     uint32_t *blocks = malloc(total * sizeof(*blocks));
     if (blocks == NULL) die("could not allocate the root block list");
-    size_t used = 0;
-    fill_catalog_leaves(catalog, catalog->root, blocks, &used);
-    if (used != total) die("internal root block list size mismatch");
+    size_t bucket_counts[MAX_N];
+    size_t bucket_offsets[MAX_N + 1U];
+    memset(bucket_counts, 0, sizeof(bucket_counts));
+    for (uint32_t i = 0; i < catalog->node_count; ++i) {
+        const TrieNode *node = &catalog->nodes[i];
+        if (node->child[0] == TRIE_NONE)
+            ++bucket_counts[bit_count(node->required)];
+    }
+    bucket_offsets[0] = 0;
+    for (unsigned size = 0; size < MAX_N; ++size)
+        bucket_offsets[size + 1U] =
+            bucket_offsets[size] + bucket_counts[size];
+    if (bucket_offsets[MAX_N] != total)
+        die("internal root block count mismatch");
+    size_t bucket_cursors[MAX_N];
+    memcpy(bucket_cursors, bucket_offsets, sizeof(bucket_cursors));
+    for (uint32_t i = 0; i < catalog->node_count; ++i) {
+        const TrieNode *node = &catalog->nodes[i];
+        if (node->child[0] == TRIE_NONE) {
+            const unsigned size = bit_count(node->required);
+            blocks[bucket_cursors[size]++] = node->required;
+        }
+    }
+    for (unsigned size = 0; size < MAX_N; ++size) {
+        if (bucket_cursors[size] != bucket_offsets[size + 1U])
+            die("internal root block list size mismatch");
+    }
     *result_count = total;
     return blocks;
 }
@@ -885,10 +910,11 @@ static void *root_worker(void *opaque)
     uint64_t total = 0;
     for (;;) {
         const size_t begin =
-            atomic_fetch_add_explicit(&queue->next_task, TASK_CHUNK,
+            atomic_fetch_add_explicit(&queue->next_task,
+                                      queue->task_chunk,
                                       memory_order_relaxed);
         if (begin >= queue->block_count) break;
-        size_t end = begin + TASK_CHUNK;
+        size_t end = begin + queue->task_chunk;
         if (end > queue->block_count) end = queue->block_count;
         for (size_t i = begin; i < end; ++i)
             checked_add(&total,
@@ -931,6 +957,8 @@ static uint64_t count_full(Shared *shared, uint32_t mask)
     queue.block_rests = blocks;
     queue.block_count = block_count;
     queue.term = term;
+    queue.task_chunk = term >= PROGRESS_MIN_N
+        ? LARGE_TERM_TASK_CHUNK : TASK_CHUNK;
     queue.initial_state_count =
         atomic_load_explicit(&shared->computed_states,
                              memory_order_relaxed);
@@ -1015,7 +1043,7 @@ static void usage(FILE *stream, const char *program)
             "  --upto N     print a(0)..a(N), 0 <= N <= %u (default %u)\n"
             "  --target N   print only a(N)\n"
             "               appends when the b-file contains n=0..N-1\n"
-            "               n=25 uses about 330 MiB including its index\n"
+            "               n=27 has an estimated peak near 1.3 GiB\n"
             "  --threads T  use 1..64 workers (default: up to 8 CPUs)\n"
             "  --self-test  compare computed terms with regression values\n"
             "  --stats      report states, waits, and sparse-table load\n"
