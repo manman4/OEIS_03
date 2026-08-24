@@ -58,5 +58,5 @@ end
 
 if __FILE__ == $PROGRAM_NAME
   upto = (ARGV[0] || 14).to_i
-  (1..upto).each { |n| puts "a(#{n}) = #{distinct_prime_set_partitions(n)}" }
+  p [1] + (1..upto).map{|n| distinct_prime_set_partitions(n)}
 end
