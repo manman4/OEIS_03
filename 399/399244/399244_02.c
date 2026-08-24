@@ -19,13 +19,16 @@
  * workers share a concurrent full-key memo table; busy entries make duplicate
  * states wait, and decreasing element counts make those waits cycle-free.
  * The memo is sized before each term and is never resized while workers run.
- * At n=20 the memo, block index, and root tasks use about 180 MiB.
+ * Prime indexes are packed into unused high bits of leaf masks, keeping trie
+ * nodes at 12 bytes and root tasks at 8 bytes.  At n=23 the estimated peak is
+ * about 1.4 GiB, dominated by the collision-free full-key memo.
  *
- * A necessary condition for a state to succeed is that sum(M) be a subset
- * sum of the unused primes.  A small bitset subset-sum calculation checks
- * this condition on demand.  Counts, additions, allocations, and table
- * loads are checked.  Known terms are used only by --self-test after a
- * value has been computed.
+ * Used prime sums larger than the remaining element sum are discarded from
+ * the memo key because they cannot occur again.  A stronger subset-sum prune
+ * remains available as a compile-time diagnostic, but is disabled by default
+ * because its cost exceeds its small pruning benefit.  Counts, additions,
+ * allocations, and table loads are checked.  Known terms are used only by
+ * --self-test after a value has been computed.
  *
  * Build:
  *   clang -O3 -march=native -std=c11 -Wall -Wextra -Wpedantic \
@@ -33,7 +36,7 @@
  *
  * Examples:
  *   ./399244_02 --upto 13 --threads 8 --self-test --stats
- *   ./399244_02 --target 19 --threads 8 --self-test --stats
+ *   ./399244_02 --target 23 --threads 8 --self-test --stats
  *
  * Each computed result is also written to b399244_02.txt in the current
  * directory.  The file is flushed and synchronized after every term, so a
@@ -50,13 +53,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
-#define MAX_N 20U
+#define MAX_N 23U
 #define DEFAULT_N 13U
-#define KNOWN_N 19U
+#define KNOWN_N 22U
 #define PARALLEL_MIN_N 12U
 #define TASK_CHUNK 16U
+#define LARGE_TERM_TASK_CHUNK 1U
+#ifndef PROGRESS_MIN_N
+#define PROGRESS_MIN_N 21U
+#endif
+#define PROGRESS_INTERVAL_SECONDS 60.0
+#define PROGRESS_POLL_NANOSECONDS 100000000L
+#ifndef ENABLE_UNUSED_PRIME_PRUNE
+#define ENABLE_UNUSED_PRIME_PRUNE 0
+#endif
 #define MEMO_EMPTY 0U
 #define MEMO_RESERVED 1U
 #define MEMO_BUSY 2U
@@ -69,6 +82,7 @@
 #define REACH_WORDS ((MAX_SUM + 64U) / 64U)
 #define TRIE_NONE UINT32_MAX
 #define BFILE_NAME "b399244_02.txt"
+#define REQUIRED_MASK ((UINT32_C(1) << MAX_N) - 1U)
 
 typedef struct {
     _Atomic uint8_t *status;
@@ -81,16 +95,18 @@ typedef struct {
 
 typedef struct {
     uint32_t child[2];
-    uint32_t required;
-    uint32_t leaf_count;
-    uint64_t prime_mask;
+    uint32_t packed_required;
 } TrieNode;
 
 typedef struct {
     TrieNode *nodes;
     uint32_t node_count;
     uint32_t root;
+    uint32_t leaf_count;
 } BlockCatalog;
+
+_Static_assert(sizeof(TrieNode) == 12U,
+               "TrieNode must remain compact for n=23");
 
 typedef struct {
     ConcurrentMemo memo;
@@ -103,6 +119,7 @@ typedef struct {
     uint16_t low_sum[LOW_SIZE];
     uint16_t high_sum[HIGH_SIZE];
     uint64_t prime_bit[MAX_SUM + 1U];
+    uint64_t relevant_primes[MAX_SUM + 1U];
     unsigned primes[64];
     unsigned prime_count;
     BlockCatalog catalog[MAX_N];
@@ -119,8 +136,11 @@ typedef struct {
 
 typedef struct {
     uint32_t block_rest;
-    uint64_t prime_mask;
+    uint8_t prime_index;
 } RootTask;
+
+_Static_assert(sizeof(RootTask) <= 8U,
+               "RootTask must remain compact for n=23");
 
 static const uint64_t known[KNOWN_N + 1U] = {
     UINT64_C(1), UINT64_C(0), UINT64_C(1), UINT64_C(0),
@@ -128,7 +148,8 @@ static const uint64_t known[KNOWN_N + 1U] = {
     UINT64_C(67), UINT64_C(145), UINT64_C(647), UINT64_C(2350),
     UINT64_C(8756), UINT64_C(33386), UINT64_C(102684),
     UINT64_C(611265), UINT64_C(2322253), UINT64_C(11765298),
-    UINT64_C(58632351), UINT64_C(351652531)
+    UINT64_C(58632351), UINT64_C(351652531), UINT64_C(2054333372),
+    UINT64_C(9598979247), UINT64_C(62577811346)
 };
 
 static _Noreturn void die(const char *message)
@@ -191,6 +212,30 @@ static unsigned bit_count(uint32_t mask)
         ++count;
     }
     return count;
+#endif
+}
+
+static uint32_t trie_required(const TrieNode *node)
+{
+    return node->packed_required & REQUIRED_MASK;
+}
+
+static unsigned trie_prime_index(const TrieNode *node)
+{
+    return node->packed_required >> MAX_N;
+}
+
+static unsigned single_bit_index(uint64_t bit)
+{
+#if defined(__clang__) || defined(__GNUC__)
+    return (unsigned)__builtin_ctzll(bit);
+#else
+    unsigned index = 0;
+    while ((bit & UINT64_C(1)) == 0) {
+        bit >>= 1U;
+        ++index;
+    }
+    return index;
 #endif
 }
 
@@ -291,6 +336,7 @@ static void memo_publish(Context *context, const MemoToken *token,
                                   memory_order_relaxed);
 }
 
+#if ENABLE_UNUSED_PRIME_PRUNE
 static bool unused_primes_can_sum(const Context *context,
                                   uint64_t used_primes, unsigned sum)
 {
@@ -316,6 +362,7 @@ static bool unused_primes_can_sum(const Context *context,
     }
     return ((reachable[sum / 64U] >> (sum % 64U)) & UINT64_C(1)) != 0;
 }
+#endif
 
 static void checked_add(uint64_t *total, uint64_t addend)
 {
@@ -342,13 +389,17 @@ static uint32_t build_catalog_node(CatalogBuilder *builder,
     if (end - begin == 1U) {
         node->child[0] = TRIE_NONE;
         node->child[1] = TRIE_NONE;
-        node->required = builder->masks[begin];
-        node->leaf_count = 1U;
+        const uint32_t required = builder->masks[begin];
         const unsigned sum = builder->pivot_value +
-            subset_sum(builder->context, node->required);
-        node->prime_mask = builder->context->prime_bit[sum];
-        if (node->prime_mask == 0)
+            subset_sum(builder->context, required);
+        const uint64_t prime_mask = builder->context->prime_bit[sum];
+        if (prime_mask == 0)
             die("nonprime leaf in prime-block trie");
+        const unsigned prime_index = single_bit_index(prime_mask);
+        if (prime_index >= 64U || prime_index >= (1U << (32U - MAX_N)))
+            die("prime index does not fit in packed trie leaf");
+        node->packed_required =
+            required | ((uint32_t)prime_index << MAX_N);
         return index;
     }
 
@@ -372,11 +423,7 @@ static uint32_t build_catalog_node(CatalogBuilder *builder,
     node->child[1] = build_catalog_node(builder, low, end);
     const TrieNode *left = &builder->catalog->nodes[node->child[0]];
     const TrieNode *right = &builder->catalog->nodes[node->child[1]];
-    node->required = left->required & right->required;
-    if (UINT32_MAX - left->leaf_count < right->leaf_count)
-        die("prime-block trie leaf count overflow");
-    node->leaf_count = left->leaf_count + right->leaf_count;
-    node->prime_mask = 0;
+    node->packed_required = trie_required(left) & trie_required(right);
     return index;
 }
 
@@ -392,6 +439,7 @@ static void build_catalog(Context *context, unsigned pivot_index)
     }
     if (valid_count == 0) {
         catalog->root = TRIE_NONE;
+        catalog->leaf_count = 0;
         return;
     }
     if (valid_count > UINT32_MAX / 2U ||
@@ -413,6 +461,7 @@ static void build_catalog(Context *context, unsigned pivot_index)
     if (catalog->nodes == NULL)
         die("could not allocate prime-block trie");
     catalog->node_count = (uint32_t)node_count;
+    catalog->leaf_count = (uint32_t)valid_count;
     CatalogBuilder builder =
         {context, catalog, masks, pivot_value, 0U};
     catalog->root = build_catalog_node(&builder, 0, valid_count);
@@ -438,12 +487,15 @@ static void add_catalog_partitions(Worker *worker,
                                    uint64_t *total)
 {
     const TrieNode *node = &catalog->nodes[node_index];
-    if ((node->required & ~rest) != 0) return;
+    const uint32_t required = trie_required(node);
+    if ((required & ~rest) != 0) return;
     if (node->child[0] == TRIE_NONE) {
-        if ((used_primes & node->prime_mask) == 0)
+        const uint64_t prime_mask =
+            UINT64_C(1) << trie_prime_index(node);
+        if ((used_primes & prime_mask) == 0)
             checked_add(total,
-                        count_partitions(worker, rest ^ node->required,
-                                         used_primes | node->prime_mask,
+                        count_partitions(worker, rest ^ required,
+                                         used_primes | prime_mask,
                                          depth + 1U));
         return;
     }
@@ -459,19 +511,22 @@ static uint64_t count_partitions(Worker *worker, uint32_t mask,
     if (mask == 0) return 1U;
     if (depth >= MAX_N) die("internal recursion depth overflow");
     Context *context = worker->context;
+    const unsigned remaining_sum = subset_sum(context, mask);
+    used_primes &= context->relevant_primes[remaining_sum];
 
     uint64_t memoized;
     MemoToken token;
     if (!memo_claim(context, mask, used_primes, &memoized, &token))
         return memoized;
 
-    const unsigned remaining_sum = subset_sum(context, mask);
+#if ENABLE_UNUSED_PRIME_PRUNE
     if (!unused_primes_can_sum(context, used_primes, remaining_sum)) {
         atomic_fetch_add_explicit(&context->pruned_states, 1,
                                   memory_order_relaxed);
         memo_publish(context, &token, 0U);
         return 0U;
     }
+#endif
 
     const unsigned pivot_index = highest_bit_index(mask);
     const uint32_t pivot = UINT32_C(1) << pivot_index;
@@ -525,6 +580,12 @@ static void initialize_primes(Context *context)
         const unsigned index = context->prime_count++;
         context->primes[index] = value;
         context->prime_bit[value] = UINT64_C(1) << index;
+    }
+
+    uint64_t relevant = 0;
+    for (unsigned value = 0; value <= MAX_SUM; ++value) {
+        relevant |= context->prime_bit[value];
+        context->relevant_primes[value] = relevant;
     }
 
 }
@@ -608,8 +669,14 @@ typedef struct {
     size_t task_count;
     uint32_t rest;
     _Atomic size_t next_task;
+    _Atomic size_t completed_tasks;
+    _Atomic bool stop_progress;
     Worker *workers;
     uint64_t *results;
+    uint64_t initial_state_count;
+    double start_time;
+    unsigned term;
+    size_t task_chunk;
 } RootQueue;
 
 typedef struct {
@@ -617,19 +684,63 @@ typedef struct {
     unsigned worker_index;
 } ThreadArgument;
 
-static void fill_root_tasks(const BlockCatalog *catalog,
-                            uint32_t node_index, RootTask *tasks,
-                            size_t *used)
+static double monotonic_seconds(void)
 {
-    const TrieNode *node = &catalog->nodes[node_index];
-    if (node->child[0] == TRIE_NONE) {
-        tasks[*used].block_rest = node->required;
-        tasks[*used].prime_mask = node->prime_mask;
-        ++*used;
-        return;
+    struct timespec now;
+    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
+        die("could not read the monotonic clock");
+    return (double)now.tv_sec + (double)now.tv_nsec / 1000000000.0;
+}
+
+static void report_progress(const RootQueue *queue, bool finished)
+{
+    const size_t completed =
+        atomic_load_explicit(&queue->completed_tasks,
+                             memory_order_relaxed);
+    size_t claimed =
+        atomic_load_explicit(&queue->next_task, memory_order_relaxed);
+    if (claimed > queue->task_count) claimed = queue->task_count;
+    if (claimed < completed) claimed = completed;
+    const uint64_t states =
+        atomic_load_explicit(&queue->context->computed_states,
+                             memory_order_relaxed);
+    const size_t entries =
+        atomic_load_explicit(&queue->context->memo.size,
+                             memory_order_relaxed);
+    const double percent = queue->task_count == 0 ? 100.0
+        : 100.0 * (double)completed / (double)queue->task_count;
+    fprintf(stderr,
+            "progress n=%u: root jobs %zu/%zu (%.1f%%), "
+            "active=%zu, remaining=%zu, new states=%" PRIu64
+            ", memo=%zu/%zu, elapsed=%.1fs%s\n",
+            queue->term, completed, queue->task_count, percent,
+            claimed - completed, queue->task_count - completed,
+            states - queue->initial_state_count, entries,
+            queue->context->memo.capacity,
+            monotonic_seconds() - queue->start_time,
+            finished ? ", done" : "");
+    if (fflush(stderr) == EOF) die("could not flush progress output");
+}
+
+static void *progress_worker(void *opaque)
+{
+    RootQueue *queue = opaque;
+    double next_report = queue->start_time + PROGRESS_INTERVAL_SECONDS;
+    const struct timespec pause = {0, PROGRESS_POLL_NANOSECONDS};
+    while (!atomic_load_explicit(&queue->stop_progress,
+                                 memory_order_acquire)) {
+        (void)nanosleep(&pause, NULL);
+        const double now = monotonic_seconds();
+        if (now >= next_report &&
+            !atomic_load_explicit(&queue->stop_progress,
+                                  memory_order_acquire)) {
+            report_progress(queue, false);
+            do {
+                next_report += PROGRESS_INTERVAL_SECONDS;
+            } while (next_report <= now);
+        }
     }
-    fill_root_tasks(catalog, node->child[1], tasks, used);
-    fill_root_tasks(catalog, node->child[0], tasks, used);
+    return NULL;
 }
 
 static RootTask *build_root_tasks(const Context *context, uint32_t mask,
@@ -644,15 +755,42 @@ static RootTask *build_root_tasks(const Context *context, uint32_t mask,
         *result_count = 0;
         return NULL;
     }
-    const size_t total = catalog->nodes[catalog->root].leaf_count;
+    const size_t total = catalog->leaf_count;
     if (total > SIZE_MAX / sizeof(RootTask))
         die("root task allocation size overflow");
     RootTask *tasks = malloc(total * sizeof(*tasks));
     if (tasks == NULL)
         die("could not allocate root task list");
-    size_t used = 0;
-    fill_root_tasks(catalog, catalog->root, tasks, &used);
-    if (used != total) die("internal root task count mismatch");
+    size_t bucket_counts[MAX_N];
+    size_t bucket_offsets[MAX_N + 1U];
+    memset(bucket_counts, 0, sizeof(bucket_counts));
+    for (uint32_t i = 0; i < catalog->node_count; ++i) {
+        const TrieNode *node = &catalog->nodes[i];
+        if (node->child[0] == TRIE_NONE)
+            ++bucket_counts[bit_count(trie_required(node))];
+    }
+    bucket_offsets[0] = 0;
+    for (unsigned size = 0; size < MAX_N; ++size)
+        bucket_offsets[size + 1U] =
+            bucket_offsets[size] + bucket_counts[size];
+    if (bucket_offsets[MAX_N] != total)
+        die("internal root task count mismatch");
+    size_t bucket_cursors[MAX_N];
+    memcpy(bucket_cursors, bucket_offsets, sizeof(bucket_cursors));
+    for (uint32_t i = 0; i < catalog->node_count; ++i) {
+        const TrieNode *node = &catalog->nodes[i];
+        if (node->child[0] == TRIE_NONE) {
+            const uint32_t required = trie_required(node);
+            const unsigned size = bit_count(required);
+            const size_t index = bucket_cursors[size]++;
+            tasks[index].block_rest = required;
+            tasks[index].prime_index = (uint8_t)trie_prime_index(node);
+        }
+    }
+    for (unsigned size = 0; size < MAX_N; ++size) {
+        if (bucket_cursors[size] != bucket_offsets[size + 1U])
+            die("internal root task list size mismatch");
+    }
     *result_count = total;
     return tasks;
 }
@@ -665,18 +803,23 @@ static void *root_worker(void *opaque)
     uint64_t total = 0;
     for (;;) {
         const size_t begin =
-            atomic_fetch_add_explicit(&queue->next_task, TASK_CHUNK,
+            atomic_fetch_add_explicit(&queue->next_task,
+                                      queue->task_chunk,
                                       memory_order_relaxed);
         if (begin >= queue->task_count) break;
-        size_t end = begin + TASK_CHUNK;
+        size_t end = begin + queue->task_chunk;
         if (end > queue->task_count) end = queue->task_count;
         for (size_t i = begin; i < end; ++i) {
             const RootTask task = queue->tasks[i];
+            const uint64_t prime_mask =
+                UINT64_C(1) << task.prime_index;
             checked_add(&total,
                         count_partitions(worker,
                                          queue->rest ^ task.block_rest,
-                                         task.prime_mask, 0U));
+                                         prime_mask, 0U));
         }
+        atomic_fetch_add_explicit(&queue->completed_tasks, end - begin,
+                                  memory_order_relaxed);
     }
     queue->results[argument->worker_index] = total;
     return NULL;
@@ -689,7 +832,8 @@ static uint64_t count_full(Context *context, uint32_t mask)
     memset(&serial_worker, 0, sizeof(serial_worker));
     serial_worker.context = context;
     const unsigned term = bit_count(mask);
-    if (term < PARALLEL_MIN_N || context->thread_count == 1U) {
+    if (term < PARALLEL_MIN_N ||
+        (context->thread_count == 1U && term < PROGRESS_MIN_N)) {
         const uint64_t result =
             count_partitions(&serial_worker, mask, 0U, 0U);
         worker_destroy(&serial_worker);
@@ -702,6 +846,7 @@ static uint64_t count_full(Context *context, uint32_t mask)
         worker_destroy(&serial_worker);
         return memoized;
     }
+#if ENABLE_UNUSED_PRIME_PRUNE
     if (!unused_primes_can_sum(context, 0U, subset_sum(context, mask))) {
         atomic_fetch_add_explicit(&context->pruned_states, 1,
                                   memory_order_relaxed);
@@ -709,6 +854,7 @@ static uint64_t count_full(Context *context, uint32_t mask)
         worker_destroy(&serial_worker);
         return 0U;
     }
+#endif
 
     size_t task_count = 0;
     RootTask *tasks = build_root_tasks(context, mask, &task_count);
@@ -721,6 +867,13 @@ static uint64_t count_full(Context *context, uint32_t mask)
     queue.context = context;
     queue.tasks = tasks;
     queue.task_count = task_count;
+    queue.term = term;
+    queue.task_chunk = term >= PROGRESS_MIN_N
+        ? LARGE_TERM_TASK_CHUNK : TASK_CHUNK;
+    queue.initial_state_count =
+        atomic_load_explicit(&context->computed_states,
+                             memory_order_relaxed);
+    queue.start_time = monotonic_seconds();
     queue.rest = mask ^ (UINT32_C(1) << highest_bit_index(mask));
     queue.workers = calloc(thread_count, sizeof(*queue.workers));
     queue.results = calloc(thread_count, sizeof(*queue.results));
@@ -728,6 +881,8 @@ static uint64_t count_full(Context *context, uint32_t mask)
         calloc(thread_count, sizeof(*arguments));
     pthread_t *threads = thread_count > 1U
         ? calloc(thread_count - 1U, sizeof(*threads)) : NULL;
+    pthread_t progress_thread;
+    const bool show_progress = term >= PROGRESS_MIN_N;
     if (queue.workers == NULL || queue.results == NULL ||
         arguments == NULL || (thread_count > 1U && threads == NULL))
         die("could not allocate root worker data");
@@ -735,6 +890,15 @@ static uint64_t count_full(Context *context, uint32_t mask)
         queue.workers[i].context = context;
         arguments[i].queue = &queue;
         arguments[i].worker_index = i;
+    }
+    if (show_progress) {
+        report_progress(&queue, false);
+        const int error =
+            pthread_create(&progress_thread, NULL, progress_worker, &queue);
+        if (error != 0) {
+            fprintf(stderr, "error: pthread_create: %s\n", strerror(error));
+            exit(EXIT_FAILURE);
+        }
     }
     for (unsigned i = 1; i < thread_count; ++i) {
         const int error =
@@ -754,6 +918,15 @@ static uint64_t count_full(Context *context, uint32_t mask)
             exit(EXIT_FAILURE);
         }
     }
+    if (show_progress) {
+        atomic_store_explicit(&queue.stop_progress, true,
+                              memory_order_release);
+        const int error = pthread_join(progress_thread, NULL);
+        if (error != 0) {
+            fprintf(stderr, "error: pthread_join: %s\n", strerror(error));
+            exit(EXIT_FAILURE);
+        }
+    }
 
     uint64_t result = 0;
     for (unsigned i = 0; i < thread_count; ++i) {
@@ -761,6 +934,7 @@ static uint64_t count_full(Context *context, uint32_t mask)
         worker_destroy(&queue.workers[i]);
     }
     memo_publish(context, &root_token, result);
+    if (show_progress) report_progress(&queue, true);
     free(threads);
     free(arguments);
     free(queue.results);
@@ -813,10 +987,11 @@ static void usage(FILE *stream, const char *program)
             "[--self-test] [--stats]\n"
             "  --upto N     print a(0)..a(N), 0 <= N <= %u (default %u)\n"
             "  --target N   print only a(N)\n"
-            "               n=20 uses about 180 MiB including its index\n"
+            "               n=23 has an estimated peak near 1.4 GiB\n"
             "  --threads T  use 1..64 workers (default: up to 8 CPUs)\n"
             "  --self-test  compare computed terms with regression values\n"
-            "  --stats      report memoized and pruned state counts\n"
+            "  --stats      report states, waits, and memo-table load\n"
+            "  Progress is reported every 60 seconds for n>=21.\n"
             "  Results are synchronized to " BFILE_NAME
             " after every term.\n"
             "  --help       show this help\n",
