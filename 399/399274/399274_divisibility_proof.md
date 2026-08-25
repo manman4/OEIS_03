@@ -2,7 +2,7 @@
 
 ## 結論
 
-A399274（未承認原稿）を
+A399274を
 
 > a(n) is the smallest nonnegative integer k where there are exactly n
 > nonnegative integer solutions to x^2 + 9*y^2 = k.
