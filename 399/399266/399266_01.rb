@@ -1,6 +1,6 @@
 require 'prime'
 
-# Number of nonnegative integer solutions to the equation x^2 + 4*y^2 = n.
+# Number of nonnegative integer solutions to the equation x^2 + 8*y^2 = n.
 def A(n)
   m = Math.sqrt(n).to_i + 1
   ary = Array.new(n + 1, 0)
