@@ -1,10 +1,10 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 #
-# A399271
+# A399274
 #   a(n) is the smallest nonnegative integer k where there are exactly n
 #   nonnegative integer solutions to x^2 + 9*y^2 = k.
-#   （A399214 の非負解版）
+#   （A399214 の非負解版。A399271 ではなく A399274 が正しい番号）
 #
 # ------------------------------------------------------------------
 # 理論（判別式 -36 だが、二平方和への初等的な帰着で処理する）
@@ -78,13 +78,13 @@
 #     a(1) = 0  ... B(1) = 0 すなわち k = 0 が (0, 0) の 1 解を持つ。
 #
 # 使い方:
-#   ruby 399271_01.rb           # a(n) が 1000 桁を超える手前まで出力
-#   ruby 399271_01.rb 30        # n = 0..30 を出力（桁数制限も併用）
-#   ruby 399271_01.rb --digits=200   # 桁数の上限を変更
-#   ruby 399271_01.rb --known   # 総当たりで確定済みの項と照合
-#   ruby 399271_01.rb --verify  # 総当たりと突き合わせて検証
+#   ruby 399274_01.rb           # a(n) が 1000 桁を超える手前まで出力
+#   ruby 399274_01.rb 30        # n = 0..30 を出力（桁数制限も併用）
+#   ruby 399274_01.rb --digits=200   # 桁数の上限を変更
+#   ruby 399274_01.rb --known   # 総当たりで確定済みの項と照合
+#   ruby 399274_01.rb --verify  # 総当たりと突き合わせて検証
 
-module A399271
+module A399274
   module_function
 
   # 出力する a(n) の桁数上限。ちょうどこの桁数までは出力し、
@@ -271,7 +271,8 @@ module A399271
     7 => 203125, 8 => 9945, 9 => 76050, 10 => 38025, 11 => 2640625,
     12 => 49725, 13 => 17850625, 14 => 1221025, 15 => 1901250,
     16 => 248625, 18 => 646425, 20 => 1243125, 21 => 47531250,
-    22 => 23765625, 23 => 30525625, 24 => 1442025, 27 => 21978450
+    22 => 23765625, 23 => 30525625, 24 => 1442025, 27 => 21978450,
+    28 => 10989225, 30 => 16160625
   }.freeze
 
   def check_known
@@ -343,20 +344,20 @@ end
 
 if __FILE__ == $PROGRAM_NAME
   if ARGV.include?('--known')
-    A399271.check_known
+    A399274.check_known
   elsif ARGV.include?('--verify')
     nums = ARGV.select { |s| s =~ /\A\d+\z/ }.map(&:to_i)
-    A399271.verify(nums[0] || 5_000_000, nums[1] || 40)
+    A399274.verify(nums[0] || 5_000_000, nums[1] || 40)
   else
     dig = ARGV.find { |t| t =~ /\A--digits=(\d+)\z/ } ? Regexp.last_match(1).to_i
-                                                      : A399271::MAX_DIGITS
+                                                      : A399274::MAX_DIGITS
     cap = ARGV.find { |t| t =~ /\A\d+\z/ }&.to_i
-    rows = A399271.sequence(cap, dig)
+    rows = A399274.sequence(cap, dig)
     rows.each { |n, v| puts "#{n} #{v}" }
     last = rows.last
     if last && (cap.nil? || last[0] < cap)
       nxt = last[0] + 1
-      warn "stopped: a(#{nxt}) has #{A399271.a(nxt).to_s.size} digits (> #{dig})"
+      warn "stopped: a(#{nxt}) has #{A399274.a(nxt).to_s.size} digits (> #{dig})"
     end
   end
 end
