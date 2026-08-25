@@ -505,13 +505,15 @@ static void self_test(uint64_t limit)
             minima[got] = k;
     }
 
-    /* Independently checked by direct enumeration through k=5000000. */
+    /* Independently checked by direct enumeration through k=60000000. */
     static const Regression known_regressions[] = {
         {0, 2}, {1, 0}, {2, 25}, {3, 175}, {4, 385}, {5, 1225},
         {6, 2695}, {7, 109375}, {8, 9625}, {9, 21175}, {10, 96250},
         {11, 765625}, {12, 55825}, {13, 1500625}, {14, 148225},
         {15, 529375}, {16, 298375}, {18, 390775}, {20, 1395625},
-        {23, 3705625}, {24, 1730575}, {27, 4594975}
+        {21, 13234375}, {23, 3705625}, {24, 1730575}, {25, 33013750},
+        {27, 4594975}, {28, 34890625}, {30, 9769375}, {32, 14620375},
+        {36, 12114025}, {40, 43264375}
     };
     for (size_t i = 0;
          i < sizeof(known_regressions) / sizeof(known_regressions[0]); ++i) {
