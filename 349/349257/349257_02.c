@@ -37,6 +37,9 @@
  *   ./349257_02 --upto 25 --threads 8
  *   ./349257_02 --term 25 --threads 8 --witness --verbose
  *   ./349257_02 --check
+ *
+ * The default and --upto atomically write b349257_02.txt.  --term and
+ * --check do not modify the b-file.
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -51,6 +54,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #define MAX_N 63
 #define DEFAULT_MAX_N 25
@@ -60,6 +64,8 @@
 #define MAX_THREADS 64
 #define JOBS_PER_THREAD 8
 #define MAX_JOBS 65536
+#define BFILE_NAME "b349257_02.txt"
+#define BFILE_TEMP_NAME "b349257_02.txt.tmp"
 
 _Static_assert(MAX_N <= 63, "uint64_t masks support at most n=63");
 
@@ -717,6 +723,46 @@ static void print_witness(const uint8_t inverse[MAX_N + 1], int n)
     fprintf(stderr, "]\n");
 }
 
+static FILE *open_bfile(void)
+{
+    FILE *stream = fopen(BFILE_TEMP_NAME, "w");
+    if (stream == NULL) {
+        fprintf(stderr, "error: cannot open %s: %s\n",
+                BFILE_TEMP_NAME, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    return stream;
+}
+
+static void write_bfile_term(FILE *stream, int n, uint64_t value)
+{
+    if (fprintf(stream, "%d %" PRIu64 "\n", n, value) < 0 ||
+        fflush(stream) != 0) {
+        fprintf(stderr, "error: cannot write %s: %s\n",
+                BFILE_TEMP_NAME, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+}
+
+static void finish_bfile(FILE *stream)
+{
+    bool failed = false;
+    if (fflush(stream) != 0) failed = true;
+    const int descriptor = fileno(stream);
+    if (descriptor < 0 || (!failed && fsync(descriptor) != 0)) failed = true;
+    if (fclose(stream) != 0) failed = true;
+    if (failed) {
+        fprintf(stderr, "error: cannot finalize %s: %s\n",
+                BFILE_TEMP_NAME, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    if (rename(BFILE_TEMP_NAME, BFILE_NAME) != 0) {
+        fprintf(stderr, "error: cannot replace %s: %s\n",
+                BFILE_NAME, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+}
+
 static void usage(FILE *stream, const char *program)
 {
     fprintf(stream,
@@ -777,6 +823,7 @@ int main(int argc, char **argv)
     if (witness_requested && mode != MODE_TERM)
         die("--witness requires --term N");
 
+    FILE *bfile = mode == MODE_UPTO && !check ? open_bfile() : NULL;
     const int first = mode == MODE_TERM ? limit : 0;
     for (int n = first; n <= limit; ++n) {
         uint8_t witness[MAX_N + 1] = {0};
@@ -798,6 +845,8 @@ int main(int argc, char **argv)
             }
         }
 
+        if (bfile != NULL) write_bfile_term(bfile, n, value);
+
         if (mode == MODE_TERM)
             printf("%" PRIu64 "\n", value);
         else
@@ -816,6 +865,7 @@ int main(int argc, char **argv)
         if (putchar('\n') == EOF || fflush(stdout) != 0)
             die("could not finish stdout");
     }
+    if (bfile != NULL) finish_bfile(bfile);
     if (check)
         fprintf(stderr,
                 "check passed: A349257(0..%d), direct permutations through "

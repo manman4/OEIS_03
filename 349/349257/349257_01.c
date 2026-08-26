@@ -26,6 +26,9 @@
  *   ./349257_01 --term 19
  *   ./349257_01 --term 19 --witness
  *   ./349257_01 --check
+ *
+ * The default and --upto atomically write b349257_01.txt.  --term and
+ * --check do not modify the b-file.
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -38,11 +41,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #define MAX_N 63
 #define DEFAULT_MAX_N 19
 #define KNOWN_MAX_N 19
 #define DIRECT_CHECK_MAX_N 10
+#define BFILE_NAME "b349257_01.txt"
+#define BFILE_TEMP_NAME "b349257_01.txt.tmp"
 
 _Static_assert(MAX_N <= 63, "uint64_t masks support at most n=63");
 
@@ -281,8 +287,30 @@ static bool exact_assignment(Search *search, uint64_t denominators,
 
     const uint64_t denominator_bit =
         UINT64_C(1) << (chosen_denominator - 1);
-    /* Descending order first follows the unrestricted maximizing assignment. */
+    /*
+     * The selected denominator need not be the smallest remaining one: MRV
+     * often selects a large prime or prime-power denominator.  Find the value
+     * paired with it by the unrestricted maximizing assignment, then try
+     * nearby values first.  This changes only branch order, never pruning.
+     */
+    unsigned maximizing_rank =
+        bit_count(denominators & (denominator_bit - 1U));
+    int maximizing_value = 0;
     for (int value = search->n; value >= 1; --value) {
+        if ((numerators & (UINT64_C(1) << (value - 1))) == 0) continue;
+        if (maximizing_rank == 0U) {
+            maximizing_value = value;
+            break;
+        }
+        --maximizing_rank;
+    }
+
+    for (int order = 0; order < 2 * search->n; ++order) {
+        const int distance = (order + 1) / 2;
+        const int value = (order & 1) == 0
+                              ? maximizing_value - distance
+                              : maximizing_value + distance;
+        if (value < 1 || value > search->n) continue;
         const uint64_t numerator_bit = UINT64_C(1) << (value - 1);
         if ((numerators & numerator_bit) == 0) continue;
         const u128 term = (u128)value * search->weight[chosen_denominator];
@@ -419,6 +447,46 @@ static void print_witness(const int inverse[MAX_N + 1], int n)
     fprintf(stderr, "]\n");
 }
 
+static FILE *open_bfile(void)
+{
+    FILE *stream = fopen(BFILE_TEMP_NAME, "w");
+    if (stream == NULL) {
+        fprintf(stderr, "error: cannot open %s: %s\n",
+                BFILE_TEMP_NAME, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    return stream;
+}
+
+static void write_bfile_term(FILE *stream, int n, uint64_t value)
+{
+    if (fprintf(stream, "%d %" PRIu64 "\n", n, value) < 0 ||
+        fflush(stream) != 0) {
+        fprintf(stderr, "error: cannot write %s: %s\n",
+                BFILE_TEMP_NAME, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+}
+
+static void finish_bfile(FILE *stream)
+{
+    bool failed = false;
+    if (fflush(stream) != 0) failed = true;
+    const int descriptor = fileno(stream);
+    if (descriptor < 0 || (!failed && fsync(descriptor) != 0)) failed = true;
+    if (fclose(stream) != 0) failed = true;
+    if (failed) {
+        fprintf(stderr, "error: cannot finalize %s: %s\n",
+                BFILE_TEMP_NAME, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    if (rename(BFILE_TEMP_NAME, BFILE_NAME) != 0) {
+        fprintf(stderr, "error: cannot replace %s: %s\n",
+                BFILE_NAME, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+}
+
 static void usage(FILE *stream, const char *program)
 {
     fprintf(stream,
@@ -473,6 +541,7 @@ int main(int argc, char **argv)
     if (show_witness && mode != MODE_TERM)
         die("--witness requires --term N");
 
+    FILE *bfile = mode == MODE_UPTO && !check ? open_bfile() : NULL;
     const int first = mode == MODE_TERM ? limit : 0;
     for (int n = first; n <= limit; ++n) {
         int witness[MAX_N + 1] = {0};
@@ -493,6 +562,8 @@ int main(int argc, char **argv)
             }
         }
 
+        if (bfile != NULL) write_bfile_term(bfile, n, value);
+
         if (mode == MODE_TERM)
             printf("%" PRIu64 "\n", value);
         else
@@ -511,6 +582,7 @@ int main(int argc, char **argv)
         if (putchar('\n') == EOF || fflush(stdout) != 0)
             die("could not finish stdout");
     }
+    if (bfile != NULL) finish_bfile(bfile);
 
     if (check)
         fprintf(stderr,
