@@ -13,17 +13,31 @@
  * Candidate integers t are tested downwards from the unrestricted assignment
  * maximum.  A depth-first exact-assignment search is pruned by the
  * rearrangement-inequality bounds, divisibility by the gcd of the unassigned
- * weights, and a permutation-lattice congruence.  The next denominator is
- * chosen by minimum remaining values; in particular, prime and prime-power
- * divisibility restrictions are exposed near the root.
+ * weights, and a permutation-lattice congruence.
+ *
+ * There is also one exact congruence for each prime r.  If P is the largest
+ * power of r not exceeding n, integrality requires
+ *
+ *       sum_{r|j} q(j)*(L/j) == 0 (mod P).
+ *
+ * Terms with r not dividing j vanish modulo P.  The search maintains these
+ * residues and finishes the smallest pending prime congruence first.  This is
+ * a mathematical ordering/pruning fact; the algorithm remains a downward
+ * exact-target search, independently of 349257_02.c's direct maximization.
+ * If n itself is prime, its congruence forces q(n)=n, so a(n)=a(n-1)+1;
+ * that recurrence also gives a(83) without constructing an overflowing LCM.
+ * With multiple threads, a bounded deterministic prefix expansion produces
+ * disjoint exact-target subtrees.  Workers have private mutable search state.
  *
  * Build:
- *   clang -O3 -std=c11 -Wall -Wextra -Wpedantic 349257_01.c -o 349257_01
+ *   clang -O3 -std=c11 -Wall -Wextra -Wpedantic 349257_01.c \
+ *       -o 349257_01 -pthread
  *
  * Usage:
  *   ./349257_01                 # print a(0)..a(19)
  *   ./349257_01 --upto 19
  *   ./349257_01 --term 19
+ *   ./349257_01 --term 74 --threads 8 --verbose
  *   ./349257_01 --term 19 --witness
  *   ./349257_01 --check
  *
@@ -35,6 +49,8 @@
 
 #include <errno.h>
 #include <inttypes.h>
+#include <pthread.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -43,19 +59,31 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MAX_N 82
+#define MAX_N 83
+#define MAX_EXACT_N 82
 #define DEFAULT_MAX_N 19
 #define KNOWN_MAX_N 19
 #define DIRECT_CHECK_MAX_N 10
+#define MAX_CONSTRAINTS 23
+#define DEFAULT_THREADS 8
+#define MAX_THREADS 64
+#define JOBS_PER_THREAD 8
+#define MAX_JOBS 8192
 #define BFILE_NAME "b349257_01.txt"
 #define BFILE_TEMP_NAME "b349257_01.txt.tmp"
 
 _Static_assert(MAX_N <= 127, "128-bit masks support at most n=127");
-_Static_assert(MAX_N <= 82,
+_Static_assert(MAX_EXACT_N <= 82,
                "128-bit scaled assignment sums support at most n=82");
 
 typedef __uint128_t u128;
 typedef u128 mask_t;
+
+typedef struct {
+    mask_t denominator_mask;
+    uint32_t coefficient[MAX_N + 1];
+    uint32_t modulus;
+} PrimeConstraint;
 
 static const uint64_t known[KNOWN_MAX_N + 1] = {
     UINT64_C(0),  UINT64_C(1),  UINT64_C(2),  UINT64_C(3),
@@ -69,9 +97,43 @@ typedef struct {
     int n;
     u128 lcm;
     u128 weight[MAX_N + 1];
+    PrimeConstraint constraint[MAX_CONSTRAINTS];
+    uint32_t residue[MAX_CONSTRAINTS];
+    unsigned constraint_count;
     int inverse[MAX_N + 1];
     uint64_t nodes;
+    _Atomic bool *cancel;
 } Search;
+
+typedef struct {
+    mask_t denominators;
+    mask_t numerators;
+    u128 residual;
+    uint32_t residue[MAX_CONSTRAINTS];
+    int inverse[MAX_N + 1];
+} Job;
+
+typedef struct {
+    Search prototype;
+    Job *jobs;
+    size_t job_count;
+    size_t desired_jobs;
+    _Atomic size_t next_job;
+    _Atomic bool found;
+    _Atomic uint64_t nodes;
+    pthread_mutex_t witness_mutex;
+    int witness[MAX_N + 1];
+} ParallelTarget;
+
+typedef struct {
+    ParallelTarget *shared;
+} Worker;
+
+typedef struct {
+    int denominator;
+    u128 remaining_gcd;
+    int maximizing_value;
+} Branch;
 
 typedef enum {
     MODE_UPTO,
@@ -102,6 +164,15 @@ static u128 gcd_u128(u128 a, u128 b)
     return a;
 }
 
+static bool is_prime(unsigned value)
+{
+    if (value < 2U) return false;
+    if ((value & 1U) == 0) return value == 2U;
+    for (unsigned divisor = 3; divisor <= value / divisor; divisor += 2U)
+        if (value % divisor == 0U) return false;
+    return true;
+}
+
 static int parse_n(const char *text)
 {
     errno = 0;
@@ -112,6 +183,20 @@ static int parse_n(const char *text)
         exit(EXIT_FAILURE);
     }
     return (int)value;
+}
+
+static unsigned parse_threads(const char *text)
+{
+    errno = 0;
+    char *end = NULL;
+    const uintmax_t value = strtoumax(text, &end, 10);
+    if (errno != 0 || end == text || *end != '\0' || value < 1U ||
+        value > MAX_THREADS) {
+        fprintf(stderr, "error: threads must be in 1..%d: %s\n",
+                MAX_THREADS, text);
+        exit(EXIT_FAILURE);
+    }
+    return (unsigned)value;
 }
 
 static u128 make_lcm(int n)
@@ -250,28 +335,126 @@ static u128 gcd_without(const Search *search, mask_t denominators,
     return result;
 }
 
-static bool exact_assignment(Search *search, mask_t denominators,
-                             mask_t numerators, u128 residual)
+static bool prime_constraints_consistent(const Search *search,
+                                         mask_t denominators)
 {
-    ++search->nodes;
-    if (denominators == 0) return residual == 0;
+    for (unsigned c = 0; c < search->constraint_count; ++c)
+        if ((denominators & search->constraint[c].denominator_mask) == 0 &&
+            search->residue[c] != 0U)
+            return false;
+    return true;
+}
 
+/* Enforce a prime congruence as soon as its final denominator is assigned. */
+static bool prime_candidate_allowed(const Search *search,
+                                    mask_t denominators, int denominator,
+                                    int value)
+{
+    const mask_t denominator_bit = (mask_t)1 << (denominator - 1);
+    for (unsigned c = 0; c < search->constraint_count; ++c) {
+        const PrimeConstraint *constraint = &search->constraint[c];
+        if ((constraint->denominator_mask & denominator_bit) == 0) continue;
+        if (bit_count(denominators & constraint->denominator_mask) != 1U)
+            continue;
+        if ((search->residue[c] +
+             (uint32_t)value * constraint->coefficient[denominator]) %
+                constraint->modulus != 0U)
+            return false;
+    }
+    return true;
+}
+
+static void add_prime_residues(Search *search, int denominator, int value,
+                               uint32_t old[MAX_CONSTRAINTS])
+{
+    const mask_t denominator_bit = (mask_t)1 << (denominator - 1);
+    for (unsigned c = 0; c < search->constraint_count; ++c) {
+        old[c] = search->residue[c];
+        const PrimeConstraint *constraint = &search->constraint[c];
+        if ((constraint->denominator_mask & denominator_bit) == 0) continue;
+        search->residue[c] =
+            (search->residue[c] +
+             (uint32_t)value * constraint->coefficient[denominator]) %
+            constraint->modulus;
+    }
+}
+
+static void restore_prime_residues(Search *search,
+                                   const uint32_t old[MAX_CONSTRAINTS])
+{
+    for (unsigned c = 0; c < search->constraint_count; ++c)
+        search->residue[c] = old[c];
+}
+
+/*
+ * Finish the smallest pending prime congruence first.  Within it, assign the
+ * coefficient having the largest gcd with the modulus; this tends to leave a
+ * unit coefficient for the final, immediately checkable assignment.
+ */
+static int prime_preferred_denominator(const Search *search,
+                                       mask_t denominators)
+{
+    int active_constraint = -1;
+    unsigned smallest_group = MAX_N + 1U;
+    for (unsigned c = 0; c < search->constraint_count; ++c) {
+        const unsigned count = bit_count(
+            denominators & search->constraint[c].denominator_mask);
+        if (count == 0U) continue;
+        if (count < smallest_group ||
+            (count == smallest_group &&
+             (active_constraint < 0 ||
+              search->constraint[c].modulus >
+                  search->constraint[active_constraint].modulus))) {
+            smallest_group = count;
+            active_constraint = (int)c;
+        }
+    }
+    if (active_constraint < 0) return 0;
+
+    const PrimeConstraint *constraint =
+        &search->constraint[active_constraint];
+    int best_denominator = 0;
+    u128 best_divisor = 0;
+    mask_t scan = denominators & constraint->denominator_mask;
+    while (scan != 0) {
+        const int denominator = first_value(scan);
+        scan &= scan - 1U;
+        const u128 divisor = gcd_u128(
+            constraint->coefficient[denominator], constraint->modulus);
+        if (best_denominator == 0 || divisor > best_divisor ||
+            (divisor == best_divisor && denominator < best_denominator)) {
+            best_denominator = denominator;
+            best_divisor = divisor;
+        }
+    }
+    return best_denominator;
+}
+
+static bool prepare_branch(Search *search, mask_t denominators,
+                           mask_t numerators, u128 residual, Branch *branch)
+{
     u128 minimum, maximum;
     assignment_bounds(search, denominators, numerators, &minimum, &maximum);
     if (residual < minimum || residual > maximum) return false;
     if (!lattice_congruence(search, denominators, numerators, residual))
         return false;
+    if (!prime_constraints_consistent(search, denominators)) return false;
 
     int chosen_denominator = 0;
     u128 chosen_gcd = 0;
     int smallest_candidate_count = search->n + 1;
+    const int prime_preference =
+        prime_preferred_denominator(search, denominators);
 
     for (int j = 1; j <= search->n; ++j) {
         if ((denominators & ((mask_t)1 << (j - 1))) == 0) continue;
+        if (prime_preference != 0 && j != prime_preference) continue;
         const u128 remaining_gcd = gcd_without(search, denominators, j);
         int candidate_count = 0;
         for (int value = 1; value <= search->n; ++value) {
             if ((numerators & ((mask_t)1 << (value - 1))) == 0) continue;
+            if (!prime_candidate_allowed(search, denominators, j, value))
+                continue;
             const u128 term = (u128)value * search->weight[j];
             if (term > residual) continue;
             if (remaining_gcd == 0) {
@@ -288,17 +471,10 @@ static bool exact_assignment(Search *search, mask_t denominators,
             smallest_candidate_count = candidate_count;
         }
     }
-
     if (smallest_candidate_count == 0) return false;
 
     const mask_t denominator_bit =
         (mask_t)1 << (chosen_denominator - 1);
-    /*
-     * The selected denominator need not be the smallest remaining one: MRV
-     * often selects a large prime or prime-power denominator.  Find the value
-     * paired with it by the unrestricted maximizing assignment, then try
-     * nearby values first.  This changes only branch order, never pruning.
-     */
     unsigned maximizing_rank =
         bit_count(denominators & (denominator_bit - 1U));
     int maximizing_value = 0;
@@ -310,40 +486,255 @@ static bool exact_assignment(Search *search, mask_t denominators,
         }
         --maximizing_rank;
     }
+    branch->denominator = chosen_denominator;
+    branch->remaining_gcd = chosen_gcd;
+    branch->maximizing_value = maximizing_value;
+    return true;
+}
 
+static int ordered_candidates(const Search *search, mask_t denominators,
+                              mask_t numerators, u128 residual,
+                              const Branch *branch, int result[MAX_N])
+{
+    int count = 0;
     for (int order = 0; order < 2 * search->n; ++order) {
         const int distance = (order + 1) / 2;
         const int value = (order & 1) == 0
-                              ? maximizing_value - distance
-                              : maximizing_value + distance;
+                              ? branch->maximizing_value - distance
+                              : branch->maximizing_value + distance;
         if (value < 1 || value > search->n) continue;
         const mask_t numerator_bit = (mask_t)1 << (value - 1);
         if ((numerators & numerator_bit) == 0) continue;
-        const u128 term = (u128)value * search->weight[chosen_denominator];
+        if (!prime_candidate_allowed(search, denominators,
+                                     branch->denominator, value))
+            continue;
+        const u128 term = (u128)value * search->weight[branch->denominator];
         if (term > residual) continue;
-        if (chosen_gcd == 0) {
+        if (branch->remaining_gcd == 0) {
             if (term != residual) continue;
-        } else if ((residual - term) % chosen_gcd != 0) {
+        } else if ((residual - term) % branch->remaining_gcd != 0) {
             continue;
         }
-
-        search->inverse[chosen_denominator] = value;
-        if (exact_assignment(search, denominators ^ denominator_bit,
-                             numerators ^ numerator_bit, residual - term))
-            return true;
+        result[count++] = value;
     }
-    search->inverse[chosen_denominator] = 0;
+    return count;
+}
+
+static bool exact_assignment(Search *search, mask_t denominators,
+                             mask_t numerators, u128 residual)
+{
+    if (search->cancel != NULL &&
+        atomic_load_explicit(search->cancel, memory_order_relaxed))
+        return false;
+    ++search->nodes;
+    if (denominators == 0) return residual == 0;
+
+    Branch branch;
+    if (!prepare_branch(search, denominators, numerators, residual, &branch))
+        return false;
+    int candidates[MAX_N];
+    const int candidate_count = ordered_candidates(
+        search, denominators, numerators, residual, &branch, candidates);
+    const mask_t denominator_bit =
+        (mask_t)1 << (branch.denominator - 1);
+    for (int index = 0; index < candidate_count; ++index) {
+        const int value = candidates[index];
+        const mask_t numerator_bit = (mask_t)1 << (value - 1);
+        const u128 term = (u128)value * search->weight[branch.denominator];
+        uint32_t old_residue[MAX_CONSTRAINTS];
+        add_prime_residues(search, branch.denominator, value, old_residue);
+        search->inverse[branch.denominator] = value;
+        if (exact_assignment(search, denominators ^ denominator_bit,
+                             numerators ^ numerator_bit, residual - term)) {
+            restore_prime_residues(search, old_residue);
+            return true;
+        }
+        restore_prime_residues(search, old_residue);
+    }
+    search->inverse[branch.denominator] = 0;
     return false;
 }
 
-static uint64_t compute_term(int n, int witness[MAX_N + 1],
-                             uint64_t *node_count)
+static void append_job(ParallelTarget *shared, const Search *builder,
+                       mask_t denominators, mask_t numerators, u128 residual)
+{
+    if (shared->job_count == MAX_JOBS)
+        die("parallel frontier is too large");
+    Job *job = &shared->jobs[shared->job_count++];
+    job->denominators = denominators;
+    job->numerators = numerators;
+    job->residual = residual;
+    memcpy(job->residue, builder->residue, sizeof(job->residue));
+    memcpy(job->inverse, builder->inverse, sizeof(job->inverse));
+}
+
+/* Build a disjoint deterministic frontier without solving an early branch. */
+static void build_frontier(ParallelTarget *shared, Search *builder,
+                           mask_t denominators, mask_t numerators,
+                           u128 residual, unsigned depth)
+{
+    ++builder->nodes;
+    if (denominators == 0) {
+        if (residual == 0 &&
+            prime_constraints_consistent(builder, denominators)) {
+            memcpy(shared->witness, builder->inverse,
+                   sizeof(shared->witness));
+            atomic_store_explicit(&shared->found, true,
+                                  memory_order_release);
+        }
+        return;
+    }
+
+    Branch branch;
+    if (!prepare_branch(builder, denominators, numerators, residual, &branch))
+        return;
+    if (depth == 0U || shared->job_count >= shared->desired_jobs) {
+        append_job(shared, builder, denominators, numerators, residual);
+        return;
+    }
+
+    int candidates[MAX_N];
+    const int candidate_count = ordered_candidates(
+        builder, denominators, numerators, residual, &branch, candidates);
+    const mask_t denominator_bit =
+        (mask_t)1 << (branch.denominator - 1);
+    for (int index = 0; index < candidate_count; ++index) {
+        const int value = candidates[index];
+        const mask_t numerator_bit = (mask_t)1 << (value - 1);
+        const u128 term = (u128)value * builder->weight[branch.denominator];
+        uint32_t old_residue[MAX_CONSTRAINTS];
+        add_prime_residues(builder, branch.denominator, value, old_residue);
+        builder->inverse[branch.denominator] = value;
+        build_frontier(shared, builder, denominators ^ denominator_bit,
+                       numerators ^ numerator_bit, residual - term,
+                       depth - 1U);
+        restore_prime_residues(builder, old_residue);
+        builder->inverse[branch.denominator] = 0;
+        if (atomic_load_explicit(&shared->found, memory_order_acquire)) return;
+    }
+}
+
+static void *worker_main(void *argument)
+{
+    Worker *worker = argument;
+    ParallelTarget *shared = worker->shared;
+    uint64_t nodes = 0;
+
+    for (;;) {
+        if (atomic_load_explicit(&shared->found, memory_order_acquire)) break;
+        const size_t index = atomic_fetch_add_explicit(
+            &shared->next_job, 1U, memory_order_relaxed);
+        if (index >= shared->job_count) break;
+
+        const Job *job = &shared->jobs[index];
+        Search search = shared->prototype;
+        search.nodes = 0;
+        search.cancel = &shared->found;
+        memcpy(search.residue, job->residue, sizeof(search.residue));
+        memcpy(search.inverse, job->inverse, sizeof(search.inverse));
+        const bool solved = exact_assignment(
+            &search, job->denominators, job->numerators, job->residual);
+        nodes += search.nodes;
+        if (!solved) continue;
+
+        if (pthread_mutex_lock(&shared->witness_mutex) != 0)
+            die("pthread_mutex_lock failed");
+        if (!atomic_load_explicit(&shared->found, memory_order_relaxed)) {
+            memcpy(shared->witness, search.inverse,
+                   sizeof(shared->witness));
+            atomic_store_explicit(&shared->found, true,
+                                  memory_order_release);
+        }
+        if (pthread_mutex_unlock(&shared->witness_mutex) != 0)
+            die("pthread_mutex_unlock failed");
+        break;
+    }
+    atomic_fetch_add_explicit(&shared->nodes, nodes, memory_order_relaxed);
+    return NULL;
+}
+
+static bool solve_target(Search *search, mask_t denominators,
+                         mask_t numerators, u128 residual,
+                         unsigned thread_count, size_t *job_count)
+{
+    if (thread_count == 1U) {
+        if (job_count != NULL) *job_count = 1U;
+        search->cancel = NULL;
+        return exact_assignment(search, denominators, numerators, residual);
+    }
+
+    ParallelTarget shared;
+    memset(&shared, 0, sizeof(shared));
+    shared.prototype = *search;
+    shared.prototype.nodes = 0;
+    shared.prototype.cancel = NULL;
+    shared.jobs = calloc(MAX_JOBS, sizeof(*shared.jobs));
+    if (shared.jobs == NULL) die("could not allocate parallel frontier");
+    shared.desired_jobs = (size_t)thread_count * JOBS_PER_THREAD;
+    atomic_init(&shared.next_job, 0U);
+    atomic_init(&shared.found, false);
+    atomic_init(&shared.nodes, 0U);
+    if (pthread_mutex_init(&shared.witness_mutex, NULL) != 0)
+        die("pthread_mutex_init failed");
+
+    Search builder = shared.prototype;
+    builder.nodes = 0;
+    for (unsigned depth = 1; depth <= (unsigned)search->n; ++depth) {
+        shared.job_count = 0;
+        memset(builder.residue, 0, sizeof(builder.residue));
+        memset(builder.inverse, 0, sizeof(builder.inverse));
+        build_frontier(&shared, &builder, denominators, numerators, residual,
+                       depth);
+        if (atomic_load_explicit(&shared.found, memory_order_acquire) ||
+            shared.job_count == 0 ||
+            shared.job_count >= shared.desired_jobs ||
+            depth == (unsigned)search->n)
+            break;
+    }
+
+    if (!atomic_load_explicit(&shared.found, memory_order_acquire) &&
+        shared.job_count != 0) {
+        const unsigned workers = shared.job_count < thread_count
+                                     ? (unsigned)shared.job_count
+                                     : thread_count;
+        pthread_t threads[MAX_THREADS];
+        Worker worker[MAX_THREADS];
+        atomic_store_explicit(&shared.next_job, 0U, memory_order_relaxed);
+        for (unsigned i = 0; i < workers; ++i) {
+            worker[i].shared = &shared;
+            if (pthread_create(&threads[i], NULL, worker_main, &worker[i]) !=
+                0)
+                die("pthread_create failed");
+        }
+        for (unsigned i = 0; i < workers; ++i)
+            if (pthread_join(threads[i], NULL) != 0)
+                die("pthread_join failed");
+    }
+
+    const bool solved =
+        atomic_load_explicit(&shared.found, memory_order_acquire);
+    if (solved)
+        memcpy(search->inverse, shared.witness, sizeof(search->inverse));
+    search->nodes += builder.nodes +
+        atomic_load_explicit(&shared.nodes, memory_order_relaxed);
+    if (job_count != NULL) *job_count = shared.job_count;
+    free(shared.jobs);
+    if (pthread_mutex_destroy(&shared.witness_mutex) != 0)
+        die("pthread_mutex_destroy failed");
+    return solved;
+}
+
+static uint64_t compute_term(int n, unsigned thread_count,
+                             int witness[MAX_N + 1], uint64_t *node_count,
+                             size_t *job_count)
 {
     if (n == 0) {
         if (witness != NULL) memset(witness, 0, sizeof(int) * (MAX_N + 1));
         if (node_count != NULL) *node_count = 0;
+        if (job_count != NULL) *job_count = 0;
         return 0;
     }
+    if (n > MAX_EXACT_N) die("internal exact-search limit exceeded");
 
     Search search;
     memset(&search, 0, sizeof(search));
@@ -351,6 +742,21 @@ static uint64_t compute_term(int n, int witness[MAX_N + 1],
     search.lcm = make_lcm(n);
     for (int j = 1; j <= n; ++j)
         search.weight[j] = search.lcm / (u128)j;
+    for (unsigned prime = 2; prime <= (unsigned)n; ++prime) {
+        if (!is_prime(prime)) continue;
+        if (search.constraint_count == MAX_CONSTRAINTS)
+            die("too many prime constraints");
+        PrimeConstraint *constraint =
+            &search.constraint[search.constraint_count++];
+        uint32_t modulus = prime;
+        while (modulus <= (uint32_t)n / prime) modulus *= prime;
+        constraint->modulus = modulus;
+        for (int j = (int)prime; j <= n; j += (int)prime) {
+            constraint->denominator_mask |= (mask_t)1 << (j - 1);
+            constraint->coefficient[j] =
+                (uint32_t)(search.weight[j] % modulus);
+        }
+    }
 
     const mask_t full_mask = ((mask_t)1 << n) - 1U;
     u128 minimum, maximum;
@@ -359,8 +765,9 @@ static uint64_t compute_term(int n, int witness[MAX_N + 1],
 
     for (uint64_t target = (uint64_t)(maximum / search.lcm);; --target) {
         memset(search.inverse, 0, sizeof(search.inverse));
-        if (exact_assignment(&search, full_mask, full_mask,
-                             target * search.lcm)) {
+        memset(search.residue, 0, sizeof(search.residue));
+        if (solve_target(&search, full_mask, full_mask, target * search.lcm,
+                         thread_count, job_count)) {
             if (witness != NULL)
                 memcpy(witness, search.inverse, sizeof(search.inverse));
             if (node_count != NULL) *node_count = search.nodes;
@@ -368,6 +775,34 @@ static uint64_t compute_term(int n, int witness[MAX_N + 1],
         }
         if (target == 0) die("internal search failure");
     }
+}
+
+/* Use the prime recurrence, reusing n-1 during a sequential --upto run. */
+static uint64_t compute_output_term(
+    int n, unsigned thread_count, bool have_previous,
+    uint64_t previous_value, const int previous_witness[MAX_N + 1],
+    int witness[MAX_N + 1], uint64_t *node_count, size_t *job_count,
+    bool *prime_step)
+{
+    *prime_step = false;
+    if (!is_prime((unsigned)n))
+        return compute_term(n, thread_count, witness, node_count, job_count);
+
+    uint64_t value;
+    if (have_previous) {
+        value = previous_value;
+        if (witness != NULL)
+            memcpy(witness, previous_witness,
+                   sizeof(int) * (MAX_N + 1));
+        if (node_count != NULL) *node_count = 0;
+        if (job_count != NULL) *job_count = 0;
+    } else {
+        value = compute_term(n - 1, thread_count, witness, node_count,
+                             job_count);
+    }
+    if (witness != NULL) witness[n] = n;
+    *prime_step = true;
+    return value + 1U;
 }
 
 static void verify_term(uint64_t value, int n)
@@ -496,8 +931,8 @@ static void finish_bfile(FILE *stream)
 static void usage(FILE *stream, const char *program)
 {
     fprintf(stream,
-            "Usage: %s [--upto N | --term N | --check] [--witness] "
-            "[--verbose]\n",
+            "Usage: %s [--upto N | --term N | --check] [--threads T] "
+            "[--witness] [--verbose]\n",
             program);
 }
 
@@ -505,6 +940,7 @@ int main(int argc, char **argv)
 {
     OutputMode mode = MODE_UPTO;
     int limit = DEFAULT_MAX_N;
+    unsigned threads = DEFAULT_THREADS;
     bool check = false;
     bool show_witness = false;
     bool verbose = false;
@@ -529,6 +965,12 @@ int main(int argc, char **argv)
             limit = KNOWN_MAX_N;
             mode = MODE_UPTO;
             mode_seen = true;
+        } else if (strcmp(argv[i], "--threads") == 0) {
+            if (i + 1 == argc) {
+                usage(stderr, argv[0]);
+                return EXIT_FAILURE;
+            }
+            threads = parse_threads(argv[++i]);
         } else if (strcmp(argv[i], "--witness") == 0) {
             show_witness = true;
         } else if (strcmp(argv[i], "--verbose") == 0) {
@@ -549,11 +991,19 @@ int main(int argc, char **argv)
 
     FILE *bfile = mode == MODE_UPTO && !check ? open_bfile() : NULL;
     const int first = mode == MODE_TERM ? limit : 0;
+    bool have_previous = false;
+    uint64_t previous_value = 0;
+    int previous_witness[MAX_N + 1] = {0};
     for (int n = first; n <= limit; ++n) {
         int witness[MAX_N + 1] = {0};
         uint64_t nodes = 0;
+        size_t jobs = 0;
+        bool prime_step = false;
         const double started = monotonic_seconds();
-        const uint64_t value = compute_term(n, witness, &nodes);
+        const uint64_t value = compute_output_term(
+            n, threads, mode == MODE_UPTO && have_previous,
+            previous_value, previous_witness, witness, &nodes, &jobs,
+            &prime_step);
         verify_term(value, n);
         if (n != 0) verify_witness(witness, n, value);
 
@@ -570,6 +1020,10 @@ int main(int argc, char **argv)
 
         if (bfile != NULL) write_bfile_term(bfile, n, value);
 
+        previous_value = value;
+        memcpy(previous_witness, witness, sizeof(previous_witness));
+        have_previous = true;
+
         if (mode == MODE_TERM)
             printf("%" PRIu64 "\n", value);
         else
@@ -580,8 +1034,12 @@ int main(int argc, char **argv)
         if (verbose)
             fprintf(stderr,
                     "349257_01: n=%d, a(n)=%" PRIu64
-                    ", nodes=%" PRIu64 ", %.3f s\n",
-                    n, value, nodes, monotonic_seconds() - started);
+                    ", method=%s, threads=%u, jobs=%zu, nodes=%" PRIu64
+                    ", %.3f s\n",
+                    n, value,
+                    prime_step ? "prime-recurrence" : "exact-search",
+                    threads, jobs, nodes,
+                    monotonic_seconds() - started);
         if (show_witness) print_witness(witness, n);
     }
     if (mode == MODE_UPTO) {

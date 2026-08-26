@@ -31,6 +31,10 @@
  * nonzero.  An assignment upper bound proves that a branch cannot improve the
  * best integral value already found.
  *
+ * In particular, if n is prime then its constraint contains only j=n and
+ * forces q(n)=n.  Hence a(n)=a(n-1)+1.  This recurrence is applied before the
+ * direct search and supplies a(83) without constructing an overflowing LCM.
+ *
  * With --threads T, a deterministic prefix expansion creates independent
  * frontier jobs.  Workers own all mutable search state; only the incumbent
  * value is atomic, and its witness is protected by a mutex.  Parallelism can
@@ -67,7 +71,8 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MAX_N 82
+#define MAX_N 83
+#define MAX_EXACT_N 82
 #define DEFAULT_MAX_N 25
 #define KNOWN_MAX_N 19
 #define DIRECT_CHECK_MAX_N 10
@@ -79,7 +84,7 @@
 #define BFILE_TEMP_NAME "b349257_02.txt.tmp"
 
 _Static_assert(MAX_N <= 127, "128-bit masks support at most n=127");
-_Static_assert(MAX_N <= 82,
+_Static_assert(MAX_EXACT_N <= 82,
                "128-bit scaled assignment sums support at most n=82");
 
 typedef __uint128_t u128;
@@ -613,6 +618,7 @@ static uint64_t compute_term(int n, unsigned thread_count,
         if (job_count != NULL) *job_count = 0;
         return 0;
     }
+    if (n > MAX_EXACT_N) die("internal exact-search limit exceeded");
 
     Shared shared;
     shared_init(&shared, n);
@@ -663,6 +669,34 @@ static uint64_t compute_term(int n, unsigned thread_count,
     if (job_count != NULL) *job_count = shared.job_count;
     shared_clear(&shared);
     return result;
+}
+
+/* Use the prime recurrence, reusing n-1 during a sequential --upto run. */
+static uint64_t compute_output_term(
+    int n, unsigned thread_count, bool have_previous,
+    uint64_t previous_value,
+    const uint8_t previous_witness[MAX_N + 1],
+    uint8_t witness[MAX_N + 1], uint64_t *node_count, size_t *job_count,
+    bool *prime_step)
+{
+    *prime_step = false;
+    if (!is_prime((unsigned)n))
+        return compute_term(n, thread_count, witness, node_count, job_count);
+
+    uint64_t value;
+    if (have_previous) {
+        value = previous_value;
+        if (witness != NULL)
+            memcpy(witness, previous_witness, MAX_N + 1U);
+        if (node_count != NULL) *node_count = 0;
+        if (job_count != NULL) *job_count = 0;
+    } else {
+        value = compute_term(n - 1, thread_count, witness, node_count,
+                             job_count);
+    }
+    if (witness != NULL) witness[n] = (uint8_t)n;
+    *prime_step = true;
+    return value + 1U;
 }
 
 static bool next_permutation(int values[MAX_N], int n)
@@ -843,13 +877,19 @@ int main(int argc, char **argv)
 
     FILE *bfile = mode == MODE_UPTO && !check ? open_bfile() : NULL;
     const int first = mode == MODE_TERM ? limit : 0;
+    bool have_previous = false;
+    uint64_t previous_value = 0;
+    uint8_t previous_witness[MAX_N + 1] = {0};
     for (int n = first; n <= limit; ++n) {
         uint8_t witness[MAX_N + 1] = {0};
         uint64_t nodes = 0;
         size_t jobs = 0;
+        bool prime_step = false;
         const double started = monotonic_seconds();
-        const uint64_t value =
-            compute_term(n, threads, witness, &nodes, &jobs);
+        const uint64_t value = compute_output_term(
+            n, threads, mode == MODE_UPTO && have_previous,
+            previous_value, previous_witness, witness, &nodes, &jobs,
+            &prime_step);
         verify_value(value, n);
         if (n != 0) verify_witness(witness, n, value);
         if (check && n <= DIRECT_CHECK_MAX_N) {
@@ -865,6 +905,10 @@ int main(int argc, char **argv)
 
         if (bfile != NULL) write_bfile_term(bfile, n, value);
 
+        previous_value = value;
+        memcpy(previous_witness, witness, sizeof(previous_witness));
+        have_previous = true;
+
         if (mode == MODE_TERM)
             printf("%" PRIu64 "\n", value);
         else
@@ -874,8 +918,11 @@ int main(int argc, char **argv)
         if (verbose)
             fprintf(stderr,
                     "349257_02: n=%d, a(n)=%" PRIu64
-                    ", threads=%u, jobs=%zu, nodes=%" PRIu64 ", %.3f s\n",
-                    n, value, threads, jobs, nodes,
+                    ", method=%s, threads=%u, jobs=%zu, nodes=%" PRIu64
+                    ", %.3f s\n",
+                    n, value,
+                    prime_step ? "prime-recurrence" : "direct-search",
+                    threads, jobs, nodes,
                     monotonic_seconds() - started);
         if (witness_requested) print_witness(witness, n);
     }
