@@ -41,13 +41,15 @@
  *   ./349257_01 --term 19 --witness
  *   ./349257_01 --check
  *
- * The default and --upto atomically write b349257_01.txt.  --term and
- * --check do not modify the b-file.
+ * The default and --upto take an exclusive writer lock and atomically replace
+ * b349257_01.txt through a unique temporary file.  --term and --check do not
+ * modify the b-file.
  */
 
 #define _POSIX_C_SOURCE 200809L
 
 #include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -56,6 +58,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -70,7 +73,8 @@
 #define JOBS_PER_THREAD 8
 #define MAX_JOBS 8192
 #define BFILE_NAME "b349257_01.txt"
-#define BFILE_TEMP_NAME "b349257_01.txt.tmp"
+#define BFILE_TEMP_TEMPLATE BFILE_NAME ".tmp.XXXXXX"
+#define BFILE_LOCK_NAME BFILE_NAME ".lock"
 
 _Static_assert(MAX_N <= 127, "128-bit masks support at most n=127");
 _Static_assert(MAX_EXACT_N <= 82,
@@ -139,6 +143,9 @@ typedef enum {
     MODE_UPTO,
     MODE_TERM
 } OutputMode;
+
+static char bfile_temp_name[] = BFILE_TEMP_TEMPLATE;
+static int bfile_lock_descriptor = -1;
 
 static _Noreturn void die(const char *message)
 {
@@ -247,11 +254,13 @@ static void assignment_bounds(const Search *search, mask_t denominators,
                               mask_t numerators, u128 *minimum,
                               u128 *maximum)
 {
-    int ascending[MAX_N];
+    int ascending[MAX_N] = {0};
     int count = 0;
     for (int value = 1; value <= search->n; ++value)
         if ((numerators & ((mask_t)1 << (value - 1))) != 0)
             ascending[count++] = value;
+    if ((unsigned)count != bit_count(denominators))
+        die("assignment masks have different sizes");
 
     u128 low = 0;
     u128 high = 0;
@@ -259,6 +268,7 @@ static void assignment_bounds(const Search *search, mask_t denominators,
     /* j increases, so L/j decreases. */
     for (int j = 1; j <= search->n; ++j) {
         if ((denominators & ((mask_t)1 << (j - 1))) == 0) continue;
+        if (rank >= count) die("assignment bound rank overflow");
         low += (u128)ascending[rank] * search->weight[j];
         high += (u128)ascending[count - 1 - rank] * search->weight[j];
         ++rank;
@@ -471,7 +481,8 @@ static bool prepare_branch(Search *search, mask_t denominators,
             smallest_candidate_count = candidate_count;
         }
     }
-    if (smallest_candidate_count == 0) return false;
+    if (smallest_candidate_count == 0 || chosen_denominator == 0)
+        return false;
 
     const mask_t denominator_bit =
         (mask_t)1 << (chosen_denominator - 1);
@@ -541,7 +552,7 @@ static bool exact_assignment(Search *search, mask_t denominators,
         const int value = candidates[index];
         const mask_t numerator_bit = (mask_t)1 << (value - 1);
         const u128 term = (u128)value * search->weight[branch.denominator];
-        uint32_t old_residue[MAX_CONSTRAINTS];
+        uint32_t old_residue[MAX_CONSTRAINTS] = {0};
         add_prime_residues(search, branch.denominator, value, old_residue);
         search->inverse[branch.denominator] = value;
         if (exact_assignment(search, denominators ^ denominator_bit,
@@ -602,7 +613,7 @@ static void build_frontier(ParallelTarget *shared, Search *builder,
         const int value = candidates[index];
         const mask_t numerator_bit = (mask_t)1 << (value - 1);
         const u128 term = (u128)value * builder->weight[branch.denominator];
-        uint32_t old_residue[MAX_CONSTRAINTS];
+        uint32_t old_residue[MAX_CONSTRAINTS] = {0};
         add_prime_residues(builder, branch.denominator, value, old_residue);
         builder->inverse[branch.denominator] = value;
         build_frontier(shared, builder, denominators ^ denominator_bit,
@@ -859,8 +870,6 @@ static uint64_t direct_term(int n)
 static void verify_witness(const int inverse[MAX_N + 1], int n,
                            uint64_t target)
 {
-    const u128 lcm = make_lcm(n);
-    u128 scaled_sum = 0;
     mask_t seen = 0;
     for (int j = 1; j <= n; ++j) {
         const int value = inverse[j];
@@ -868,9 +877,24 @@ static void verify_witness(const int inverse[MAX_N + 1], int n,
         const mask_t bit = (mask_t)1 << (value - 1);
         if ((seen & bit) != 0) die("duplicate witness value");
         seen |= bit;
-        scaled_sum += (u128)value * (lcm / (u128)j);
     }
-    if (scaled_sum != target * lcm) die("witness sum mismatch");
+
+    int exact_n = n;
+    uint64_t exact_target = target;
+    if (n > MAX_EXACT_N) {
+        /* The only supported step beyond the u128 search range is prime. */
+        if (!is_prime((unsigned)n) || target == 0 || inverse[n] != n)
+            die("invalid prime-recurrence witness");
+        exact_n = n - 1;
+        exact_target = target - 1U;
+    }
+
+    const u128 lcm = make_lcm(exact_n);
+    u128 scaled_sum = 0;
+    for (int j = 1; j <= exact_n; ++j)
+        scaled_sum += (u128)inverse[j] * (lcm / (u128)j);
+    if (scaled_sum != (u128)exact_target * lcm)
+        die("witness sum mismatch");
 }
 
 static void print_witness(const int inverse[MAX_N + 1], int n)
@@ -888,12 +912,101 @@ static void print_witness(const int inverse[MAX_N + 1], int n)
     fprintf(stderr, "]\n");
 }
 
+static void release_bfile_lock(void)
+{
+    if (bfile_lock_descriptor < 0) return;
+    const int saved_error = errno;
+    const struct flock lock = {
+        .l_type = F_UNLCK,
+        .l_whence = SEEK_SET,
+        .l_start = 0,
+        .l_len = 0
+    };
+    (void)fcntl(bfile_lock_descriptor, F_SETLK, &lock);
+    (void)close(bfile_lock_descriptor);
+    bfile_lock_descriptor = -1;
+    errno = saved_error;
+}
+
+static void discard_bfile_temp(void)
+{
+    const int saved_error = errno;
+    (void)unlink(bfile_temp_name);
+    release_bfile_lock();
+    errno = saved_error;
+}
+
 static FILE *open_bfile(void)
 {
-    FILE *stream = fopen(BFILE_TEMP_NAME, "w");
-    if (stream == NULL) {
+    bfile_lock_descriptor =
+        open(BFILE_LOCK_NAME, O_CREAT | O_RDWR, 0666);
+    if (bfile_lock_descriptor < 0) {
         fprintf(stderr, "error: cannot open %s: %s\n",
-                BFILE_TEMP_NAME, strerror(errno));
+                BFILE_LOCK_NAME, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    const struct flock lock = {
+        .l_type = F_WRLCK,
+        .l_whence = SEEK_SET,
+        .l_start = 0,
+        .l_len = 0
+    };
+    if (fcntl(bfile_lock_descriptor, F_SETLK, &lock) != 0) {
+        const int saved_error = errno;
+        release_bfile_lock();
+        if (saved_error == EACCES || saved_error == EAGAIN)
+            fprintf(stderr, "error: another writer holds %s\n",
+                    BFILE_LOCK_NAME);
+        else
+            fprintf(stderr, "error: cannot lock %s: %s\n",
+                    BFILE_LOCK_NAME, strerror(saved_error));
+        exit(EXIT_FAILURE);
+    }
+
+    const int descriptor = mkstemp(bfile_temp_name);
+    if (descriptor < 0) {
+        const int saved_error = errno;
+        release_bfile_lock();
+        fprintf(stderr, "error: cannot create %s: %s\n",
+                BFILE_TEMP_TEMPLATE, strerror(saved_error));
+        exit(EXIT_FAILURE);
+    }
+
+    struct stat existing;
+    mode_t mode;
+    if (stat(BFILE_NAME, &existing) == 0) {
+        mode = existing.st_mode & 0777;
+    } else if (errno == ENOENT) {
+        const mode_t mask = umask(0);
+        (void)umask(mask);
+        mode = 0666 & ~mask;
+    } else {
+        const int saved_error = errno;
+        (void)close(descriptor);
+        errno = saved_error;
+        discard_bfile_temp();
+        fprintf(stderr, "error: cannot inspect %s: %s\n",
+                BFILE_NAME, strerror(saved_error));
+        exit(EXIT_FAILURE);
+    }
+    if (fchmod(descriptor, mode) != 0) {
+        const int saved_error = errno;
+        (void)close(descriptor);
+        errno = saved_error;
+        discard_bfile_temp();
+        fprintf(stderr, "error: cannot set permissions on %s: %s\n",
+                bfile_temp_name, strerror(saved_error));
+        exit(EXIT_FAILURE);
+    }
+
+    FILE *stream = fdopen(descriptor, "w");
+    if (stream == NULL) {
+        const int saved_error = errno;
+        (void)close(descriptor);
+        errno = saved_error;
+        discard_bfile_temp();
+        fprintf(stderr, "error: cannot open %s: %s\n",
+                bfile_temp_name, strerror(saved_error));
         exit(EXIT_FAILURE);
     }
     return stream;
@@ -903,8 +1016,12 @@ static void write_bfile_term(FILE *stream, int n, uint64_t value)
 {
     if (fprintf(stream, "%d %" PRIu64 "\n", n, value) < 0 ||
         fflush(stream) != 0) {
+        const int saved_error = errno == 0 ? EIO : errno;
+        (void)fclose(stream);
+        errno = saved_error;
+        discard_bfile_temp();
         fprintf(stderr, "error: cannot write %s: %s\n",
-                BFILE_TEMP_NAME, strerror(errno));
+                bfile_temp_name, strerror(saved_error));
         exit(EXIT_FAILURE);
     }
 }
@@ -912,20 +1029,40 @@ static void write_bfile_term(FILE *stream, int n, uint64_t value)
 static void finish_bfile(FILE *stream)
 {
     bool failed = false;
-    if (fflush(stream) != 0) failed = true;
+    int saved_error = 0;
+    if (fflush(stream) != 0) {
+        failed = true;
+        saved_error = errno;
+    }
     const int descriptor = fileno(stream);
-    if (descriptor < 0 || (!failed && fsync(descriptor) != 0)) failed = true;
-    if (fclose(stream) != 0) failed = true;
+    if (descriptor < 0) {
+        failed = true;
+        if (saved_error == 0) saved_error = errno;
+    } else if (!failed && fsync(descriptor) != 0) {
+        failed = true;
+        saved_error = errno;
+    }
+    if (fclose(stream) != 0) {
+        failed = true;
+        if (saved_error == 0) saved_error = errno;
+    }
     if (failed) {
+        if (saved_error == 0) saved_error = EIO;
+        errno = saved_error;
+        discard_bfile_temp();
         fprintf(stderr, "error: cannot finalize %s: %s\n",
-                BFILE_TEMP_NAME, strerror(errno));
+                bfile_temp_name, strerror(saved_error));
         exit(EXIT_FAILURE);
     }
-    if (rename(BFILE_TEMP_NAME, BFILE_NAME) != 0) {
+    if (rename(bfile_temp_name, BFILE_NAME) != 0) {
+        const int rename_error = errno;
+        errno = rename_error;
+        discard_bfile_temp();
         fprintf(stderr, "error: cannot replace %s: %s\n",
-                BFILE_NAME, strerror(errno));
+                BFILE_NAME, strerror(rename_error));
         exit(EXIT_FAILURE);
     }
+    release_bfile_lock();
 }
 
 static void usage(FILE *stream, const char *program)
