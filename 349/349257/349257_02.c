@@ -24,7 +24,7 @@
  * frontier jobs.  Workers own all mutable search state; only the incumbent
  * value is atomic, and its witness is protected by a mutex.  Parallelism can
  * change which maximizing witness is retained, but never the sequence value.
- * For the currently supported n<=63 the serial version is normally faster;
+ * For the currently supported n<=82 the serial version is normally faster;
  * the threaded path is included as an independently checkable implementation
  * for larger searches and experiments.
  *
@@ -56,20 +56,23 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MAX_N 63
+#define MAX_N 82
 #define DEFAULT_MAX_N 25
 #define KNOWN_MAX_N 19
 #define DIRECT_CHECK_MAX_N 10
-#define MAX_CONSTRAINTS 20
+#define MAX_CONSTRAINTS 23
 #define MAX_THREADS 64
 #define JOBS_PER_THREAD 8
 #define MAX_JOBS 65536
 #define BFILE_NAME "b349257_02.txt"
 #define BFILE_TEMP_NAME "b349257_02.txt.tmp"
 
-_Static_assert(MAX_N <= 63, "uint64_t masks support at most n=63");
+_Static_assert(MAX_N <= 127, "128-bit masks support at most n=127");
+_Static_assert(MAX_N <= 82,
+               "128-bit scaled assignment sums support at most n=82");
 
 typedef __uint128_t u128;
+typedef u128 mask_t;
 
 static const uint64_t known[KNOWN_MAX_N + 1] = {
     UINT64_C(0),  UINT64_C(1),  UINT64_C(2),  UINT64_C(3),
@@ -80,15 +83,15 @@ static const uint64_t known[KNOWN_MAX_N + 1] = {
 };
 
 typedef struct {
-    uint64_t denominator_mask;
+    mask_t denominator_mask;
     uint32_t coefficient[MAX_N + 1];
     uint32_t modulus;
     uint32_t prime;
 } Constraint;
 
 typedef struct {
-    uint64_t denominators;
-    uint64_t numerators;
+    mask_t denominators;
+    mask_t numerators;
     u128 scaled_sum;
     uint32_t residue[MAX_CONSTRAINTS];
     uint8_t inverse[MAX_N + 1];
@@ -148,10 +151,11 @@ static uint64_t gcd_u64(uint64_t a, uint64_t b)
     return a;
 }
 
-static unsigned bit_count(uint64_t mask)
+static unsigned bit_count(mask_t mask)
 {
 #if defined(__clang__) || defined(__GNUC__)
-    return (unsigned)__builtin_popcountll(mask);
+    return (unsigned)__builtin_popcountll((uint64_t)mask) +
+           (unsigned)__builtin_popcountll((uint64_t)(mask >> 64));
 #else
     unsigned result = 0;
     while (mask != 0) {
@@ -162,10 +166,12 @@ static unsigned bit_count(uint64_t mask)
 #endif
 }
 
-static int first_index(uint64_t mask)
+static int first_index(mask_t mask)
 {
 #if defined(__clang__) || defined(__GNUC__)
-    return (int)__builtin_ctzll(mask) + 1;
+    const uint64_t low = (uint64_t)mask;
+    if (low != 0) return (int)__builtin_ctzll(low) + 1;
+    return (int)__builtin_ctzll((uint64_t)(mask >> 64)) + 65;
 #else
     int result = 1;
     while ((mask & 1U) == 0) {
@@ -231,9 +237,9 @@ static unsigned parse_threads(const char *text)
     return (unsigned)parse_integer(text, "threads", 1, MAX_THREADS);
 }
 
-static uint64_t full_mask(int n)
+static mask_t full_mask(int n)
 {
-    return (UINT64_C(1) << n) - 1U;
+    return ((mask_t)1 << n) - 1U;
 }
 
 static void shared_init(Shared *shared, int n)
@@ -257,7 +263,7 @@ static void shared_init(Shared *shared, int n)
         constraint->modulus = modulus;
         for (int j = 1; j <= n; ++j) {
             if ((unsigned)j % prime != 0) continue;
-            constraint->denominator_mask |= UINT64_C(1) << (j - 1);
+            constraint->denominator_mask |= (mask_t)1 << (j - 1);
             constraint->coefficient[j] =
                 (uint32_t)(shared->weight[j] % modulus);
         }
@@ -281,27 +287,27 @@ static void shared_clear(Shared *shared)
 
 /* Rearrangement-inequality upper bound for all remaining assignments. */
 static u128 maximum_completion(const Shared *shared,
-                               uint64_t denominators,
-                               uint64_t numerators)
+                               mask_t denominators,
+                               mask_t numerators)
 {
     int values[MAX_N];
     int count = 0;
     for (int value = 1; value <= shared->n; ++value)
-        if ((numerators & (UINT64_C(1) << (value - 1))) != 0)
+        if ((numerators & ((mask_t)1 << (value - 1))) != 0)
             values[count++] = value;
 
     u128 result = 0;
     int rank = 0;
     for (int j = 1; j <= shared->n; ++j) {
-        if ((denominators & (UINT64_C(1) << (j - 1))) == 0) continue;
+        if ((denominators & ((mask_t)1 << (j - 1))) == 0) continue;
         result += (u128)values[count - 1 - rank] * shared->weight[j];
         ++rank;
     }
     return result;
 }
 
-static bool can_improve(const Shared *shared, uint64_t denominators,
-                        uint64_t numerators, u128 scaled_sum)
+static bool can_improve(const Shared *shared, mask_t denominators,
+                        mask_t numerators, u128 scaled_sum)
 {
     const u128 upper =
         scaled_sum + maximum_completion(shared, denominators, numerators);
@@ -317,18 +323,18 @@ static bool can_improve(const Shared *shared, uint64_t denominators,
  * that constraint, coefficients with a large gcd against the modulus are
  * assigned first, tending to leave a unit coefficient for the final step.
  */
-static int choose_denominator(const Worker *worker, uint64_t denominators,
-                              uint64_t numerators, bool *impossible)
+static int choose_denominator(const Worker *worker, mask_t denominators,
+                              mask_t numerators, bool *impossible)
 {
     const Shared *shared = worker->shared;
-    uint64_t forced = 0;
+    mask_t forced = 0;
     int active_constraint = -1;
     unsigned smallest_group = MAX_N + 1U;
 
     *impossible = false;
     for (unsigned c = 0; c < shared->constraint_count; ++c) {
         const Constraint *constraint = &shared->constraint[c];
-        const uint64_t remaining =
+        const mask_t remaining =
             denominators & constraint->denominator_mask;
         const unsigned count = bit_count(remaining);
         if (count == 0U) {
@@ -351,17 +357,17 @@ static int choose_denominator(const Worker *worker, uint64_t denominators,
     int best_denominator = 0;
     int best_candidate_count = shared->n + 1;
     if (forced != 0) {
-        uint64_t scan = forced;
+        mask_t scan = forced;
         while (scan != 0) {
             const int denominator = first_index(scan);
             scan &= scan - 1U;
             int candidate_count = 0;
             for (int value = 1; value <= shared->n; ++value) {
-                const uint64_t bit = UINT64_C(1) << (value - 1);
+                const mask_t bit = (mask_t)1 << (value - 1);
                 if ((numerators & bit) == 0) continue;
                 bool allowed = true;
-                const uint64_t denominator_bit =
-                    UINT64_C(1) << (denominator - 1);
+                const mask_t denominator_bit =
+                    (mask_t)1 << (denominator - 1);
                 for (unsigned c = 0; c < shared->constraint_count; ++c) {
                     const Constraint *constraint = &shared->constraint[c];
                     if ((constraint->denominator_mask & denominator_bit) == 0)
@@ -396,7 +402,7 @@ static int choose_denominator(const Worker *worker, uint64_t denominators,
         const Constraint *constraint =
             &shared->constraint[active_constraint];
         uint64_t best_gcd = 0;
-        uint64_t scan = denominators & constraint->denominator_mask;
+        mask_t scan = denominators & constraint->denominator_mask;
         while (scan != 0) {
             const int denominator = first_index(scan);
             scan &= scan - 1U;
@@ -415,11 +421,11 @@ static int choose_denominator(const Worker *worker, uint64_t denominators,
     return first_index(denominators);
 }
 
-static bool candidate_allowed(const Worker *worker, uint64_t denominators,
+static bool candidate_allowed(const Worker *worker, mask_t denominators,
                               int denominator, int value)
 {
     const Shared *shared = worker->shared;
-    const uint64_t denominator_bit = UINT64_C(1) << (denominator - 1);
+    const mask_t denominator_bit = (mask_t)1 << (denominator - 1);
     for (unsigned c = 0; c < shared->constraint_count; ++c) {
         const Constraint *constraint = &shared->constraint[c];
         if ((constraint->denominator_mask & denominator_bit) == 0) continue;
@@ -438,7 +444,7 @@ static void assign_residues(Worker *worker, int denominator, int value,
                             uint32_t old[MAX_CONSTRAINTS])
 {
     Shared *shared = worker->shared;
-    const uint64_t denominator_bit = UINT64_C(1) << (denominator - 1);
+    const mask_t denominator_bit = (mask_t)1 << (denominator - 1);
     for (unsigned c = 0; c < shared->constraint_count; ++c) {
         old[c] = worker->residue[c];
         const Constraint *constraint = &shared->constraint[c];
@@ -481,8 +487,8 @@ static void record_solution(Worker *worker, u128 scaled_sum)
         die("pthread_mutex_unlock failed");
 }
 
-static void maximize(Worker *worker, uint64_t denominators,
-                     uint64_t numerators, u128 scaled_sum)
+static void maximize(Worker *worker, mask_t denominators,
+                     mask_t numerators, u128 scaled_sum)
 {
     ++worker->nodes;
     if (denominators == 0) {
@@ -496,10 +502,10 @@ static void maximize(Worker *worker, uint64_t denominators,
     const int denominator =
         choose_denominator(worker, denominators, numerators, &impossible);
     if (impossible) return;
-    const uint64_t denominator_bit = UINT64_C(1) << (denominator - 1);
+    const mask_t denominator_bit = (mask_t)1 << (denominator - 1);
 
     for (int value = worker->shared->n; value >= 1; --value) {
-        const uint64_t numerator_bit = UINT64_C(1) << (value - 1);
+        const mask_t numerator_bit = (mask_t)1 << (value - 1);
         if ((numerators & numerator_bit) == 0) continue;
         if (!candidate_allowed(worker, denominators, denominator, value))
             continue;
@@ -516,8 +522,8 @@ static void maximize(Worker *worker, uint64_t denominators,
     }
 }
 
-static void append_job(Worker *builder, uint64_t denominators,
-                       uint64_t numerators, u128 scaled_sum)
+static void append_job(Worker *builder, mask_t denominators,
+                       mask_t numerators, u128 scaled_sum)
 {
     Shared *shared = builder->shared;
     if (shared->job_count == MAX_JOBS) die("parallel frontier is too large");
@@ -529,8 +535,8 @@ static void append_job(Worker *builder, uint64_t denominators,
     memcpy(job->inverse, builder->inverse, sizeof(job->inverse));
 }
 
-static void build_frontier(Worker *builder, uint64_t denominators,
-                           uint64_t numerators, u128 scaled_sum,
+static void build_frontier(Worker *builder, mask_t denominators,
+                           mask_t numerators, u128 scaled_sum,
                            unsigned depth)
 {
     if (!can_improve(builder->shared, denominators, numerators, scaled_sum))
@@ -545,9 +551,9 @@ static void build_frontier(Worker *builder, uint64_t denominators,
     const int denominator =
         choose_denominator(builder, denominators, numerators, &impossible);
     if (impossible) return;
-    const uint64_t denominator_bit = UINT64_C(1) << (denominator - 1);
+    const mask_t denominator_bit = (mask_t)1 << (denominator - 1);
     for (int value = builder->shared->n; value >= 1; --value) {
-        const uint64_t numerator_bit = UINT64_C(1) << (value - 1);
+        const mask_t numerator_bit = (mask_t)1 << (value - 1);
         if ((numerators & numerator_bit) == 0) continue;
         if (!candidate_allowed(builder, denominators, denominator, value))
             continue;
@@ -598,7 +604,7 @@ static uint64_t compute_term(int n, unsigned thread_count,
 
     Shared shared;
     shared_init(&shared, n);
-    const uint64_t mask = full_mask(n);
+    const mask_t mask = full_mask(n);
 
     if (thread_count == 1U) {
         Worker worker;
@@ -697,12 +703,12 @@ static void verify_witness(const uint8_t inverse[MAX_N + 1], int n,
                            uint64_t target)
 {
     const u128 lcm = make_lcm(n);
-    uint64_t seen = 0;
+    mask_t seen = 0;
     u128 sum = 0;
     for (int j = 1; j <= n; ++j) {
         const unsigned value = inverse[j];
         if (value < 1U || value > (unsigned)n) die("invalid witness value");
-        const uint64_t bit = UINT64_C(1) << (value - 1U);
+        const mask_t bit = (mask_t)1 << (value - 1U);
         if ((seen & bit) != 0) die("duplicate witness value");
         seen |= bit;
         sum += (u128)value * (lcm / (u128)j);

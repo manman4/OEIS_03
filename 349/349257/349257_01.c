@@ -43,16 +43,19 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MAX_N 63
+#define MAX_N 82
 #define DEFAULT_MAX_N 19
 #define KNOWN_MAX_N 19
 #define DIRECT_CHECK_MAX_N 10
 #define BFILE_NAME "b349257_01.txt"
 #define BFILE_TEMP_NAME "b349257_01.txt.tmp"
 
-_Static_assert(MAX_N <= 63, "uint64_t masks support at most n=63");
+_Static_assert(MAX_N <= 127, "128-bit masks support at most n=127");
+_Static_assert(MAX_N <= 82,
+               "128-bit scaled assignment sums support at most n=82");
 
 typedef __uint128_t u128;
+typedef u128 mask_t;
 
 static const uint64_t known[KNOWN_MAX_N + 1] = {
     UINT64_C(0),  UINT64_C(1),  UINT64_C(2),  UINT64_C(3),
@@ -123,10 +126,11 @@ static u128 make_lcm(int n)
     return value;
 }
 
-static unsigned bit_count(uint64_t mask)
+static unsigned bit_count(mask_t mask)
 {
 #if defined(__clang__) || defined(__GNUC__)
-    return (unsigned)__builtin_popcountll(mask);
+    return (unsigned)__builtin_popcountll((uint64_t)mask) +
+           (unsigned)__builtin_popcountll((uint64_t)(mask >> 64));
 #else
     unsigned count = 0;
     while (mask != 0) {
@@ -137,10 +141,12 @@ static unsigned bit_count(uint64_t mask)
 #endif
 }
 
-static int first_value(uint64_t mask)
+static int first_value(mask_t mask)
 {
 #if defined(__clang__) || defined(__GNUC__)
-    return (int)__builtin_ctzll(mask) + 1;
+    const uint64_t low = (uint64_t)mask;
+    if (low != 0) return (int)__builtin_ctzll(low) + 1;
+    return (int)__builtin_ctzll((uint64_t)(mask >> 64)) + 65;
 #else
     int value = 1;
     while ((mask & 1U) == 0) {
@@ -152,14 +158,14 @@ static int first_value(uint64_t mask)
 }
 
 /* Exact minimum and maximum assignments for the two remaining sets. */
-static void assignment_bounds(const Search *search, uint64_t denominators,
-                              uint64_t numerators, u128 *minimum,
+static void assignment_bounds(const Search *search, mask_t denominators,
+                              mask_t numerators, u128 *minimum,
                               u128 *maximum)
 {
     int ascending[MAX_N];
     int count = 0;
     for (int value = 1; value <= search->n; ++value)
-        if ((numerators & (UINT64_C(1) << (value - 1))) != 0)
+        if ((numerators & ((mask_t)1 << (value - 1))) != 0)
             ascending[count++] = value;
 
     u128 low = 0;
@@ -167,7 +173,7 @@ static void assignment_bounds(const Search *search, uint64_t denominators,
     int rank = 0;
     /* j increases, so L/j decreases. */
     for (int j = 1; j <= search->n; ++j) {
-        if ((denominators & (UINT64_C(1) << (j - 1))) == 0) continue;
+        if ((denominators & ((mask_t)1 << (j - 1))) == 0) continue;
         low += (u128)ascending[rank] * search->weight[j];
         high += (u128)ascending[count - 1 - rank] * search->weight[j];
         ++rank;
@@ -184,8 +190,8 @@ static void assignment_bounds(const Search *search, uint64_t denominators,
  * This follows because exchanging a,b between weights x,y changes a sum by
  * (a-b)*(x-y).  It is only a necessary test, so it cannot remove a solution.
  */
-static bool lattice_congruence(const Search *search, uint64_t denominators,
-                               uint64_t numerators, u128 residual)
+static bool lattice_congruence(const Search *search, mask_t denominators,
+                               mask_t numerators, u128 residual)
 {
     if (bit_count(numerators) < 2U) return true;
 
@@ -194,7 +200,7 @@ static bool lattice_congruence(const Search *search, uint64_t denominators,
     u128 weight_gcd = 0;
     int first_numerator = 0;
     u128 first_weight = 0;
-    uint64_t number_scan = numerators;
+    mask_t number_scan = numerators;
 
     while (number_scan != 0) {
         const int value = first_value(number_scan);
@@ -209,12 +215,12 @@ static bool lattice_congruence(const Search *search, uint64_t denominators,
     int numerator_index = 0;
     int ordered_numerators[MAX_N];
     for (int value = 1; value <= search->n; ++value)
-        if ((numerators & (UINT64_C(1) << (value - 1))) != 0)
+        if ((numerators & ((mask_t)1 << (value - 1))) != 0)
             ordered_numerators[numerator_index++] = value;
 
     int index = 0;
     for (int j = 1; j <= search->n; ++j) {
-        if ((denominators & (UINT64_C(1) << (j - 1))) == 0) continue;
+        if ((denominators & ((mask_t)1 << (j - 1))) == 0) continue;
         const u128 weight = search->weight[j];
         base += (u128)ordered_numerators[index++] * weight;
         if (first_weight == 0)
@@ -231,21 +237,21 @@ static bool lattice_congruence(const Search *search, uint64_t denominators,
     return modulus == 0 || residual % modulus == base % modulus;
 }
 
-static u128 gcd_without(const Search *search, uint64_t denominators,
+static u128 gcd_without(const Search *search, mask_t denominators,
                         int omitted)
 {
     u128 result = 0;
     for (int j = 1; j <= search->n; ++j) {
         if (j == omitted ||
-            (denominators & (UINT64_C(1) << (j - 1))) == 0)
+            (denominators & ((mask_t)1 << (j - 1))) == 0)
             continue;
         result = gcd_u128(result, search->weight[j]);
     }
     return result;
 }
 
-static bool exact_assignment(Search *search, uint64_t denominators,
-                             uint64_t numerators, u128 residual)
+static bool exact_assignment(Search *search, mask_t denominators,
+                             mask_t numerators, u128 residual)
 {
     ++search->nodes;
     if (denominators == 0) return residual == 0;
@@ -261,11 +267,11 @@ static bool exact_assignment(Search *search, uint64_t denominators,
     int smallest_candidate_count = search->n + 1;
 
     for (int j = 1; j <= search->n; ++j) {
-        if ((denominators & (UINT64_C(1) << (j - 1))) == 0) continue;
+        if ((denominators & ((mask_t)1 << (j - 1))) == 0) continue;
         const u128 remaining_gcd = gcd_without(search, denominators, j);
         int candidate_count = 0;
         for (int value = 1; value <= search->n; ++value) {
-            if ((numerators & (UINT64_C(1) << (value - 1))) == 0) continue;
+            if ((numerators & ((mask_t)1 << (value - 1))) == 0) continue;
             const u128 term = (u128)value * search->weight[j];
             if (term > residual) continue;
             if (remaining_gcd == 0) {
@@ -285,8 +291,8 @@ static bool exact_assignment(Search *search, uint64_t denominators,
 
     if (smallest_candidate_count == 0) return false;
 
-    const uint64_t denominator_bit =
-        UINT64_C(1) << (chosen_denominator - 1);
+    const mask_t denominator_bit =
+        (mask_t)1 << (chosen_denominator - 1);
     /*
      * The selected denominator need not be the smallest remaining one: MRV
      * often selects a large prime or prime-power denominator.  Find the value
@@ -297,7 +303,7 @@ static bool exact_assignment(Search *search, uint64_t denominators,
         bit_count(denominators & (denominator_bit - 1U));
     int maximizing_value = 0;
     for (int value = search->n; value >= 1; --value) {
-        if ((numerators & (UINT64_C(1) << (value - 1))) == 0) continue;
+        if ((numerators & ((mask_t)1 << (value - 1))) == 0) continue;
         if (maximizing_rank == 0U) {
             maximizing_value = value;
             break;
@@ -311,7 +317,7 @@ static bool exact_assignment(Search *search, uint64_t denominators,
                               ? maximizing_value - distance
                               : maximizing_value + distance;
         if (value < 1 || value > search->n) continue;
-        const uint64_t numerator_bit = UINT64_C(1) << (value - 1);
+        const mask_t numerator_bit = (mask_t)1 << (value - 1);
         if ((numerators & numerator_bit) == 0) continue;
         const u128 term = (u128)value * search->weight[chosen_denominator];
         if (term > residual) continue;
@@ -346,7 +352,7 @@ static uint64_t compute_term(int n, int witness[MAX_N + 1],
     for (int j = 1; j <= n; ++j)
         search.weight[j] = search.lcm / (u128)j;
 
-    const uint64_t full_mask = (UINT64_C(1) << n) - 1U;
+    const mask_t full_mask = ((mask_t)1 << n) - 1U;
     u128 minimum, maximum;
     assignment_bounds(&search, full_mask, full_mask, &minimum, &maximum);
     (void)minimum;
@@ -420,11 +426,11 @@ static void verify_witness(const int inverse[MAX_N + 1], int n,
 {
     const u128 lcm = make_lcm(n);
     u128 scaled_sum = 0;
-    uint64_t seen = 0;
+    mask_t seen = 0;
     for (int j = 1; j <= n; ++j) {
         const int value = inverse[j];
         if (value < 1 || value > n) die("invalid witness value");
-        const uint64_t bit = UINT64_C(1) << (value - 1);
+        const mask_t bit = (mask_t)1 << (value - 1);
         if ((seen & bit) != 0) die("duplicate witness value");
         seen |= bit;
         scaled_sum += (u128)value * (lcm / (u128)j);
