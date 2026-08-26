@@ -13,7 +13,7 @@ $$
 9\mid a(n)
 $$
 
-が成立する。したがって OEIS の COMMENTS 欄には
+が成立する。したがって OEIS の FORMULA 欄には
 
 > 9 | a(n) for n > 0.
 
