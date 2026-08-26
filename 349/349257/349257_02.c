@@ -13,12 +13,23 @@
  *
  *                      S = sum_j q(j)*w_j
  *
- * directly.  S/L is integral exactly when S is zero modulo every maximal
- * prime power r^a dividing L.  For a fixed prime r, terms with r not dividing
- * j vanish modulo r^a.  The search maintains these small p-adic residues and
- * rejects a branch as soon as the last denominator belonging to a constraint
- * makes that constraint nonzero.  An assignment upper bound proves that a
- * branch cannot improve the best integral value already found.
+ * directly.  Integrality means S == 0 (mod L).  Write L as the product of its
+ * pairwise-coprime maximal prime powers P_r=r^a.  The Chinese remainder
+ * theorem makes this equivalent to one exact condition for every prime r:
+ *
+ *             sum_{j: r divides j} q(j)*(L/j) == 0 (mod P_r).       (1)
+ *
+ * Indeed, if r does not divide j, L/j still contains the full factor P_r, so
+ * that term vanishes modulo P_r.  We call (1) a "prime constraint"; it does
+ * not require q(j), p(k), or any permutation entry to be prime.  For example,
+ * at n=10, L=2520 and the r=7 constraint has only j=7:
+ *
+ *             q(7)*(2520/7) == 3*q(7) == 0 (mod 7),
+ *
+ * which forces q(7)=7.  The search maintains every residue in (1) and rejects
+ * a branch as soon as the last relevant denominator makes its residue
+ * nonzero.  An assignment upper bound proves that a branch cannot improve the
+ * best integral value already found.
  *
  * With --threads T, a deterministic prefix expansion creates independent
  * frontier jobs.  Workers own all mutable search state; only the incumbent
@@ -250,6 +261,7 @@ static void shared_init(Shared *shared, int n)
     for (int j = 1; j <= n; ++j)
         shared->weight[j] = shared->lcm / (u128)j;
 
+    /* Build equation (1) from the file header once for each prime. */
     for (unsigned prime = 2; prime <= (unsigned)n; ++prime) {
         if (!is_prime(prime)) continue;
         if (shared->constraint_count == MAX_CONSTRAINTS)
