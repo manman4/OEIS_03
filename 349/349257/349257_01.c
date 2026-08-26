@@ -39,7 +39,7 @@
 #include <string.h>
 #include <time.h>
 
-#define MAX_N 50
+#define MAX_N 63
 #define DEFAULT_MAX_N 19
 #define KNOWN_MAX_N 19
 #define DIRECT_CHECK_MAX_N 10

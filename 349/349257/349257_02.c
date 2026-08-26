@@ -24,7 +24,7 @@
  * frontier jobs.  Workers own all mutable search state; only the incumbent
  * value is atomic, and its witness is protected by a mutex.  Parallelism can
  * change which maximizing witness is retained, but never the sequence value.
- * For the currently supported n<=50 the serial version is normally faster;
+ * For the currently supported n<=63 the serial version is normally faster;
  * the threaded path is included as an independently checkable implementation
  * for larger searches and experiments.
  *
@@ -52,11 +52,11 @@
 #include <string.h>
 #include <time.h>
 
-#define MAX_N 50
+#define MAX_N 63
 #define DEFAULT_MAX_N 25
 #define KNOWN_MAX_N 19
 #define DIRECT_CHECK_MAX_N 10
-#define MAX_CONSTRAINTS 16
+#define MAX_CONSTRAINTS 20
 #define MAX_THREADS 64
 #define JOBS_PER_THREAD 8
 #define MAX_JOBS 65536
