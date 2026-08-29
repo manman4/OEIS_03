@@ -19,21 +19,21 @@
  * Formula (2) is exact and uses no heuristic pruning.  The left distribution
  * is temporarily written to disk while the same two work arrays are reused
  * for the right distribution.  It is read back only for the final scalar
- * product.  At n=19 and n=20 this needs about 3552.1 MiB of work memory and
+ * product.  At n=19..21 this needs about 3552.1 MiB of work memory and
  * 1776.1 MiB of temporary disk space, instead of keeping three distributions
  * in memory.  The requirements are equal because
- * lcm(1,...,20)=lcm(1,...,19)=232792560.
+ * lcm(1,...,21)=lcm(1,...,19)=232792560.
  * The temporary file is unlinked immediately after creation and is removed
  * automatically when closed or if the process terminates.
  *
- * Each half contains at most ceil(n/2) positions.  For supported n<=20, every
+ * Each half contains at most ceil(n/2) positions.  For supported n<=21, every
  * half-distribution entry is at most
  *
- *   20^10 = 10240000000000 < 2^44,
+ *   21^11 = 350277500542221 < 2^49,
  *
  * so uint64_t is sufficient.  The final answer is at most
  *
- *   20^20 = 104857600000000000000000000 < 2^87,
+ *   21^21 = 5842587018385982521381124421 < 2^93,
  *
  * and is accumulated in an explicitly checked unsigned 96-bit type.
  * Allocation sizes, configured memory, available temporary disk space,
@@ -50,8 +50,8 @@
  *
  * Usage:
  *   ./349145_02
- *   ./349145_02 --upto 20 --memory-mb 4096 --verbose
- *   ./349145_02 --term 20 --memory-mb 4096 --verbose
+ *   ./349145_02 --upto 21 --memory-mb 4096 --verbose
+ *   ./349145_02 --term 21 --memory-mb 4096 --verbose
  *   ./349145_02 --check
  *
  * The default and --upto modes print completed terms and atomically replace
@@ -76,7 +76,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MAX_N 20
+#define MAX_N 21
 #define DEFAULT_UPTO 13
 #define KNOWN_MAX_N 13
 #define DIRECT_CHECK_MAX_N 8
@@ -239,7 +239,7 @@ static int print_count(FILE *stream, const Count *value)
         return fputc('0', stream) == EOF ? -1 : 0;
 
     Count copy = *value;
-    uint32_t chunks[MAX_DECIMAL_CHUNKS];
+    uint32_t chunks[MAX_DECIMAL_CHUNKS] = { 0U };
     size_t used = 0U;
     while (!count_is_zero(&copy)) {
         if (used == MAX_DECIMAL_CHUNKS)
