@@ -16,21 +16,24 @@
  * used.  Consequently the computation is an exact reformulation of the
  * definition, not a use of known sequence values.
  *
- * Two dense count arrays give constant-time updates.  Lists of nonzero
- * residues avoid scanning the whole modulus before the DP becomes dense.
- * Equal shifts at one position are combined exactly before the transition.
- * Counts use an unsigned 128-bit type implemented as four 32-bit limbs.  For
- * every supported n<=18, every partial count is at most
+ * Two dense count arrays give constant-time updates.  At every supported n,
+ * the current array is scanned sequentially and zero entries are skipped.
+ * Thus all n use exactly the same state representation and traversal, without
+ * auxiliary active-residue lists.  Equal shifts at one position are combined
+ * exactly before the transition.
+ * Counts use an unsigned 96-bit type implemented as three 32-bit limbs.  For
+ * every supported n<=20, every partial count is at most
  *
- *   n^n <= 18^18 = 39346408075296537575424 < 2^76,
+ *   n^n <= 20^20 = 104857600000000000000000000 < 2^87,
  *
  * so this is amply sufficient.  Arithmetic, allocation sizes, memory limits,
  * LCM construction, transition counters, output, and b-file replacement are
  * checked at runtime.
  *
- * The LCM jumps from 12252240 at n=18 to 232792560 at n=19.  This dense exact
- * implementation therefore deliberately supports n<=18.  At n=18 its four
- * main arrays require about 467.5 MiB; --memory-mb 512 is sufficient.
+ * The LCM jumps from 12252240 at n=18 to 232792560 at n=19.  At n=19 and 20,
+ * the two 96-bit count arrays require about 5328.2 MiB.  Thus --memory-mb 5376
+ * is sufficient for the arrays; 6144 is the conservative recommended setting.
+ * The allocation is rejected before use if the configured limit is too small.
  *
  * Known OEIS terms through n=13 are verification data only.  They are checked
  * after computation and are never returned as answers.  --check additionally
@@ -42,8 +45,8 @@
  *
  * Usage:
  *   ./349145_01
- *   ./349145_01 --upto 18 --memory-mb 512 --verbose
- *   ./349145_01 --term 18 --memory-mb 512 --verbose
+ *   ./349145_01 --upto 20 --memory-mb 6144 --verbose
+ *   ./349145_01 --term 20 --memory-mb 6144 --verbose
  *   ./349145_01 --check
  *
  * The default and --upto modes print completed terms and atomically replace
@@ -64,17 +67,17 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MAX_N 18
+#define MAX_N 20
 #define DEFAULT_UPTO 13
 #define KNOWN_MAX_N 13
 #define DIRECT_CHECK_MAX_N 8
-#define DEFAULT_MEMORY_MB 512
+#define DEFAULT_MEMORY_MB 6144
 #define MIN_MEMORY_MB 16
 #define MAX_MEMORY_MB 65536
 #define BFILE_NAME "b349145_01.txt"
 #define BFILE_TEMP_TEMPLATE BFILE_NAME ".tmp.XXXXXX"
 #define BFILE_LOCK_NAME BFILE_NAME ".lock"
-#define COUNT_LIMBS 4
+#define COUNT_LIMBS 3
 #define DECIMAL_BASE UINT32_C(1000000000)
 #define MAX_DECIMAL_CHUNKS 5
 
@@ -89,6 +92,8 @@ static const uint64_t known[KNOWN_MAX_N + 1] = {
 typedef struct {
     uint32_t limb[COUNT_LIMBS];
 } Count;
+
+_Static_assert(sizeof(Count) == 12U, "Count must remain a packed 96-bit type");
 
 typedef struct {
     uint64_t modulus;
@@ -166,7 +171,7 @@ static void count_add_multiple(Count *left, const Count *right,
         carry = sum >> 32;
     }
     if (carry != 0U)
-        die("count exceeds the internal 128-bit type");
+        die("count exceeds the internal 96-bit type");
 }
 
 static uint32_t count_divide_decimal_base(Count *value)
@@ -273,27 +278,6 @@ static void *checked_calloc(size_t count, size_t width,
     return result;
 }
 
-static void *checked_malloc(size_t count, size_t width,
-                            size_t *live_memory, size_t memory_limit,
-                            size_t *peak_memory, const char *description)
-{
-    const size_t bytes = checked_product(count, width, description);
-    if (bytes > memory_limit - *live_memory) {
-        fprintf(stderr,
-                "error: memory limit exceeded allocating %s "
-                "(%zu bytes requested, %zu bytes live, %zu bytes limit)\n",
-                description, bytes, *live_memory, memory_limit);
-        exit(EXIT_FAILURE);
-    }
-    void *result = malloc(bytes);
-    if (result == NULL && bytes != 0U)
-        die("memory allocation failed");
-    *live_memory += bytes;
-    if (*live_memory > *peak_memory)
-        *peak_memory = *live_memory;
-    return result;
-}
-
 static size_t make_unique_shifts(int n, int position, uint64_t modulus,
                                  uint64_t shifts[MAX_N],
                                  uint32_t multiplicities[MAX_N])
@@ -323,7 +307,7 @@ static size_t make_unique_shifts(int n, int position, uint64_t modulus,
 }
 
 static Count count_ordered_tuples(int n, size_t memory_limit,
-                                  Statistics *statistics)
+                                  Statistics *statistics, bool verbose)
 {
     const double started = monotonic_seconds();
     const uint64_t modulus = make_lcm(n);
@@ -333,6 +317,20 @@ static Count count_ordered_tuples(int n, size_t memory_limit,
         die("modulus exceeds size_t");
     const size_t capacity = (size_t)modulus;
 
+    const size_t count_array_bytes = checked_product(
+        capacity, sizeof(Count), "residue-count array");
+    if (count_array_bytes > SIZE_MAX / 2U)
+        die("combined main-array size overflow");
+    const size_t required_bytes = 2U * count_array_bytes;
+    if (required_bytes > memory_limit) {
+        fprintf(stderr,
+                "error: n=%d requires %.1f MiB for the main DP arrays, "
+                "exceeding the %.1f MiB limit\n",
+                n, (double)required_bytes / (1024.0 * 1024.0),
+                (double)memory_limit / (1024.0 * 1024.0));
+        exit(EXIT_FAILURE);
+    }
+
     size_t live_memory = 0U;
     size_t peak_memory = 0U;
     Count *current = checked_calloc(capacity, sizeof(*current),
@@ -341,18 +339,12 @@ static Count count_ordered_tuples(int n, size_t memory_limit,
     Count *next = checked_calloc(capacity, sizeof(*next),
                                  &live_memory, memory_limit, &peak_memory,
                                  "second residue-count array");
-    uint32_t *active_current = checked_malloc(
-        capacity, sizeof(*active_current), &live_memory, memory_limit,
-        &peak_memory, "first active-residue list");
-    uint32_t *active_next = checked_malloc(
-        capacity, sizeof(*active_next), &live_memory, memory_limit,
-        &peak_memory, "second active-residue list");
 
     current[0] = count_from_u64(1U);
-    active_current[0] = 0U;
     size_t current_size = 1U;
     size_t peak_active = 1U;
     uint64_t transitions = 0U;
+    double next_progress = started + 60.0;
 
     for (int position = 1; position <= n; ++position) {
         uint64_t shifts[MAX_N];
@@ -361,50 +353,63 @@ static Count count_ordered_tuples(int n, size_t memory_limit,
             n, position, modulus, shifts, multiplicities);
         size_t next_size = 0U;
 
-        for (size_t state_index = 0U;
-             state_index < current_size; ++state_index) {
-            const uint32_t residue_index = active_current[state_index];
-            const uint64_t residue = residue_index;
+        size_t visited = 0U;
+        for (size_t residue_index = 0U;
+             residue_index < capacity; ++residue_index) {
+            if (verbose &&
+                (residue_index & (size_t)1048575U) == 0U) {
+                const double now = monotonic_seconds();
+                if (now >= next_progress) {
+                    fprintf(stderr,
+                            "349145_01 progress: n=%d, position=%d/%d, "
+                            "scan=%zu/%zu, current_active=%zu, "
+                            "next_active=%zu, transitions=%" PRIu64
+                            ", elapsed=%.1f min\n",
+                            n, position, n, residue_index, capacity,
+                            current_size, next_size, transitions,
+                            (now - started) / 60.0);
+                    next_progress = now + 60.0;
+                }
+            }
             const Count state_count = current[residue_index];
             if (count_is_zero(&state_count))
-                die("active list contains a zero state");
-
+                continue;
+            ++visited;
             for (size_t shift_index = 0U;
                  shift_index < shift_count; ++shift_index) {
                 checked_increment(&transitions, "transition");
                 const uint64_t destination = add_mod(
-                    residue, shifts[shift_index], modulus);
+                    (uint64_t)residue_index, shifts[shift_index], modulus);
                 Count *const destination_count = &next[(size_t)destination];
                 if (count_is_zero(destination_count)) {
                     if (next_size == capacity)
-                        die("active-residue list overflow");
-                    active_next[next_size++] = (uint32_t)destination;
+                        die("active-state counter overflow");
+                    ++next_size;
                 }
                 count_add_multiple(destination_count, &state_count,
                                    multiplicities[shift_index]);
             }
         }
-
-        for (size_t state_index = 0U;
-             state_index < current_size; ++state_index) {
-            const uint32_t residue = active_current[state_index];
-            memset(&current[residue], 0, sizeof(current[residue]));
-        }
+        if (visited != current_size)
+            die("dense-scan active-state count mismatch");
+        memset(current, 0, count_array_bytes);
 
         Count *const count_swap = current;
         current = next;
         next = count_swap;
-        uint32_t *const active_swap = active_current;
-        active_current = active_next;
-        active_next = active_swap;
         current_size = next_size;
         if (current_size > peak_active)
             peak_active = current_size;
+        if (verbose) {
+            fprintf(stderr,
+                    "349145_01 position: n=%d, completed=%d/%d, "
+                    "active=%zu, transitions=%" PRIu64 ", elapsed=%.1f min\n",
+                    n, position, n, current_size, transitions,
+                    (monotonic_seconds() - started) / 60.0);
+        }
     }
 
     const Count answer = current[0];
-    free(active_next);
-    free(active_current);
     free(next);
     free(current);
 
@@ -459,9 +464,10 @@ static Count brute_count(int n)
     return search.answer;
 }
 
-static Count compute_term(int n, size_t memory_limit, Statistics *statistics)
+static Count compute_term(int n, size_t memory_limit, Statistics *statistics,
+                          bool verbose)
 {
-    Count result = count_ordered_tuples(n, memory_limit, statistics);
+    Count result = count_ordered_tuples(n, memory_limit, statistics, verbose);
     if (n <= KNOWN_MAX_N) {
         const Count expected = count_from_u64(known[n]);
         if (!count_equal(&result, &expected)) {
@@ -570,7 +576,7 @@ static void run_check(size_t memory_limit, bool verbose)
 {
     for (int n = 0; n <= DIRECT_CHECK_MAX_N; ++n) {
         Statistics statistics;
-        const Count dynamic = compute_term(n, memory_limit, &statistics);
+        const Count dynamic = compute_term(n, memory_limit, &statistics, false);
         const Count direct = brute_count(n);
         if (!count_equal(&dynamic, &direct)) {
             fprintf(stderr,
@@ -650,7 +656,8 @@ int main(int argc, char **argv)
 
     if (mode == MODE_TERM) {
         Statistics statistics;
-        const Count result = compute_term(requested, memory_limit, &statistics);
+        const Count result = compute_term(requested, memory_limit, &statistics,
+                                          verbose);
         if (print_count(stdout, &result) != 0 || fputc('\n', stdout) == EOF ||
             fflush(stdout) != 0)
             die("cannot write standard output");
@@ -668,7 +675,7 @@ int main(int argc, char **argv)
 
     for (int n = 0; n <= requested; ++n) {
         Statistics statistics;
-        terms[n] = compute_term(n, memory_limit, &statistics);
+        terms[n] = compute_term(n, memory_limit, &statistics, verbose);
         if (fprintf(stdout, "%d ", n) < 0 ||
             print_count(stdout, &terms[n]) != 0 ||
             fputc('\n', stdout) == EOF || fflush(stdout) != 0) {
