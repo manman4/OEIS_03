@@ -2,7 +2,7 @@
 
 ## 1. 定義と結論
 
-$[n]=\{1,2,\ldots,n\}$ とする。A330432 は、$[n]$ の置換
+$[n]=[1,n]\cap\mathbb Z$ とする。A330432 は、$[n]$ の置換
 
 $$
 \sigma=(\sigma(1),\sigma(2),\ldots,\sigma(n))
@@ -48,11 +48,9 @@ $$
 
 $$
 A_k=
-\left\{
-\left\lceil\frac{n}{k}\right\rceil,
-\left\lceil\frac{n}{k}\right\rceil+1,
-\ldots,n
-\right\}
+\left[
+\left\lceil\frac{n}{k}\right\rceil,n
+\right]\cap\mathbb Z
 $$
 
 と定める。このとき
@@ -140,7 +138,7 @@ $n$ 個の位置を埋め終わると $[n]$ の $n$ 個の値をすべて
 $A_k$ は少なくとも
 
 $$
-\{n-k+1,n-k+2,\ldots,n\}
+[n-k+1,n]\cap\mathbb Z
 $$
 
 を含む。実際、この集合の最小値 $n-k+1$ について
@@ -184,7 +182,7 @@ $$
 \boxed{\sigma(1)=n}.
 $$
 
-これは $A_1=\{n\}$ と同じことである。
+これは $A_1=[n,n]\cap\mathbb Z$ と同じことである。
 
 ### $\sigma(n)=1$
 
