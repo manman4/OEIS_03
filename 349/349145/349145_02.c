@@ -225,7 +225,8 @@ static void count_add_one(Count *value)
 static uint32_t count_divide_decimal_base(Count *value)
 {
     uint64_t remainder = 0U;
-    for (unsigned i = COUNT_LIMBS; i-- > 0U;) {
+    for (unsigned i = COUNT_LIMBS; i > 0U;) {
+        --i;
         const uint64_t part = (remainder << 32) | value->limb[i];
         value->limb[i] = (uint32_t)(part / DECIMAL_BASE);
         remainder = part % DECIMAL_BASE;
@@ -731,10 +732,11 @@ static void run_check(size_t memory_limit, bool verbose)
 {
     Count arithmetic_test;
     memset(&arithmetic_test, 0, sizeof(arithmetic_test));
-    count_add_product(&arithmetic_test, UINT64_C(8796093022207),
-                      UINT64_C(8796093022207));
+    count_add_product(&arithmetic_test, UINT64_C(16679880978201),
+                      UINT64_C(350277500542221));
     const Count arithmetic_expected = {
-        { UINT32_C(1), UINT32_C(4294963200), UINT32_C(4194303) }
+        { UINT32_C(878082373), UINT32_C(3923385642),
+          UINT32_C(316727276) }
     };
     if (!count_equal(&arithmetic_test, &arithmetic_expected))
         die("64-by-64 to 96-bit arithmetic self-test failed");
