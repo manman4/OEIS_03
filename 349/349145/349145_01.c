@@ -22,18 +22,19 @@
  * auxiliary active-residue lists.  Equal shifts at one position are combined
  * exactly before the transition.
  * Counts use an unsigned 96-bit type implemented as three 32-bit limbs.  For
- * every supported n<=20, every partial count is at most
+ * every supported n<=21, every partial count is at most
  *
- *   n^n <= 20^20 = 104857600000000000000000000 < 2^87,
+ *   n^n <= 21^21 = 5842587018385982521381124421 < 2^93,
  *
  * so this is amply sufficient.  Arithmetic, allocation sizes, memory limits,
  * LCM construction, transition counters, output, and b-file replacement are
  * checked at runtime.
  *
- * The LCM jumps from 12252240 at n=18 to 232792560 at n=19.  At n=19 and 20,
- * the two 96-bit count arrays require about 5328.2 MiB.  Thus --memory-mb 5376
- * is sufficient for the arrays; 6144 is the conservative recommended setting.
- * The allocation is rejected before use if the configured limit is too small.
+ * The LCM jumps from 12252240 at n=18 to 232792560 at n=19 and remains there
+ * through n=21.  At n=19..21, the two 96-bit count arrays require about
+ * 5328.2 MiB.  Thus --memory-mb 5376 is sufficient for the arrays; 6144 is the
+ * conservative recommended setting.  The allocation is rejected before use
+ * if the configured limit is too small.
  *
  * Known OEIS terms through n=13 are verification data only.  They are checked
  * after computation and are never returned as answers.  --check additionally
@@ -45,8 +46,8 @@
  *
  * Usage:
  *   ./349145_01
- *   ./349145_01 --upto 20 --memory-mb 6144 --verbose
- *   ./349145_01 --term 20 --memory-mb 6144 --verbose
+ *   ./349145_01 --upto 21 --memory-mb 6144 --verbose
+ *   ./349145_01 --term 21 --memory-mb 6144 --verbose
  *   ./349145_01 --check
  *
  * The default and --upto modes print completed terms and atomically replace
@@ -70,7 +71,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MAX_N 20
+#define MAX_N 21
 #define DEFAULT_UPTO 13
 #define KNOWN_MAX_N 13
 #define DIRECT_CHECK_MAX_N 8
@@ -194,7 +195,7 @@ static int print_count(FILE *stream, const Count *value)
         return fputc('0', stream) == EOF ? -1 : 0;
 
     Count copy = *value;
-    uint32_t chunks[MAX_DECIMAL_CHUNKS];
+    uint32_t chunks[MAX_DECIMAL_CHUNKS] = { 0U };
     size_t used = 0U;
     while (!count_is_zero(&copy)) {
         if (used == MAX_DECIMAL_CHUNKS)
