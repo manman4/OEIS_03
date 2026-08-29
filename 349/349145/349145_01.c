@@ -50,7 +50,10 @@
  *   ./349145_01 --check
  *
  * The default and --upto modes print completed terms and atomically replace
- * b349145_01.txt.  --term and --check do not modify the b-file.
+ * b349145_01.txt.  --term and --check do not modify the b-file.  A computation
+ * lasting at least 60 seconds reports its progress to standard error every
+ * approximately 60 seconds.  --verbose additionally reports every completed
+ * position and final per-term statistics.
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -356,8 +359,7 @@ static Count count_ordered_tuples(int n, size_t memory_limit,
         size_t visited = 0U;
         for (size_t residue_index = 0U;
              residue_index < capacity; ++residue_index) {
-            if (verbose &&
-                (residue_index & (size_t)1048575U) == 0U) {
+            if ((residue_index & (size_t)1048575U) == 0U) {
                 const double now = monotonic_seconds();
                 if (now >= next_progress) {
                     fprintf(stderr,
