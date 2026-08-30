@@ -100,13 +100,9 @@ $$
 
 と同値である。
 
-位置 <code>k</code> で許される値の集合を
-
-$$
-A_k=\{x\in[n]:kx\geq n-1\}
-$$
-
-とする。<code>n >= 2</code> だから <code>n-1 > 0</code> である。また
+位置 <code>k</code> で条件を満たす <code>[n]</code> の値全体を
+<code>A_k</code> とする。<code>n >= 2</code> だから
+<code>n-1 > 0</code> である。また
 <code>k >= 1</code> より
 
 $$
@@ -123,11 +119,10 @@ $$
 
 $$
 A_k=
-\left\{
+\left[
 \left\lceil\frac{n-1}{k}\right\rceil,
-\left\lceil\frac{n-1}{k}\right\rceil+1,
-\ldots,n
-\right\}
+n
+\right]\cap\mathbb Z
 $$
 
 であり、その要素数は
@@ -280,9 +275,10 @@ $$
 
 $$
 A_k=
-\left\{x\in[n]:
-x\geq\left\lceil\frac{n-1}{k}\right\rceil
-\right\}
+[n]\cap
+\left[
+\left\lceil\frac{n-1}{k}\right\rceil,n
+\right]\cap\mathbb Z
 $$
 
 である。
@@ -313,7 +309,7 @@ $$
 使用できない。従って実際の許容集合は
 
 $$
-A_1=\{1\},\qquad |A_1|=1
+A_1=[1],\qquad |A_1|=1
 $$
 
 であるのに、式
