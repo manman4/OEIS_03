@@ -352,14 +352,13 @@ $$
 同プログラムは、定義から直接 0-1 行列
 
 $$
-M_{k,x}=
-\begin{cases}
-1,&kx\geq n-1,\\
-0,&kx<n-1
-\end{cases}
+M_{k,x}=1
+\quad\Longleftrightarrow\quad
+kx\geq n-1
 $$
 
-を作り、一般的な Ryser 法でその permanent を計算している。
+を作る。不等式を満たさない成分は 0 とする。そして、一般的な
+Ryser 法でこの行列の permanent を計算している。
 従って積公式はプログラムのアルゴリズムではなく、独立した数学的な
 説明および出力検証として利用できる。
 
