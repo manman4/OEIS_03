@@ -588,20 +588,63 @@ static DpStatus pair_memo_grow_entries(GraphSolver *solver)
         !checked_mul_size(new_capacity, sizeof(uint64_t),
                           &new_column_bytes) ||
         !checked_mul_size(new_value_count, sizeof(uint64_t),
-                          &new_value_bytes)) {
+                          &new_value_bytes) ||
+        new_row_bytes == 0 || new_column_bytes == 0 ||
+        new_value_bytes == 0) {
         solver->stats->required_bytes = UINT64_MAX;
         return DP_SIZE_OVERFLOW;
     }
-    uint64_t transient = pair_memo_bytes(memo);
-    if (transient == UINT64_MAX ||
-        !checked_add_u64(transient, (uint64_t)new_row_bytes,
-                         &transient) ||
-        !checked_add_u64(transient, (uint64_t)new_column_bytes,
-                         &transient) ||
-        !checked_add_u64(transient, (uint64_t)new_value_bytes,
-                         &transient)) {
+    size_t old_value_count;
+    size_t old_row_bytes;
+    size_t old_column_bytes;
+    size_t old_value_bytes;
+    if (!checked_mul_size(memo->entry_capacity, memo->limbs,
+                          &old_value_count) ||
+        !checked_mul_size(memo->entry_capacity, sizeof(uint64_t),
+                          &old_row_bytes) ||
+        !checked_mul_size(memo->entry_capacity, sizeof(uint64_t),
+                          &old_column_bytes) ||
+        !checked_mul_size(old_value_count, sizeof(uint64_t),
+                          &old_value_bytes)) {
         solver->stats->required_bytes = UINT64_MAX;
         return DP_SIZE_OVERFLOW;
+    }
+
+    /*
+     * Grow one dense array at a time.  If realloc has to move an array, its
+     * old allocation may coexist with the replacement until the copy is
+     * complete.  The three peaks below account for that worst case without
+     * requiring all three replacements simultaneously.
+     */
+    uint64_t old_total = pair_memo_bytes(memo);
+    uint64_t row_peak;
+    uint64_t after_rows;
+    uint64_t column_peak;
+    uint64_t after_columns;
+    uint64_t value_peak;
+    if (old_total == UINT64_MAX ||
+        !checked_add_u64(old_total, (uint64_t)new_row_bytes,
+                         &row_peak) ||
+        old_total < (uint64_t)old_row_bytes ||
+        !checked_add_u64(old_total - (uint64_t)old_row_bytes,
+                         (uint64_t)new_row_bytes, &after_rows) ||
+        !checked_add_u64(after_rows, (uint64_t)new_column_bytes,
+                         &column_peak) ||
+        after_rows < (uint64_t)old_column_bytes ||
+        !checked_add_u64(after_rows - (uint64_t)old_column_bytes,
+                         (uint64_t)new_column_bytes, &after_columns) ||
+        !checked_add_u64(after_columns, (uint64_t)new_value_bytes,
+                         &value_peak) ||
+        after_columns < (uint64_t)old_value_bytes) {
+        solver->stats->required_bytes = UINT64_MAX;
+        return DP_SIZE_OVERFLOW;
+    }
+    uint64_t transient = row_peak;
+    if (column_peak > transient) {
+        transient = column_peak;
+    }
+    if (value_peak > transient) {
+        transient = value_peak;
     }
     if (transient > solver->memory_budget) {
         solver->stats->required_bytes = transient;
@@ -610,27 +653,26 @@ static DpStatus pair_memo_grow_entries(GraphSolver *solver)
     if (transient > solver->stats->peak_bytes) {
         solver->stats->peak_bytes = transient;
     }
-    uint64_t *new_rows = malloc(new_row_bytes);
-    uint64_t *new_columns = malloc(new_column_bytes);
-    uint64_t *new_values = malloc(new_value_bytes);
-    if (new_rows == NULL || new_columns == NULL || new_values == NULL) {
-        free(new_values);
-        free(new_columns);
-        free(new_rows);
+    uint64_t *new_rows = realloc(memo->row_masks, new_row_bytes);
+    if (new_rows == NULL) {
         solver->stats->required_bytes = transient;
         return DP_ALLOCATION_FAILURE;
     }
-    memcpy(new_rows, memo->row_masks,
-           memo->count * sizeof(*new_rows));
-    memcpy(new_columns, memo->column_masks,
-           memo->count * sizeof(*new_columns));
-    memcpy(new_values, memo->values,
-           memo->count * memo->limbs * sizeof(*new_values));
-    free(memo->values);
-    free(memo->column_masks);
-    free(memo->row_masks);
     memo->row_masks = new_rows;
+
+    uint64_t *new_columns = realloc(memo->column_masks,
+                                    new_column_bytes);
+    if (new_columns == NULL) {
+        solver->stats->required_bytes = transient;
+        return DP_ALLOCATION_FAILURE;
+    }
     memo->column_masks = new_columns;
+
+    uint64_t *new_values = realloc(memo->values, new_value_bytes);
+    if (new_values == NULL) {
+        solver->stats->required_bytes = transient;
+        return DP_ALLOCATION_FAILURE;
+    }
     memo->values = new_values;
     memo->entry_capacity = new_capacity;
     return DP_OK;
