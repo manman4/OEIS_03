@@ -114,6 +114,6 @@ end
 
 if __FILE__ == $PROGRAM_NAME
   (1..20).each{|n| puts "#{n} #{LcmPerm.count(n)}"}
-  p (1..20).map{|n| LcmPerm.count(n)}
+  p (1..23).map{|n| LcmPerm.count(n)}
 end
 
