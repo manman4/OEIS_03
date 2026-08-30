@@ -112,7 +112,7 @@ $$
 従って
 
 $$
-1\leq\left\lceil\frac{n-1}{k}\right\rceil\leq n.
+1\leq\left\lceil\frac{n-1}{k}\right\rceil\leq n-1.
 $$
 
 従って、<code>A_k</code> は <code>[n]</code> の中で途切れのない区間
@@ -254,6 +254,12 @@ k(n-k+1)-(n-1)
 \end{aligned}
 $$
 
+さらに <code>x >= n-k+1</code> ならば、<code>k >= 1</code> より
+
+$$
+kx\geq k(n-k+1)\geq n-1.
+$$
+
 従って
 
 $$
@@ -268,6 +274,27 @@ $$
 $$
 
 従って積公式の各因子は正整数である。
+
+また、逆順置換
+
+$$
+p(k)=n-k+1\qquad(1\leq k\leq n)
+$$
+
+は各位置で
+
+$$
+kp(k)=k(n-k+1)\geq n-1
+$$
+
+を満たす。従って
+
+$$
+(n,n-1,\ldots,1)
+$$
+
+は常に条件を満たす置換である。これは、条件を満たす置換が
+少なくとも一つ存在することの直接的な確認にもなっている。
 
 ## 8. <code>n = 1</code> だけが例外になる理由
 
