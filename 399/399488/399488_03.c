@@ -589,6 +589,19 @@ static const uint32_t *table_coefficient_const(
     return table->coefficients + offset;
 }
 
+static bool table_state_is_zero(const PolyTable *table, size_t state,
+                                size_t modulus_count)
+{
+    for (unsigned degree = 0; degree <= table->degree; ++degree) {
+        const uint32_t *coefficient = table_coefficient_const(
+            table, state, degree, modulus_count);
+        if (!residue_vector_is_zero(coefficient, modulus_count)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static void add_vector(uint32_t *destination, const uint32_t *source,
                        size_t modulus_count)
 {
@@ -674,10 +687,48 @@ static ComputeStatus combine_child_table(
         return status;
     }
 
-    for (size_t left_state = 0;
-         left_state < current->state_count; ++left_state) {
-        for (size_t right_state = 0;
-             right_state < child->state_count; ++right_state) {
+    size_t left_list_bytes;
+    size_t right_list_bytes;
+    if (!checked_mul_size(current->state_count, sizeof(size_t),
+                          &left_list_bytes) ||
+        !checked_mul_size(child->state_count, sizeof(size_t),
+                          &right_list_bytes)) {
+        table_destroy(&combined, memory);
+        tracked_free(memory, mapped_states, mapping_bytes);
+        return COMPUTE_SIZE_OVERFLOW;
+    }
+    size_t *active_left = tracked_allocate(
+        memory, left_list_bytes, false);
+    size_t *active_right = tracked_allocate(
+        memory, right_list_bytes, false);
+    if (active_left == NULL || active_right == NULL) {
+        tracked_free(memory, active_right, right_list_bytes);
+        tracked_free(memory, active_left, left_list_bytes);
+        table_destroy(&combined, memory);
+        tracked_free(memory, mapped_states, mapping_bytes);
+        return memory->required > memory->budget
+                   ? COMPUTE_MEMORY_LIMIT
+                   : COMPUTE_ALLOCATION_FAILURE;
+    }
+    size_t active_left_count = 0;
+    size_t active_right_count = 0;
+    for (size_t state = 0; state < current->state_count; ++state) {
+        if (!table_state_is_zero(current, state, modulus_count)) {
+            active_left[active_left_count++] = state;
+        }
+    }
+    for (size_t state = 0; state < child->state_count; ++state) {
+        if (!table_state_is_zero(child, state, modulus_count)) {
+            active_right[active_right_count++] = state;
+        }
+    }
+
+    for (size_t left_entry = 0; left_entry < active_left_count;
+         ++left_entry) {
+        size_t left_state = active_left[left_entry];
+        for (size_t right_entry = 0; right_entry < active_right_count;
+             ++right_entry) {
+            size_t right_state = active_right[right_entry];
             size_t mapped = mapped_states[right_state];
             if ((left_state & mapped) != 0) {
                 continue;
@@ -716,6 +767,8 @@ static ComputeStatus combine_child_table(
         }
     }
 
+    tracked_free(memory, active_right, right_list_bytes);
+    tracked_free(memory, active_left, left_list_bytes);
     tracked_free(memory, mapped_states, mapping_bytes);
     table_destroy(current, memory);
     *current = combined;
