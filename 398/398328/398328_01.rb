@@ -40,7 +40,7 @@
 
 module A398328
   DEFAULT_MAX_N = 10
-  MAX_SUPPORTED_N = 100
+  MAX_SUPPORTED_N = 150
 
   KNOWN_ROWS = [
     [1],
@@ -250,7 +250,16 @@ module A398328
         puts "n=#{n}: #{values.join(', ')}"
       end
     else
-      puts triangle.flatten.join(', ')
+      cnt = 0
+      triangle.each{|row|
+        row.each{|i|
+          break if i.to_s.size > 1000
+          print cnt
+          print ' '
+          puts i
+          cnt += 1
+        }
+      }
     end
   end
 end
