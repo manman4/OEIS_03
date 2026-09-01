@@ -26,21 +26,21 @@
 # Terms are printed as a comma-separated sequence.
 #
 # Usage:
-#   ruby 398331_02.rb                 # k=5, n=10
-#   ruby 398331_02.rb 10              # k=5, n=10
-#   ruby 398331_02.rb --runs 4 9      # k=4, n=8..9
-#   ruby 398331_02.rb --check
+#   ruby 398330_02.rb                 # k=4, n=8
+#   ruby 398330_02.rb 10              # k=5, n=10
+#   ruby 398330_02.rb --runs 4 9      # k=4, n=8..9
+#   ruby 398330_02.rb --check
 
-module A398331Direct
-  DEFAULT_RUNS = 5
-  DEFAULT_MAX_N = 10
+module A398330Direct
+  DEFAULT_RUNS = 4
+  DEFAULT_MAX_N = 8
   MAX_SUPPORTED_N = 18
 
-  KNOWN_TERMS = {
-    [4, 8] => 131,
-    [4, 9] => 3_177,
-    [5, 10] => 1_281
-  }.freeze
+  # KNOWN_TERMS = {
+  #   [4, 8] => 131,
+  #   [4, 9] => 3_177,
+  #   [5, 10] => 1_281
+  # }.freeze
 
   class InputError < StandardError; end
   class CalculationError < StandardError; end
@@ -210,8 +210,8 @@ end
 
 if __FILE__ == $PROGRAM_NAME
   begin
-    A398331Direct.run(ARGV, $PROGRAM_NAME)
-  rescue A398331Direct::InputError, A398331Direct::CalculationError => error
+    A398330Direct.run(ARGV, $PROGRAM_NAME)
+  rescue A398330Direct::InputError, A398330Direct::CalculationError => error
     warn "error: #{error.message}"
     exit 1
   end
