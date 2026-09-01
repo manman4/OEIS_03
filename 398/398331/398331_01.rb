@@ -25,9 +25,9 @@
 # obtains [y^k] from [y^k]q^h = (-1)^k*binomial(h,k).
 #
 # Usage:
-#   ruby 398331_01.rb                 # k=5, n=10..30
-#   ruby 398331_01.rb 100             # k=5, n=10..100
-#   ruby 398331_01.rb --runs 4 100    # k=4, n=8..100
+#   ruby 398331_01.rb                 # k=5, b-file lines n=10..30
+#   ruby 398331_01.rb 100             # k=5, b-file lines n=10..100
+#   ruby 398331_01.rb --runs 4 100    # k=4, b-file lines n=8..100
 #   ruby 398331_01.rb --check
 
 module A398331
@@ -185,7 +185,7 @@ module A398331
              #{program} --check
 
       The default is K=#{DEFAULT_RUNS}, MAX_N=#{DEFAULT_MAX_N}.
-      Terms a(n) are printed for n=2*K..MAX_N.
+      Terms are printed in b-file format "n a(n)" for n=2*K..MAX_N.
     USAGE
   end
 
@@ -213,7 +213,9 @@ module A398331
         raise InputError, usage(program)
       end
 
-    puts values(k, maximum_n).join(', ')
+    values(k, maximum_n).each_with_index do |value, index|
+      puts "#{2 * k + index} #{value}"
+    end
   end
 end
 
