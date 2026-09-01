@@ -25,13 +25,13 @@
 # obtains [y^k] from [y^k]q^h = (-1)^k*binomial(h,k).
 #
 # Usage:
-#   ruby 398331_01.rb                 # k=5, b-file lines n=10..30
-#   ruby 398331_01.rb 100             # k=5, b-file lines n=10..100
-#   ruby 398331_01.rb --runs 4 100    # k=4, b-file lines n=8..100
-#   ruby 398331_01.rb --check
+#   ruby 398330_01.rb                 # k=5, b-file lines n=10..30
+#   ruby 398330_01.rb 100             # k=5, b-file lines n=10..100
+#   ruby 398330_01.rb --runs 4 100    # k=4, b-file lines n=8..100
+#   ruby 398330_01.rb --check
 
-module A398331
-  DEFAULT_RUNS = 5
+module A398330
+  DEFAULT_RUNS = 4
   DEFAULT_MAX_N = 30
   MAX_SUPPORTED_N = 1_000
   MAX_DIGITS = 1_000
@@ -67,17 +67,17 @@ module A398331
     6 => [[3, 1]]
   }.freeze
 
-  KNOWN_TERMS = [
-    1_281,
-    45_155,
-    1_024_252,
-    19_832_856,
-    364_000_521,
-    6_640_162_083,
-    123_218_209_230,
-    2_353_262_069_902,
-    46_531_668_504_614
-  ].freeze
+  # KNOWN_TERMS = [
+  #   1_281,
+  #   45_155,
+  #   1_024_252,
+  #   19_832_856,
+  #   364_000_521,
+  #   6_640_162_083,
+  #   123_218_209_230,
+  #   2_353_262_069_902,
+  #   46_531_668_504_614
+  # ].freeze
 
   class InputError < StandardError; end
   class CalculationError < StandardError; end
@@ -232,8 +232,8 @@ end
 
 if __FILE__ == $PROGRAM_NAME
   begin
-    A398331.run(ARGV, $PROGRAM_NAME)
-  rescue A398331::InputError, A398331::CalculationError => error
+    A398330.run(ARGV, $PROGRAM_NAME)
+  rescue A398330::InputError, A398330::CalculationError => error
     warn "error: #{error.message}"
     exit 1
   end
