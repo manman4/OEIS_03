@@ -34,6 +34,7 @@ module A398331
   DEFAULT_RUNS = 5
   DEFAULT_MAX_N = 30
   MAX_SUPPORTED_N = 1_000
+  MAX_DIGITS = 1_000
 
   # Coefficients in x of the polynomial multiplying G_x.
   A_COEFFICIENTS = {
@@ -95,10 +96,13 @@ module A398331
     end
   end
 
-  # Returns g[n], where g[n][h] = [x^n q^h]G(x,q).
-  def q_rows(maximum_n)
+  # Yields g[n], where g[n][h] = [x^n q^h]G(x,q).
+  def each_q_row(maximum_n)
+    return enum_for(__method__, maximum_n) unless block_given?
+
     rows = Array.new(maximum_n + 1)
     rows[0] = [1]
+    yield 0, rows[0]
 
     1.upto(maximum_n) do |n|
       current = [0]
@@ -122,9 +126,8 @@ module A398331
 
       current.pop while current.length > 1 && current[-1].zero?
       rows[n] = current
+      yield n, current
     end
-
-    rows
   end
 
   def fixed_binomials(maximum_h, k)
@@ -136,7 +139,7 @@ module A398331
     values
   end
 
-  def values(k, maximum_n)
+  def each_value(k, maximum_n)
     unless k.is_a?(Integer) && k.positive?
       raise InputError, "K must be a positive integer: #{k.inspect}"
     end
@@ -144,21 +147,27 @@ module A398331
       raise InputError,
             "N must be in #{2 * k}..#{MAX_SUPPORTED_N}: #{maximum_n.inspect}"
     end
+    return enum_for(__method__, k, maximum_n) unless block_given?
 
-    rows = q_rows(maximum_n)
     choose = fixed_binomials(maximum_n / 2, k)
     sign = k.odd? ? -1 : 1
 
-    (2 * k).upto(maximum_n).map do |n|
-      count = sign * k.upto(rows[n].length - 1).sum do |h|
-        rows[n][h] * choose[h]
+    each_q_row(maximum_n).each do |n, row|
+      next if n < 2 * k
+
+      count = sign * k.upto(row.length - 1).sum do |h|
+        row[h] * choose[h]
       end
       unless count.even? && count >= 0
         raise CalculationError, "invalid count for n=#{n}, k=#{k}: #{count}"
       end
 
-      count / 2
+      yield n, count / 2
     end
+  end
+
+  def values(k, maximum_n)
+    each_value(k, maximum_n).map { |_n, value| value }
   end
 
   def parse_integer(text, label)
@@ -213,8 +222,10 @@ module A398331
         raise InputError, usage(program)
       end
 
-    values(k, maximum_n).each_with_index do |value, index|
-      puts "#{2 * k + index} #{value}"
+    each_value(k, maximum_n).each do |n, value|
+      break if value.to_s.size > MAX_DIGITS
+
+      puts "#{n} #{value}"
     end
   end
 end
