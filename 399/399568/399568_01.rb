@@ -24,4 +24,4 @@ def count_chains(n)
   rec.call(0, 0, 1)
 end
 
-p (0..12).map{|n| count_chains(n)} 
+p (0..16).map{|n| count_chains(n)} 
