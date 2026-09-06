@@ -1,5 +1,5 @@
 \\ a(n) = ((n+1)/2) * (binomial(6*n+5,n) + Sum_{k=0..n} 5^(n-k) * binomial(6*n+6,k)).
-a(n) = ((n+1)/2) * (binomial(6*n+5,n) + sum(k=0, n, 5^(n-k) * binomial(6*n+6,k)));
+a(n) = (n+1)*(binomial(6*n+5, n)+sum(k=0, n, 5^(n-k)*binomial(6*n+6, k)))/2;
 for(n=0, 20, print1(a(n), ", "));
 
 \\ Sum_{k>=1} a(k-1) * x^k/k^2 = (1/10) * log( Sum_{k>=0} binomial(6*k+4,k) * x^k ).
