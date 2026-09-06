@@ -1,5 +1,5 @@
 \\ a(n) = ((n+1)/2) * (binomial(3*n+2,n) + Sum_{k=0..n} 2^(n-k) * binomial(3*n+3,k)).
-a(n) = ((n+1)/2) * (binomial(3*n+2,n) + sum(k=0, n, 2^(n-k) * binomial(3*n+3,k)));
+a(n) = (n+1)*(binomial(3*n+2, n)+sum(k=0, n, 2^(n-k)*binomial(3*n+3, k)))/2;
 for(n=0, 20, print1(a(n), ", "));
 
 \\ Sum_{k>=1} a(k-1) * x^k/k^2 = (1/4) * log( Sum_{k>=0} binomial(3*k+1,k) * x^k ).
