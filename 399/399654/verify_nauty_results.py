@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
@@ -31,6 +32,7 @@ KNOWN_GRAPH_COUNTS = {
     8: 12_346,
     9: 274_668,
     10: 12_005_168,
+    11: 1_018_997_864,
 }
 
 # Exact values reported through n=10 in Alvin Dunås's 2026 Uppsala thesis.
@@ -59,8 +61,8 @@ def cycle_sets_by_n(path: Path) -> dict[int, set[tuple[int, ...]]]:
     }
 
 
-def verify_nauty_file() -> dict[int, set[tuple[int, ...]]]:
-    payload = json.loads(NAUTY_RESULTS.read_text(encoding="utf-8"))
+def verify_nauty_file(path: Path) -> dict[int, set[tuple[int, ...]]]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
     result: dict[int, set[tuple[int, ...]]] = {}
 
     for value in payload["values"]:
@@ -91,21 +93,33 @@ def verify_nauty_file() -> dict[int, set[tuple[int, ...]]]:
             observed.add(claimed)
 
         assert len(observed) == int(value["f_n"])
-        assert len(observed) == KNOWN_CYCLE_SET_COUNTS[n], (
-            f"n={n}: got f(n)={len(observed)}, "
-            f"expected {KNOWN_CYCLE_SET_COUNTS[n]}"
-        )
+        expected_cycle_set_count = KNOWN_CYCLE_SET_COUNTS.get(n)
+        if expected_cycle_set_count is not None:
+            assert len(observed) == expected_cycle_set_count, (
+                f"n={n}: got f(n)={len(observed)}, "
+                f"expected {expected_cycle_set_count}"
+            )
         result[n] = observed
-        print(f"verified nauty n={n}: graphs={graph_count}, f(n)={len(observed)}")
+        reference_note = (
+            "" if expected_cycle_set_count is not None else " (no reference f(n))"
+        )
+        print(
+            f"verified nauty n={n}: graphs={graph_count}, "
+            f"f(n)={len(observed)}{reference_note}"
+        )
 
     return result
 
 
-def compare_earlier_results(nauty: dict[int, set[tuple[int, ...]]]) -> None:
+def compare_earlier_results(
+    nauty: dict[int, set[tuple[int, ...]]], nauty_results: Path
+) -> None:
     for path in EARLIER_RESULTS:
         earlier = cycle_sets_by_n(path)
         overlap = sorted(set(nauty) & set(earlier))
-        assert overlap, f"no overlapping n values between {NAUTY_RESULTS} and {path}"
+        if not overlap:
+            print(f"no overlapping n values with {path.name}; comparison skipped")
+            continue
         for n in overlap:
             assert nauty[n] == earlier[n], (
                 f"n={n}: nauty and {path.name} disagree on complete cycle-set lists"
@@ -113,9 +127,21 @@ def compare_earlier_results(nauty: dict[int, set[tuple[int, ...]]]) -> None:
         print(f"matched {path.name} exactly for n={overlap}")
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--input",
+        type=Path,
+        default=NAUTY_RESULTS,
+        help=f"nauty result JSON (default: {NAUTY_RESULTS})",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
-    nauty = verify_nauty_file()
-    compare_earlier_results(nauty)
+    args = parse_args()
+    nauty = verify_nauty_file(args.input)
+    compare_earlier_results(nauty, args.input)
     print("ok - nauty results and all available cross-checks passed")
 
 

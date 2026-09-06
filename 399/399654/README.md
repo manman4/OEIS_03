@@ -121,6 +121,47 @@ witness graph stored as an edge list.
 The nauty extension writes `results_nauty.json` and stores one graph6 witness
 for each realized cycle set.
 
+### D. Optimized exhaustive enumeration (`enumerate_nauty_fast.cpp`)
+
+This is a C++20 port of the graph6 decoder and minimum-rooted DFS used by
+`enumerate_nauty.py`. It still streams every non-isomorphic graph from `geng`,
+but represents cycle sets as integer bit masks and avoids Python object overhead
+inside the DFS. It checks the complete `geng` graph count for every requested
+order before writing a result.
+
+The C++ detector is deliberately checked by the existing Python verifier. The
+verifier decodes every stored witness both locally and with NetworkX, recomputes
+its cycle set with the Python DFS, and compares all available orders with the
+two earlier enumerations.
+
+From the repository root, build and run it as follows:
+
+```bash
+c++ -std=c++20 -O3 -Wall -Wextra -Wpedantic \
+  experiments/problem_84/enumerate_nauty_fast.cpp \
+  -o /tmp/enumerate_nauty_fast
+
+/usr/bin/time -p /tmp/enumerate_nauty_fast \
+  --max-n 11 \
+  --geng /opt/homebrew/bin/geng \
+  --output /tmp/results_nauty_fast.json
+
+python experiments/problem_84/verify_nauty_results.py \
+  --input /tmp/results_nauty_fast.json
+```
+
+On systems where `geng` is already on `PATH`, the `--geng` option can be
+omitted. The default output name is `results_nauty_fast.json` in the current
+working directory.
+
+For `n=11`, `geng` emits 1,018,997,864 non-isomorphic graphs, about 85 times
+the count for `n=10`. The program reports progress after every ten million
+graphs. To compute only the new order, use `--min-n 11 --max-n 11`; omitting
+`--min-n` also repeats the smaller orders and preserves all overlap checks.
+The verifier has no reference value for `f(11)`: it checks the complete graph
+count and every stored witness, but labels the resulting `f(11)` as having no
+reference value.
+
 ## Reporting checklist
 
 Before posting results to upstream Issue #290:
