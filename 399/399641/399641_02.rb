@@ -5,7 +5,7 @@ end
 
 # a(n) = ((n+1)/6) * Sum_{k=0..n+1} 2^(n+1-k) * binomial(3*n+4,k).
 def A(n)
-  (0..n+1).inject(0){|sum, k| sum + 2**(n+1-k) * ncr(*(3*n+4, k)) } * (n + 1) / 6
+  (0..n+1).inject(0){|sum, k| sum + 2**(n+1-k) * ncr(3*n+4, k) } * (n + 1) / 6
 end
 
 n = 1000
