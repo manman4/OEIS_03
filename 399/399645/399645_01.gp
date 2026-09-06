@@ -1,5 +1,5 @@
 \\ a(n) = ((n+1)/2) * (binomial(7*n+6,n) + Sum_{k=0..n} 6^(n-k) * binomial(7*n+7,k)).
-a(n) = ((n+1)/2) * (binomial(7*n+6,n) + sum(k=0, n, 6^(n-k) * binomial(7*n+7,k)));
+a(n) = (n+1)*(binomial(7*n+6, n)+sum(k=0, n, 6^(n-k)*binomial(7*n+7, k)))/2;
 for(n=0, 20, print1(a(n), ", "));
 
 \\ Sum_{k>=1} a(k-1) * x^k/k^2 = (1/12) * log( Sum_{k>=0} binomial(7*k+5,k) * x^k ).
