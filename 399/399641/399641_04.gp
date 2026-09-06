@@ -5,3 +5,4 @@ for(n=0, 30, print1(a(n), ", "));
 \\ a(n) = Sum_{k=0..n} 2^k * binomial(k+2,2) * binomial(3*n+4,n-k).
 b(n) = sum(k=0, n, 2^k * binomial(k+2,2) * binomial(3*n+4,n-k));
 for(n=0, 50, print1(a(n)-b(n), ", "));
+
