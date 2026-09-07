@@ -4,8 +4,8 @@
 T(n, k) = {
   if(k==3, return(1));
   if(k==4, return(if(n==4, 3, 2)));
-  my(l=(k-1)\2, e=if(k%2, 1, 2));
-  max(binomial(k-2, 2)+1, binomial(l-1, 2)+(l-1)*(n-l+1)+e);
+  my(m=(k-1)\2, e=if(k%2, 1, 2));
+  max(binomial(k-2, 2)+1, binomial(m-1, 2)+(m-1)*(n-m+1)+e);
 };
 
 for(n=3, 14, for(k=3, n, print1(T(n,k),", ")));
