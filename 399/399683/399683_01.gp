@@ -8,3 +8,4 @@ T(n, k) = {
   max(binomial(k-2, 2)+1, binomial(l-1, 2)+(l-1)*(n-l+1)+e);
 };
 
+for(n=3, 14, for(k=3, n, print1(T(n,k),", ")));
