@@ -15,7 +15,7 @@
  * cardinalities.  It has no ratio graph, coloring bound, clique search, or
  * product upper bound at a search node.  Primes q with n/2<q<=n are removed
  * from the SAT instance and distributed afterwards (see build_problem).
- * Memory use is O(n^4) with tiny constants (well below 1 MiB for n<=39), not
+ * Memory use is O(n^4) with tiny constants (well below 1 MiB for n<=42), not
  * proportional to the number of search nodes.
  *
  * Build:
@@ -27,7 +27,7 @@
  *   ./397205_02 --check --no-bfile
  *   ./397205_02 --check-all --no-bfile
  *
- * The hard limit is 39, but this independent verifier favors simple pruning
+ * The hard limit is 42, but this independent verifier favors simple pruning
  * over speed.  --check tests every feasible size pair for n<=9 against direct
  * enumeration; --check-all additionally recomputes all terms through n=35.
  */
@@ -44,11 +44,15 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MAX_N 39
+#define MAX_N 42
 #define MAX_VARS (2 * MAX_N)
 #define MAX_CLAUSES 4096
 #define MAX_INCIDENCES (4 * MAX_CLAUSES)
 #define DEFAULT_N 20
+
+_Static_assert(MAX_N < 64, "universe mask requires n < 64");
+_Static_assert(MAX_VARS <= UINT8_MAX, "variable indices must fit uint8_t");
+_Static_assert(MAX_CLAUSES <= UINT16_MAX, "clause indices must fit uint16_t");
 
 typedef struct {
     uint8_t length;
