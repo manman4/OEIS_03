@@ -26,14 +26,17 @@
  *
  * Usage examples:
  *   ./397205_01 20 --progress
- *   ./397205_01 40 --start 36 --progress
+ *   ./397205_01 40 --start 36 --progress --cache-power 26
  *   ./397205_01 --term 23 --witness --no-bfile
  *   ./397205_01 --check --no-bfile
  *
  * A positional N computes a(1),...,a(N).  Completed exact terms are
  * atomically recorded in b397205_01.txt by default.  --term N requires the
  * preceding b-file prefix, unless --no-bfile is used.  The deliberate limit
- * n<=63 lets both S,T and graph neighborhoods fit in uint64_t.
+ * n<=63 lets both S,T and graph neighborhoods fit in uint64_t.  Memoization
+ * grows only through 2^P slots (P=26 by default); at 80% occupancy it freezes
+ * new insertions but keeps all old entries usable.  Freezing changes speed,
+ * never the exact result.  For n=38..40, P=26 is about 4.75 GiB.
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -53,8 +56,13 @@
 #define MAX_RATIO_WORDS ((MAX_RATIOS + 63) / 64)
 #define DEFAULT_N 20
 #define INITIAL_CACHE_CAPACITY 1024U
-#define CACHE_LOAD_NUMERATOR 7U
-#define CACHE_LOAD_DENOMINATOR 10U
+#define DEFAULT_CACHE_POWER 26U
+#define MIN_CACHE_POWER 10U
+#define MAX_CACHE_POWER 28U
+#define CACHE_GROW_NUMERATOR 7U
+#define CACHE_GROW_DENOMINATOR 10U
+#define CACHE_FREEZE_NUMERATOR 8U
+#define CACHE_FREEZE_DENOMINATOR 10U
 
 typedef struct {
     uint64_t word[MAX_RATIO_WORDS];
@@ -67,12 +75,13 @@ typedef struct {
 
 typedef struct {
     size_t capacity;
+    size_t max_capacity;
     size_t used;
     int words;
-    uint64_t *hashes;
+    bool frozen;
+    uint32_t *hashes;
     uint64_t *keys;
     uint64_t *sets;
-    uint8_t *sizes;
 } MISCache;
 
 typedef struct {
@@ -103,6 +112,7 @@ static const char *output_path = "b397205_01.txt";
 static bool write_bfile = true;
 static bool show_stats = false;
 static bool show_witness = false;
+static unsigned requested_cache_power = DEFAULT_CACHE_POWER;
 
 static const int known[36] = {
     0,
@@ -171,6 +181,20 @@ static int parse_n(const char *text)
     return (int)value;
 }
 
+static unsigned parse_cache_power(const char *text)
+{
+    char *end = NULL;
+    errno = 0;
+    const unsigned long value = strtoul(text, &end, 10);
+    if (errno != 0 || end == text || *end != '\0' ||
+        value < MIN_CACHE_POWER || value > MAX_CACHE_POWER) {
+        fprintf(stderr, "error: cache power must be in %u..%u: %s\n",
+                MIN_CACHE_POWER, MAX_CACHE_POWER, text);
+        exit(EXIT_FAILURE);
+    }
+    return (unsigned)value;
+}
+
 static double now_seconds(void)
 {
     struct timespec value;
@@ -213,7 +237,7 @@ static uint64_t mix64(uint64_t x)
     return x ^ (x >> 31);
 }
 
-static uint64_t ratio_mask_hash(const RatioMask *mask, int words)
+static uint32_t ratio_mask_hash(const RatioMask *mask, int words)
 {
     uint64_t hash = UINT64_C(0xcbf29ce484222325);
     for (int i = 0; i < words; ++i) {
@@ -222,7 +246,9 @@ static uint64_t ratio_mask_hash(const RatioMask *mask, int words)
         hash ^= hash >> 32;
     }
     hash = mix64(hash ^ (uint64_t)words);
-    return hash == 0 ? UINT64_C(1) : hash;
+    uint32_t fingerprint = (uint32_t)(hash ^ (hash >> 32));
+    if (fingerprint == 0) fingerprint = 1;
+    return fingerprint;
 }
 
 static bool cache_key_equal(const MISCache *cache, size_t slot,
@@ -232,16 +258,18 @@ static bool cache_key_equal(const MISCache *cache, size_t slot,
                   (size_t)cache->words * sizeof(uint64_t)) == 0;
 }
 
-static void cache_allocate(MISCache *cache, size_t capacity, int words)
+static void cache_allocate(MISCache *cache, size_t capacity,
+                           size_t max_capacity, int words)
 {
     cache->capacity = capacity;
+    cache->max_capacity = max_capacity;
     cache->used = 0;
     cache->words = words;
+    cache->frozen = false;
     cache->hashes = checked_calloc(capacity, sizeof(*cache->hashes));
     cache->keys = checked_calloc(capacity * (size_t)words,
                                  sizeof(*cache->keys));
     cache->sets = checked_calloc(capacity, sizeof(*cache->sets));
-    cache->sizes = checked_calloc(capacity, sizeof(*cache->sizes));
 }
 
 static void cache_free(MISCache *cache)
@@ -249,11 +277,10 @@ static void cache_free(MISCache *cache)
     free(cache->hashes);
     free(cache->keys);
     free(cache->sets);
-    free(cache->sizes);
     memset(cache, 0, sizeof(*cache));
 }
 
-static void cache_place(MISCache *cache, uint64_t hash,
+static void cache_place(MISCache *cache, uint32_t hash,
                         const uint64_t *key, MISResult value)
 {
     const size_t mask = cache->capacity - 1U;
@@ -263,18 +290,22 @@ static void cache_place(MISCache *cache, uint64_t hash,
     memcpy(cache->keys + slot * (size_t)cache->words, key,
            (size_t)cache->words * sizeof(uint64_t));
     cache->sets[slot] = value.set;
-    cache->sizes[slot] = value.size;
     ++cache->used;
 }
 
 static void cache_grow(MISCache *cache)
 {
-    if (cache->capacity > SIZE_MAX / 2U) die("MIS cache too large");
+    if (cache->capacity >= cache->max_capacity ||
+        cache->capacity > SIZE_MAX / 2U)
+        die("invalid MIS cache growth");
     MISCache grown;
-    cache_allocate(&grown, 2U * cache->capacity, cache->words);
+    cache_allocate(&grown, 2U * cache->capacity, cache->max_capacity,
+                   cache->words);
     for (size_t slot = 0; slot < cache->capacity; ++slot) {
         if (cache->hashes[slot] == 0) continue;
-        const MISResult value = {cache->sizes[slot], cache->sets[slot]};
+        const MISResult value = {
+            (uint8_t)popcount64(cache->sets[slot]), cache->sets[slot]
+        };
         cache_place(&grown, cache->hashes[slot],
                     cache->keys + slot * (size_t)cache->words, value);
     }
@@ -283,14 +314,14 @@ static void cache_grow(MISCache *cache)
 }
 
 static bool cache_get(const MISCache *cache, const RatioMask *key,
-                      uint64_t hash, MISResult *value)
+                      uint32_t hash, MISResult *value)
 {
     const size_t mask = cache->capacity - 1U;
     size_t slot = (size_t)hash & mask;
     while (cache->hashes[slot] != 0) {
         if (cache->hashes[slot] == hash && cache_key_equal(cache, slot, key)) {
-            value->size = cache->sizes[slot];
             value->set = cache->sets[slot];
+            value->size = (uint8_t)popcount64(value->set);
             return true;
         }
         slot = (slot + 1U) & mask;
@@ -299,11 +330,20 @@ static bool cache_get(const MISCache *cache, const RatioMask *key,
 }
 
 static void cache_put(MISCache *cache, const RatioMask *key,
-                      uint64_t hash, MISResult value)
+                      uint32_t hash, MISResult value)
 {
-    if ((cache->used + 1U) * CACHE_LOAD_DENOMINATOR >=
-        cache->capacity * CACHE_LOAD_NUMERATOR)
+    if (cache->frozen) return;
+    if (cache->capacity < cache->max_capacity &&
+        (cache->used + 1U) * CACHE_GROW_DENOMINATOR >=
+        cache->capacity * CACHE_GROW_NUMERATOR) {
         cache_grow(cache);
+    }
+    if (cache->capacity == cache->max_capacity &&
+        (cache->used + 1U) * CACHE_FREEZE_DENOMINATOR >=
+        cache->capacity * CACHE_FREEZE_NUMERATOR) {
+        cache->frozen = true;
+        return;
+    }
     cache_place(cache, hash, key->word, value);
 }
 
@@ -435,7 +475,7 @@ static MISResult maximum_independent_set(
     Solver *solver, const RatioMask *ratios,
     const uint64_t conflict[MAX_N])
 {
-    const uint64_t hash = ratio_mask_hash(ratios, solver->words);
+    const uint32_t hash = ratio_mask_hash(ratios, solver->words);
     MISResult result;
     if (cache_get(&solver->cache, ratios, hash, &result)) return result;
 
@@ -461,7 +501,7 @@ static MISResult maximum_independent_set(
 static double cache_mebibytes(const MISCache *cache)
 {
     const size_t bytes_per_slot =
-        2U * sizeof(uint64_t) + sizeof(uint8_t) +
+        sizeof(uint32_t) + sizeof(uint64_t) +
         (size_t)cache->words * sizeof(uint64_t);
     return (double)cache->capacity * (double)bytes_per_slot /
            (1024.0 * 1024.0);
@@ -475,10 +515,11 @@ static void maybe_heartbeat(Solver *solver, int next, int chosen_count)
     fprintf(stderr,
             "397205_01: progress n=%d best=%d |S|=%d next=%d "
             "dfs=%" PRIu64 " mis=%" PRIu64 " cache=%zu/%zu "
-            "(%.0f MiB) elapsed=%.1f s\n",
+            "(%.0f MiB)%s elapsed=%.1f s\n",
             solver->n, solver->best, chosen_count, next, solver->dfs_nodes,
             solver->mis_nodes, solver->cache.used, solver->cache.capacity,
-            cache_mebibytes(&solver->cache), elapsed);
+            cache_mebibytes(&solver->cache),
+            solver->cache.frozen ? " frozen" : "", elapsed);
     solver->next_heartbeat = elapsed + 10.0;
 }
 
@@ -618,7 +659,10 @@ static int solve_term(int n, uint64_t seed_s, uint64_t seed_t,
 {
     Solver solver = {.n = n};
     solver_build_ratios(&solver);
-    cache_allocate(&solver.cache, INITIAL_CACHE_CAPACITY, solver.words);
+    const size_t maximum_cache_capacity =
+        (size_t)1U << requested_cache_power;
+    cache_allocate(&solver.cache, INITIAL_CACHE_CAPACITY,
+                   maximum_cache_capacity, solver.words);
     solver_seed(&solver, seed_s, seed_t);
     const int witness_n = n < (int)(sizeof(known_witness_s) /
                                     sizeof(known_witness_s[0])) ? n : 35;
@@ -628,8 +672,13 @@ static int solve_term(int n, uint64_t seed_s, uint64_t seed_t,
     solver.next_heartbeat = 10.0;
     if (show_stats) {
         fprintf(stderr,
-                "397205_01: start n=%d lower_bound=%d ratios=%d\n",
-                n, solver.best, solver.ratio_count);
+                "397205_01: start n=%d lower_bound=%d ratios=%d "
+                "cache_limit=2^%u (%.0f MiB)\n",
+                n, solver.best, solver.ratio_count, requested_cache_power,
+                (double)maximum_cache_capacity *
+                    (sizeof(uint32_t) + sizeof(uint64_t) +
+                     (size_t)solver.words * sizeof(uint64_t)) /
+                    (1024.0 * 1024.0));
     }
     const RatioMask empty = {{0}};
     const uint64_t empty_conflict[MAX_N] = {0};
@@ -647,10 +696,11 @@ static int solve_term(int n, uint64_t seed_s, uint64_t seed_t,
     if (show_stats) {
         fprintf(stderr,
                 "397205_01: n=%d exact=%d ratios=%d dfs=%" PRIu64
-                " mis=%" PRIu64 " cache=%zu/%zu (%.0f MiB) %.3f s\n",
+                " mis=%" PRIu64 " cache=%zu/%zu (%.0f MiB)%s %.3f s\n",
                 n, solver.best, solver.ratio_count, solver.dfs_nodes,
                 solver.mis_nodes, solver.cache.used, solver.cache.capacity,
                 cache_mebibytes(&solver.cache),
+                solver.cache.frozen ? " frozen" : "",
                 now_seconds() - solver.started);
     }
     *answer_s = solver.best_s;
@@ -810,13 +860,16 @@ static void usage(const char *program)
 {
     fprintf(stderr,
             "usage: %s [N] [--start N] [--progress] [--witness] "
-            "[--output FILE|--no-bfile]\n"
+            "[--cache-power P] [--output FILE|--no-bfile]\n"
             "       %s --term N [--progress] [--witness] "
-            "[--output FILE|--no-bfile]\n"
-            "       %s --check [--progress] [--no-bfile]\n"
+            "[--cache-power P] [--output FILE|--no-bfile]\n"
+            "       %s --check [--progress] [--cache-power P] [--no-bfile]\n"
             "--progress and --stats are synonyms; progress is printed "
-            "about every 10 seconds.\n",
-            program, program, program);
+            "about every 10 seconds.\n"
+            "P must be in %u..%u; the default is %u.  A full cache stops "
+            "growing without affecting exactness.\n",
+            program, program, program, MIN_CACHE_POWER, MAX_CACHE_POWER,
+            DEFAULT_CACHE_POWER);
 }
 
 int main(int argc, char **argv)
@@ -843,6 +896,9 @@ int main(int argc, char **argv)
         } else if (strcmp(argv[i], "--stats") == 0 ||
                    strcmp(argv[i], "--progress") == 0) {
             show_stats = true;
+        } else if (strcmp(argv[i], "--cache-power") == 0) {
+            if (++i == argc) die("--cache-power needs a value");
+            requested_cache_power = parse_cache_power(argv[i]);
         } else if (strcmp(argv[i], "--witness") == 0) {
             show_witness = true;
         } else if (strcmp(argv[i], "--output") == 0) {
