@@ -551,6 +551,16 @@ static int independent_coloring_upper(Solver *solver,
     return count == 0 ? 0 : (int)bounds[count - 1];
 }
 
+/* Every descendant we need to search has |S|<=s_upper, |T|<=t_upper
+ * and |S|<=|T|.  Hence |S|<=min(s_upper,t_upper), and the product is at
+ * most min(s_upper,t_upper)*t_upper.  In particular, s_upper is NOT an
+ * upper bound on |T|: s_upper*min(t_upper,s_upper) can prune valid optima. */
+static int product_upper_bound(int s_upper, int t_upper)
+{
+    const int bounded_s = s_upper < t_upper ? s_upper : t_upper;
+    return bounded_s * t_upper;
+}
+
 static void search_subsets(Solver *solver, int next, int chosen_count,
                            const RatioMask *ratios,
                            const uint64_t conflict[MAX_N],
@@ -562,10 +572,8 @@ static void search_subsets(Solver *solver, int next, int chosen_count,
     if (chosen_count > (int)inherited_t.size) return;
     const int remaining = solver->n - next + 1;
     const int maximum_s_size = chosen_count + remaining;
-    const int bounded_t_size =
-        (int)inherited_t.size < maximum_s_size ?
-        (int)inherited_t.size : maximum_s_size;
-    if (maximum_s_size * bounded_t_size <= solver->best) return;
+    if (product_upper_bound(maximum_s_size, (int)inherited_t.size) <=
+        solver->best) return;
 
     const MISResult t = t_is_exact ? inherited_t :
         maximum_independent_set(solver, ratios, conflict);
@@ -580,9 +588,8 @@ static void search_subsets(Solver *solver, int next, int chosen_count,
         solver->best_t = t.set;
     }
 
-    const int maximum_t_size =
-        (int)t.size < maximum_s_size ? (int)t.size : maximum_s_size;
-    if (maximum_s_size * maximum_t_size <= solver->best || next > solver->n)
+    if (product_upper_bound(maximum_s_size, (int)t.size) <= solver->best ||
+        next > solver->n)
         return;
 
     RatioMask included;
@@ -655,7 +662,8 @@ static void solver_seed(Solver *solver, uint64_t s_mask, uint64_t t_mask)
 }
 
 static int solve_term(int n, uint64_t seed_s, uint64_t seed_t,
-                      uint64_t *answer_s, uint64_t *answer_t)
+                      uint64_t *answer_s, uint64_t *answer_t,
+                      bool use_known_witness)
 {
     Solver solver = {.n = n};
     solver_build_ratios(&solver);
@@ -664,10 +672,12 @@ static int solve_term(int n, uint64_t seed_s, uint64_t seed_t,
     cache_allocate(&solver.cache, INITIAL_CACHE_CAPACITY,
                    maximum_cache_capacity, solver.words);
     solver_seed(&solver, seed_s, seed_t);
-    const int witness_n = n < (int)(sizeof(known_witness_s) /
-                                    sizeof(known_witness_s[0])) ? n : 35;
-    solver_seed(&solver, known_witness_s[witness_n],
-                known_witness_t[witness_n]);
+    if (use_known_witness) {
+        const int witness_n = n < (int)(sizeof(known_witness_s) /
+                                        sizeof(known_witness_s[0])) ? n : 35;
+        solver_seed(&solver, known_witness_s[witness_n],
+                    known_witness_t[witness_n]);
+    }
     solver.started = now_seconds();
     solver.next_heartbeat = 10.0;
     if (show_stats) {
@@ -685,7 +695,8 @@ static int solve_term(int n, uint64_t seed_s, uint64_t seed_t,
     const MISResult initial_t = {(uint8_t)n, universe_mask(n)};
     search_subsets(&solver, 1, 0, &empty, empty_conflict, initial_t, true, 0);
 
-    if (!product_distinct(n, solver.best_s, solver.best_t))
+    if (!product_distinct(n, solver.best_s, solver.best_t) ||
+        (int)(popcount64(solver.best_s) * popcount64(solver.best_t)) != solver.best)
         die("internal witness verification failed");
     if (n < (int)(sizeof(known) / sizeof(known[0])) &&
         solver.best != known[n]) {
@@ -837,6 +848,18 @@ static int brute_force_term(int n)
 
 static void self_check(void)
 {
+    /* Check the upper bound against its defining finite optimization problem.
+     * This includes both s_upper<t_upper and s_upper>t_upper. */
+    for (int s_upper = 0; s_upper <= MAX_N; ++s_upper) {
+        for (int t_upper = 0; t_upper <= MAX_N; ++t_upper) {
+            int expected = 0;
+            for (int s = 0; s <= s_upper; ++s)
+                for (int t = s; t <= t_upper; ++t)
+                    if (s * t > expected) expected = s * t;
+            if (product_upper_bound(s_upper, t_upper) != expected)
+                die("invalid product upper bound");
+        }
+    }
     for (int n = 1; n < (int)(sizeof(known) / sizeof(known[0])); ++n) {
         if (!product_distinct(n, known_witness_s[n], known_witness_t[n]) ||
             (int)(popcount64(known_witness_s[n]) *
@@ -844,16 +867,21 @@ static void self_check(void)
             die("invalid built-in witness");
     }
     uint64_t seed_s = 0, seed_t = 0;
-    for (int n = 1; n <= 8; ++n) {
+    for (int n = 1; n <= 10; ++n) {
         uint64_t answer_s, answer_t;
         const int answer = solve_term(n, seed_s, seed_t,
-                                      &answer_s, &answer_t);
+                                      &answer_s, &answer_t, true);
         const int brute = brute_force_term(n);
         if (answer != brute) die("self-check disagrees with brute force");
         seed_s = answer_s;
         seed_t = answer_t;
+        /* Optimal built-in seeds can conceal unsound pruning.  Starting at
+         * zero is essential: the old bound returned 25 instead of 28 at n=10. */
+        const int unseeded = solve_term(n, 0, 0, &answer_s, &answer_t, false);
+        if (unseeded != brute) die("unseeded search disagrees with brute force");
     }
-    fprintf(stderr, "397205_01: self-check passed for n=1..8\n");
+    fprintf(stderr, "397205_01: self-check passed: product bounds, "
+                    "seeded/unseeded search vs brute force for n=1..10\n");
 }
 
 static void usage(const char *program)
@@ -933,7 +961,7 @@ int main(int argc, char **argv)
         require_recordable(k);
         uint64_t answer_s, answer_t;
         const int answer = solve_term(k, seed_s, seed_t,
-                                      &answer_s, &answer_t);
+                                      &answer_s, &answer_t, true);
         printf("%d %d\n", k, answer);
         if (fflush(stdout) != 0) die("cannot flush result");
         if (show_witness) {
