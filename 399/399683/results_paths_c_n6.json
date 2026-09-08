@@ -1,0 +1,21 @@
+{
+  "problem": 1105,
+  "object": "AR(n, P_k) for 3 <= k <= n",
+  "method": "formula-free restricted-growth search with incremental rainbow-path and incumbent-bound pruning",
+  "values": [
+    {
+      "n": 6,
+      "edge_count": 15,
+      "search_nodes": 496862,
+      "terminal_colorings": 3,
+      "pruned_subtrees": 2200891,
+      "entries": [
+        {"k": 3, "anti_ramsey": 1, "witness_color_classes": [[[0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [1, 2], [1, 3], [1, 4], [1, 5], [2, 3], [2, 4], [2, 5], [3, 4], [3, 5], [4, 5]]]},
+        {"k": 4, "anti_ramsey": 2, "witness_color_classes": [[[0, 1], [0, 3], [0, 4], [0, 5], [1, 2], [1, 3], [1, 4], [1, 5], [2, 3], [2, 4], [2, 5], [3, 4], [3, 5], [4, 5]], [[0, 2]]]},
+        {"k": 5, "anti_ramsey": 6, "witness_color_classes": [[[0, 1]], [[0, 2]], [[0, 3]], [[0, 4]], [[0, 5]], [[1, 2], [1, 3], [1, 4], [1, 5], [2, 3], [2, 4], [2, 5], [3, 4], [3, 5], [4, 5]]]},
+        {"k": 6, "anti_ramsey": 7, "witness_color_classes": [[[0, 1]], [[0, 2]], [[0, 3]], [[0, 4]], [[0, 5]], [[1, 2], [1, 4], [1, 5], [2, 3], [2, 4], [2, 5], [3, 4], [3, 5], [4, 5]], [[1, 3]]]}
+      ]
+    }
+  ],
+  "flattened_terms": [1, 2, 6, 7]
+}
