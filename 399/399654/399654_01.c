@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 /* 399654_01.c
  *
  * A399654: Number of distinct sets of cycle lengths realized by simple
@@ -127,17 +129,18 @@
  *               pruning can only add solutions, that run only shows
  *               a(12) >= 467.
  *
- * Timings on one core (algorithm 2):
- *     n         8      9      10       11
- *   old     0.00s  0.00s   0.09s    2.75s   (unsound pruning)
- *   this    0.01s  1.61s  50.70s   (~1 h, not run to completion)
+ * Running time is highly uneven across candidate spectra.  In particular,
+ * some n=11 candidates can take more than an hour by themselves on one
+ * process.  Option -j distributes complete candidate searches among worker
+ * processes; it changes only their order, not the search or its result.
  *
  * Compile: cc -O2 -std=c17 -o 399654_01 399654_01.c
- * Usage  : ./399654_01 [-b] [-v] [-m0] [nmax]
+ * Usage  : ./399654_01 [-b] [-v] [-m0] [-j JOBS] [nmax]
  *            -b     use algorithm 1 (exhaustive; nmax <= 8)
  *            -v     also print every realizable set and a witness
  *            -m0    exact search (accepted for compatibility; default)
  *            -m1    deliberately disabled: its pruning is unproved
+ *            -j N   use N worker processes for n >= 10 (1 <= N <= 8)
  *            nmax   last term to compute (default 10, maximum 11)
  */
 
@@ -148,7 +151,12 @@
 #include <inttypes.h>
 #include <errno.h>
 #include <limits.h>
+#include <poll.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <time.h>
+#include <unistd.h>
 
 #define MAXN 12                       /* supports exactly n <= 11 */
 /* Since nmax < MAXN, p <= MAXN-1.  For a connected simple p-vertex
@@ -205,7 +213,7 @@ static int   adjm[MAXN];           /* current graph                    */
 static int   wit[MAXN], witp;      /* witness found, and its order     */
 static uint64_t nodes;             /* statistics                       */
 static uint64_t next_node_report;  /* next per-spectrum progress mark  */
-static clock_t spectrum_t0;        /* start time of the current search */
+static double spectrum_t0;         /* wall-clock start of current search */
 
 /* failure cache for the state at a block boundary, see (3) above      */
 static uint16_t memo[1 << (MAXN - 3)][MAXN][MAXMU + 1];
@@ -218,6 +226,37 @@ static uint16_t gen;
 static uint16_t ends[1 << MAXN];
 
 static void fprint_set(FILE *stream, int S, int n);
+
+static void format_set(char *buffer, size_t size, int S, int n)
+{
+    size_t used = 0;
+    int L, first = 1, written;
+
+    if (size == 0) return;
+    buffer[0] = '\0';
+    written = snprintf(buffer, size, "{");
+    if (written < 0 || (size_t) written >= size) return;
+    used = (size_t) written;
+    for (L = 3; L <= n; L++) {
+        if (!((S >> L) & 1)) continue;
+        written = snprintf(buffer + used, size - used,
+                           first ? "%d" : ",%d", L);
+        if (written < 0 || (size_t) written >= size - used) return;
+        used += (size_t) written;
+        first = 0;
+    }
+    (void) snprintf(buffer + used, size - used, "}");
+}
+
+static double wall_seconds(void)
+{
+    struct timespec now;
+    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
+        perror("clock_gettime");
+        exit(EXIT_FAILURE);
+    }
+    return (double) now.tv_sec + (double) now.tv_nsec / 1000000000.0;
+}
 
 static void path_lengths(int u, int bmask, int *pl)
 {
@@ -320,13 +359,15 @@ static int dfs_block(int p, int spec, int mu, int blkstart, int lastchord, int f
     uint64_t k0, k1; size_t h;
     nodes++;
     if (nodes >= next_node_report) {
+        char set_text[4 * MAXN];
         const int spectrum_total = (1 << (nbudget - 2)) - 1;
-        fprintf(stderr, "  [n=%d: spectrum %d/%d (%.1f%%) ",
-                nbudget, target >> 3, spectrum_total,
-                100.0 * (double) (target >> 3) / (double) spectrum_total);
-        fprint_set(stderr, target, nbudget);
-        fprintf(stderr, ": %" PRIu64 " nodes, %.1f s]\n", nodes,
-                (double) (clock() - spectrum_t0) / CLOCKS_PER_SEC);
+        format_set(set_text, sizeof set_text, target, nbudget);
+        fprintf(stderr,
+                "  [n=%d worker=%ld: candidate %d/%d %s: %" PRIu64
+                " nodes, %.1f s]\n",
+                nbudget, (long) getpid(), target >> 3, spectrum_total,
+                set_text, nodes,
+                wall_seconds() - spectrum_t0);
         next_node_report += NODE_PROGRESS_INTERVAL;
     }
     tt_key(p, blkstart, lastchord, &k0, &k1);
@@ -387,7 +428,7 @@ static int realizable(int S, int n)
     if (M > n) return 0;
     nbudget = n;
     target  = S;
-    spectrum_t0 = clock();
+    spectrum_t0 = wall_seconds();
     next_node_report = NODE_PROGRESS_INTERVAL;
     for (emax = 0, i = 3; i <= n; i++) if ((S >> i) & 1) emax += i;
     ebound  = 0;                                   /* sum of L over S   */
@@ -506,9 +547,262 @@ static int parse_nmax(const char *text, int *value)
     return 1;
 }
 
+#define MAXJOBS 8
+
+struct worker_result {
+    int spectrum;
+    int realized;
+    int error;
+    uint64_t nodes;
+};
+
+struct worker {
+    pid_t pid;
+    int send_fd;
+    int receive_fd;
+    int spectrum;
+    int busy;
+};
+
+static int write_full(int fd, const void *buffer, size_t size)
+{
+    const unsigned char *p = buffer;
+    while (size != 0) {
+        ssize_t written = write(fd, p, size);
+        if (written < 0) {
+            if (errno == EINTR) continue;
+            return 0;
+        }
+        if (written == 0) { errno = EPIPE; return 0; }
+        p += (size_t) written;
+        size -= (size_t) written;
+    }
+    return 1;
+}
+
+/* Return 1 for a complete record, 0 for clean EOF, and -1 for an error. */
+static int read_full(int fd, void *buffer, size_t size)
+{
+    unsigned char *p = buffer;
+    size_t received = 0;
+    while (received != size) {
+        ssize_t count = read(fd, p + received, size - received);
+        if (count < 0) {
+            if (errno == EINTR) continue;
+            return -1;
+        }
+        if (count == 0) {
+            if (received == 0) return 0;
+            errno = EIO;
+            return -1;
+        }
+        received += (size_t) count;
+    }
+    return 1;
+}
+
+static void worker_loop(int task_fd, int result_fd, int n)
+{
+    int S;
+    for (;;) {
+        int status = read_full(task_fd, &S, sizeof S);
+        struct worker_result result;
+        if (status <= 0) _exit(status == 0 ? 0 : 2);
+        if (S == 0) _exit(0);
+
+        nodes = 0;
+        result.spectrum = S;
+        result.realized = realizable(S, n);
+        result.error = result.realized && cycle_spectrum(wit, witp) != S;
+        result.nodes = nodes;
+        if (!write_full(result_fd, &result, sizeof result)) _exit(3);
+    }
+}
+
+static void terminate_workers(struct worker *workers, int count)
+{
+    int i;
+    for (i = 0; i < count; i++) {
+        if (workers[i].send_fd >= 0) close(workers[i].send_fd);
+        if (workers[i].receive_fd >= 0) close(workers[i].receive_fd);
+        if (workers[i].pid > 0) kill(workers[i].pid, SIGTERM);
+    }
+    for (i = 0; i < count; i++)
+        if (workers[i].pid > 0)
+            while (waitpid(workers[i].pid, NULL, 0) < 0 && errno == EINTR) { }
+}
+
+/* Test independent candidate spectra in persistent child processes. */
+static int parallel_count_for_n(int n, int requested_jobs, char *ok,
+                                double n_t0, uint64_t *total_nodes)
+{
+    int tasks[1 << (MAXN - 2)], task_count = 0, next_task = 0;
+    int task_pipe[MAXJOBS][2], result_pipe[MAXJOBS][2];
+    struct worker workers[MAXJOBS];
+    struct pollfd poll_fds[MAXJOBS];
+    const int spectrum_total = (1 << (n - 2)) - 1;
+    int completed, count = 1, jobs, i, index, remaining, next_report;
+    int failed = 0;
+
+    *total_nodes = 0;
+    for (index = 1; index <= spectrum_total; index++) {
+        if (ok[index]) count++;
+        else tasks[task_count++] = index << 3;
+    }
+    completed = spectrum_total - task_count;
+    if (task_count == 0) return count;
+    jobs = requested_jobs < task_count ? requested_jobs : task_count;
+
+    for (i = 0; i < jobs; i++) {
+        workers[i].pid = -1;
+        workers[i].send_fd = -1;
+        workers[i].receive_fd = -1;
+        workers[i].busy = 0;
+        if (pipe(task_pipe[i]) != 0) {
+            perror("pipe");
+            while (--i >= 0) {
+                close(task_pipe[i][0]); close(task_pipe[i][1]);
+                close(result_pipe[i][0]); close(result_pipe[i][1]);
+            }
+            return -1;
+        }
+        if (pipe(result_pipe[i]) != 0) {
+            perror("pipe");
+            close(task_pipe[i][0]); close(task_pipe[i][1]);
+            while (--i >= 0) {
+                close(task_pipe[i][0]); close(task_pipe[i][1]);
+                close(result_pipe[i][0]); close(result_pipe[i][1]);
+            }
+            return -1;
+        }
+    }
+
+    fflush(NULL);
+    for (i = 0; i < jobs; i++) {
+        int j;
+        workers[i].pid = fork();
+        if (workers[i].pid < 0) {
+            perror("fork");
+            for (j = 0; j < jobs; j++) {
+                close(task_pipe[j][0]); close(task_pipe[j][1]);
+                close(result_pipe[j][0]); close(result_pipe[j][1]);
+            }
+            terminate_workers(workers, i);
+            return -1;
+        }
+        if (workers[i].pid == 0) {
+            for (j = 0; j < jobs; j++) {
+                close(task_pipe[j][1]);
+                close(result_pipe[j][0]);
+                if (j != i) {
+                    close(task_pipe[j][0]);
+                    close(result_pipe[j][1]);
+                }
+            }
+            worker_loop(task_pipe[i][0], result_pipe[i][1], n);
+        }
+    }
+
+    for (i = 0; i < jobs; i++) {
+        close(task_pipe[i][0]);
+        close(result_pipe[i][1]);
+        workers[i].send_fd = task_pipe[i][1];
+        workers[i].receive_fd = result_pipe[i][0];
+        workers[i].spectrum = tasks[next_task++];
+        workers[i].busy = 1;
+        if (!write_full(workers[i].send_fd, &workers[i].spectrum,
+                        sizeof workers[i].spectrum)) {
+            perror("write worker task");
+            failed = 1;
+            break;
+        }
+    }
+
+    remaining = task_count;
+    next_report = ((completed / SPECTRUM_PROGRESS_INTERVAL) + 1) *
+                  SPECTRUM_PROGRESS_INTERVAL;
+    while (!failed && remaining != 0) {
+        int ready;
+        for (i = 0; i < jobs; i++) {
+            poll_fds[i].fd = workers[i].busy ? workers[i].receive_fd : -1;
+            poll_fds[i].events = POLLIN;
+            poll_fds[i].revents = 0;
+        }
+        do { ready = poll(poll_fds, (nfds_t) jobs, -1); }
+        while (ready < 0 && errno == EINTR);
+        if (ready < 0) { perror("poll"); failed = 1; break; }
+
+        for (i = 0; i < jobs && ready > 0; i++) {
+            struct worker_result result;
+            int status;
+            if (!workers[i].busy || poll_fds[i].revents == 0) continue;
+            ready--;
+            status = read_full(workers[i].receive_fd, &result, sizeof result);
+            if (status != 1 || result.spectrum != workers[i].spectrum || result.error) {
+                if (status < 0) perror("read worker result");
+                else if (status == 0) fprintf(stderr, "worker exited before returning a result\n");
+                else if (result.error) fprintf(stderr, "internal error: bad worker witness\n");
+                else fprintf(stderr, "internal error: mismatched worker result\n");
+                failed = 1;
+                break;
+            }
+
+            *total_nodes += result.nodes;
+            if (result.realized) { ok[result.spectrum >> 3] = 1; count++; }
+            completed++;
+            remaining--;
+            if (completed >= next_report || completed == spectrum_total) {
+                fprintf(stderr,
+                        "  [n=%d: completed spectra %d/%d (%.1f%%), realized=%d, %.1f s]\n",
+                        n, completed, spectrum_total,
+                        100.0 * (double) completed / (double) spectrum_total,
+                        count, wall_seconds() - n_t0);
+                while (next_report <= completed)
+                    next_report += SPECTRUM_PROGRESS_INTERVAL;
+            }
+
+            if (next_task < task_count) {
+                workers[i].spectrum = tasks[next_task++];
+                if (!write_full(workers[i].send_fd, &workers[i].spectrum,
+                                sizeof workers[i].spectrum)) {
+                    perror("write worker task");
+                    failed = 1;
+                    break;
+                }
+            } else {
+                const int stop = 0;
+                if (!write_full(workers[i].send_fd, &stop, sizeof stop)) {
+                    perror("stop worker");
+                    failed = 1;
+                    break;
+                }
+                workers[i].busy = 0;
+            }
+        }
+    }
+
+    if (failed) {
+        terminate_workers(workers, jobs);
+        return -1;
+    }
+    for (i = 0; i < jobs; i++) {
+        int status;
+        close(workers[i].send_fd); workers[i].send_fd = -1;
+        close(workers[i].receive_fd); workers[i].receive_fd = -1;
+        do { status = waitpid(workers[i].pid, &index, 0); }
+        while (status < 0 && errno == EINTR);
+        workers[i].pid = -1;
+        if (status < 0 || !WIFEXITED(index) || WEXITSTATUS(index) != 0) {
+            fprintf(stderr, "worker did not exit cleanly\n");
+            failed = 1;
+        }
+    }
+    return failed ? -1 : count;
+}
+
 int main(int argc, char **argv)
 {
-    int nmax = 10, verbose = 0, bf = 0, n, S, cnt, i;
+    int nmax = 10, verbose = 0, bf = 0, jobs = 1, n, S, cnt, i;
     static char ok[1 << (MAXN - 2)];
     uint64_t tot;
 
@@ -519,6 +813,13 @@ int main(int argc, char **argv)
             return 1;
         }
         else if (!strcmp(argv[i], "-m0")) { /* exact mode is now the only mode */ }
+        else if (!strcmp(argv[i], "-j")) {
+            if (++i >= argc || !parse_nmax(argv[i], &jobs) ||
+                jobs < 1 || jobs > MAXJOBS) {
+                fprintf(stderr, "option -j requires an integer from 1 to %d\n", MAXJOBS);
+                return 1;
+            }
+        }
         else if (!strcmp(argv[i], "-v")) verbose = 1;
         else if (!parse_nmax(argv[i], &nmax)) {
             fprintf(stderr, "invalid option or nmax: %s\n", argv[i]);
@@ -527,13 +828,22 @@ int main(int argc, char **argv)
     }
     if (nmax < 0 || nmax >= MAXN) { fprintf(stderr, "0 <= nmax < %d\n", MAXN); return 1; }
     if (bf && nmax > 8) { fprintf(stderr, "option -b is limited to nmax <= 8\n"); return 1; }
+    if (jobs > 1 && bf) { fprintf(stderr, "options -j and -b cannot be combined\n"); return 1; }
+    if (jobs > 1 && verbose) { fprintf(stderr, "options -j and -v cannot be combined\n"); return 1; }
+    if (jobs > 1 && signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+        perror("signal");
+        return 1;
+    }
 
     for (n = 0; n <= nmax; n++) {
-        clock_t t0 = clock();
+        double t0 = wall_seconds();
 
         tot = 0;
         if (bf) {
             cnt = (n < 3) ? 1 : brute_force(n);
+        } else if (jobs > 1 && n >= 10) {
+            cnt = parallel_count_for_n(n, jobs, ok, t0, &tot);
+            if (cnt < 0) return 1;
         } else {
             const int spectrum_total = n >= 3 ? (1 << (n - 2)) - 1 : 0;
             cnt = 1;                                   /* S = {} */
@@ -558,14 +868,14 @@ int main(int argc, char **argv)
                             "  [n=%d: spectra %d/%d (%.1f%%), realized=%d, %.1f s]\n",
                             n, S >> 3, spectrum_total,
                             100.0 * (double) (S >> 3) / (double) spectrum_total, cnt,
-                            (double) (clock() - t0) / CLOCKS_PER_SEC);
+                            wall_seconds() - t0);
                 }
             }
         }
         printf("%d %d\n", n, cnt);                 /* b-file format on stdout */
         fflush(stdout);
         fprintf(stderr, "  [n=%2d: %.2f s, %" PRIu64 " nodes]\n", n,
-                (double) (clock() - t0) / CLOCKS_PER_SEC, tot);
+                wall_seconds() - t0, tot);
     }
     return 0;
 }
