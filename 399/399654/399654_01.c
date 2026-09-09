@@ -85,6 +85,12 @@
  *     compatible);
  *   - consecutive ears of length 1 (chords) commute, so they are forced
  *     to appear in increasing order of their endpoint pair;
+ *   - every block of a vertex-minimal witness has a cycle length supplied
+ *     by no other block (otherwise delete that block after star gluing),
+ *     and hence contributes a new length when the blocks are ordered;
+ *   - in the first block, edges which are not already forced by a realized
+ *     length must eventually be forced by a still-missing length.  A
+ *     missing L can force at most L edges, giving a capacity bound;
  *   - simple paths between two vertices of a block stay in that block,
  *     so the path DP of (L6) runs on the block only and clears its own
  *     table while walking over the submasks;
@@ -109,8 +115,8 @@
  * L-cycles at once, so those <= |S| edges form a feedback edge set and
  * mu(W) <= |S|.  For a length whose cycles have empty common
  * intersection the argument gives nothing, and no proof is known here
- * that such a length cannot occur; therefore only the edge bound (L3) is
- * used.  Note that (L3) also gives mu(W) <= sum(S) - |V(W)| + 1.
+ * that such a length cannot occur; therefore no bound mu(W) <= |S| is
+ * used.  Note that (L3) does give mu(W) <= sum(S) - |V(W)| + 1.
  *
  * ---------------------------------------------------------------------
  * VERIFICATION AND STATUS
@@ -121,27 +127,25 @@
  * only the same counts, for n <= 8.
  *
  *   n <= 8    : proved twice (algorithm 1 is a complete enumeration).
- *   n <= 10   : proved by algorithm 2 (this file), ~51 s for n = 10 on
- *               one core of a 2026 cloud VM; n = 11 is reachable with
- *               more patience and gives the value 247 of the OEIS entry.
+ *   n <= 11   : proved by algorithm 2 (this file); n = 11 gives 247.
  *   n = 12    : NOT established here.  An earlier version, which used the
  *               invalid bound mu <= |S|, returned 467; since dropping that
  *               pruning can only add solutions, that run only shows
  *               a(12) >= 467.
  *
- * Running time is highly uneven across candidate spectra.  In particular,
- * some n=11 candidates can take more than an hour by themselves on one
- * process.  Option -j distributes complete candidate searches among worker
- * processes; it changes only their order, not the search or its result.
+ * Running time is uneven across candidate spectra.  Option -j distributes
+ * complete candidate searches among worker processes; it changes only
+ * their order, not the search or its result.
  *
- * Compile: cc -O2 -std=c17 -o 399654_01 399654_01.c
+ * Compile: cc -O3 -march=native -std=c17 -o 399654_01 399654_01.c
+ * Audit  : cc -O2 -std=c17 -DVERIFY_COMMON_EDGES -o 399654_audit 399654_01.c
  * Usage  : ./399654_01 [-b] [-v] [-m0] [-j JOBS] [nmax]
  *            -b     use algorithm 1 (exhaustive; nmax <= 8)
  *            -v     also print every realizable set and a witness
  *            -m0    exact search (accepted for compatibility; default)
  *            -m1    deliberately disabled: its pruning is unproved
  *            -j N   use N worker processes for n >= 10 (1 <= N <= 8)
- *            nmax   last term to compute (default 10, maximum 11)
+ *            nmax   last term to compute (default 10, maximum 12)
  */
 
 #include <stdio.h>
@@ -158,7 +162,9 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MAXN 12                       /* supports exactly n <= 11 */
+#define MAXN 13                       /* supports exactly n <= 12 */
+_Static_assert(((MAXN - 1) * (MAXN - 2)) / 2 <= 128,
+               "EdgeSet requires at most 128 edges");
 /* Since nmax < MAXN, p <= MAXN-1.  For a connected simple p-vertex
  * graph, mu = |E|-|V|+1 <= (p-1)(p-2)/2. */
 #define MAXMU (((MAXN - 2) * (MAXN - 3)) / 2)
@@ -211,6 +217,47 @@ static int   emax;                 /* proven upper bound on |E(W)|     */
 static int   ebound;               /* proven (L3) edge bound           */
 static int   adjm[MAXN];           /* current graph                    */
 static int   wit[MAXN], witp;      /* witness found, and its order     */
+typedef struct {
+    uint64_t lo;
+    uint64_t hi;
+} EdgeSet;
+
+static EdgeSet edge_set_single(int index)
+{
+    EdgeSet result = {0, 0};
+    if (index < 64) result.lo = UINT64_C(1) << index;
+    else result.hi = UINT64_C(1) << (index - 64);
+    return result;
+}
+
+static EdgeSet edge_set_or(EdgeSet a, EdgeSet b)
+{
+    EdgeSet result = {a.lo | b.lo, a.hi | b.hi};
+    return result;
+}
+
+static EdgeSet edge_set_and(EdgeSet a, EdgeSet b)
+{
+    EdgeSet result = {a.lo & b.lo, a.hi & b.hi};
+    return result;
+}
+
+static int edge_set_equal(EdgeSet a, EdgeSet b)
+{
+    return a.lo == b.lo && a.hi == b.hi;
+}
+
+static int edge_set_popcount(EdgeSet a)
+{
+    return __builtin_popcountll(a.lo) + __builtin_popcountll(a.hi);
+}
+
+static EdgeSet edge_key[MAXN][MAXN][MAXN];
+static EdgeSet edge_bit[MAXN][MAXN]; /* fixed edge names on K_12       */
+static EdgeSet graph_key[MAXN];   /* exact encoding for every p       */
+/* Intersection of the edge sets of all current L-cycles.  This is
+ * maintained incrementally from the ear construction. */
+static EdgeSet common_cycle_edges[MAXN];
 static uint64_t nodes;             /* statistics                       */
 static uint64_t next_node_report;  /* next per-spectrum progress mark  */
 static double spectrum_t0;         /* wall-clock start of current search */
@@ -224,6 +271,7 @@ static uint16_t gen;
  * every entry of ends[] is cleared again while walking, so the table
  * needs no initialisation.  (L6)                                      */
 static uint16_t ends[1 << MAXN];
+static EdgeSet path_common[(1 << MAXN) * MAXN];
 
 static void fprint_set(FILE *stream, int S, int n);
 
@@ -258,11 +306,50 @@ static double wall_seconds(void)
     return (double) now.tv_sec + (double) now.tv_nsec / 1000000000.0;
 }
 
-static void path_lengths(int u, int bmask, int *pl)
+static void initialize_edge_keys(void)
+{
+    int p, u, v, index;
+    for (p = 1; p < MAXN; p++) {
+        index = 0;
+        for (u = 0; u < p; u++)
+            for (v = u + 1; v < p; v++, index++)
+                edge_key[p][u][v] = edge_key[p][v][u] =
+                    edge_set_single(index);
+    }
+    index = 0;
+    for (u = 0; u < MAXN - 1; u++)
+        for (v = u + 1; v < MAXN - 1; v++, index++)
+            edge_bit[u][v] = edge_bit[v][u] = edge_set_single(index);
+}
+
+static void add_edge(int u, int v)
+{
+    int p, first_p = (u > v ? u : v) + 1;
+    adjm[u] |= 1 << v;
+    adjm[v] |= 1 << u;
+    for (p = first_p; p < MAXN; p++) {
+        graph_key[p] = edge_set_or(graph_key[p], edge_key[p][u][v]);
+    }
+}
+
+static void remove_edge(int u, int v)
+{
+    int p, first_p = (u > v ? u : v) + 1;
+    adjm[u] &= ~(1 << v);
+    adjm[v] &= ~(1 << u);
+    for (p = first_p; p < MAXN; p++) {
+        graph_key[p].lo &= ~edge_key[p][u][v].lo;
+        graph_key[p].hi &= ~edge_key[p][u][v].hi;
+    }
+}
+
+static void path_lengths(int u, int bmask, int *pl,
+                         EdgeSet common[MAXN][MAXN])
 {
     int rest = bmask & ~(1 << u), s = 0, ub = 1 << u;
 
     ends[ub] = (uint16_t) ub;
+    path_common[(size_t) ub * MAXN + (size_t) u] = (EdgeSet) {0, 0};
     for (;;) {
         int mask = s | ub, e = ends[mask], len, t;
         if (e) {
@@ -271,13 +358,32 @@ static void path_lengths(int u, int bmask, int *pl)
             t = e;
             while (t) {
                 int v = __builtin_ctz((unsigned int) t), nb;
+                EdgeSet current =
+                    path_common[(size_t) mask * MAXN + (size_t) v];
                 t &= t - 1;
-                pl[v] |= 1 << len;
+                if ((pl[v] >> len) & 1)
+                    common[v][len] = edge_set_and(common[v][len], current);
+                else {
+                    pl[v] |= 1 << len;
+                    common[v][len] = current;
+                }
                 nb = adjm[v] & bmask & ~mask;
                 while (nb) {
-                    int w = __builtin_ctz((unsigned int) nb);
+                    int w = __builtin_ctz((unsigned int) nb), next_mask;
+                    EdgeSet next_common = edge_set_or(current, edge_bit[v][w]);
                     nb &= nb - 1;
-                    ends[mask | (1 << w)] |= 1 << w;
+                    next_mask = mask | (1 << w);
+                    if ((ends[next_mask] >> w) & 1)
+                        path_common[(size_t) next_mask * MAXN + (size_t) w] =
+                            edge_set_and(
+                                path_common[(size_t) next_mask * MAXN +
+                                            (size_t) w],
+                                next_common);
+                    else {
+                        ends[next_mask] |= (uint16_t) (1u << w);
+                        path_common[(size_t) next_mask * MAXN + (size_t) w] =
+                            next_common;
+                    }
                 }
             }
         }
@@ -286,21 +392,96 @@ static void path_lengths(int u, int bmask, int *pl)
     }
 }
 
+/* Necessary condition for extending the current subgraph H to an
+ * edge-minimal witness W.  If an edge e of H is not in the intersection
+ * of all current L-cycles for any realized L, adding edges cannot make e
+ * common to all L-cycles later.  Its essential length in W must therefore
+ * be one of the missing lengths.  For a missing L, at most L such edges
+ * can be common to all future L-cycles, since they lie on one L-cycle. */
+static int exceeds_missing_cycle_capacity(int p, int spec, int mu)
+{
+    EdgeSet potentially_essential = {0, 0};
+    int L, missing_capacity = 0;
+    const int edges = p - 1 + mu;
+
+    for (L = 3; L <= nbudget; L++) {
+        if ((spec >> L) & 1)
+            potentially_essential =
+                edge_set_or(potentially_essential, common_cycle_edges[L]);
+        else if ((target >> L) & 1) missing_capacity += L;
+    }
+    return edges - edge_set_popcount(potentially_essential) >
+           missing_capacity;
+}
+
+#ifdef VERIFY_COMMON_EDGES
+/* Slow, independent audit of common_cycle_edges.  This is compiled only
+ * for validation runs (for example with n <= 8), never in normal runs. */
+static int audit_p, audit_start, audit_path[MAXN], audit_seen;
+static EdgeSet audit_common[MAXN];
+
+static void audit_cycles_rec(int used, int len, EdgeSet path_edges)
+{
+    int last = audit_path[len - 1], v;
+
+    if (len >= 3 && ((adjm[last] >> audit_start) & 1) &&
+        audit_path[1] < last) {
+        EdgeSet cycle_edges =
+            edge_set_or(path_edges, edge_bit[last][audit_start]);
+        if ((audit_seen >> len) & 1)
+            audit_common[len] = edge_set_and(audit_common[len], cycle_edges);
+        else {
+            audit_seen |= 1 << len;
+            audit_common[len] = cycle_edges;
+        }
+    }
+    for (v = audit_start + 1; v < audit_p; v++) {
+        if (((used >> v) & 1) || !((adjm[last] >> v) & 1)) continue;
+        audit_path[len] = v;
+        audit_cycles_rec(used | (1 << v), len + 1,
+                         edge_set_or(path_edges, edge_bit[last][v]));
+    }
+}
+
+static void audit_common_cycle_edges(int p, int spec)
+{
+    int L;
+
+    audit_p = p;
+    audit_seen = 0;
+    memset(audit_common, 0, sizeof audit_common);
+    for (audit_start = 0; audit_start < p; audit_start++) {
+        audit_path[0] = audit_start;
+        audit_cycles_rec(1 << audit_start, 1, (EdgeSet) {0, 0});
+    }
+    if (audit_seen != spec) {
+        fprintf(stderr, "audit error: maintained spectrum %d, recomputed %d\n",
+                spec, audit_seen);
+        abort();
+    }
+    for (L = 3; L <= p; L++) {
+        if (!edge_set_equal(common_cycle_edges[L], audit_common[L])) {
+            fprintf(stderr,
+                    "audit error: common edges differ at p=%d, L=%d\n", p, L);
+            abort();
+        }
+    }
+}
+#endif
+
 /* sound transposition table: a state (graph, current block, lastchord) that
  * failed once fails always, since target/budget are fixed per search.     */
 #define TTBITS 21
-static struct { uint64_t k0, k1; uint16_t g; } tt[1 << TTBITS];
+static struct { uint64_t lo, hi, tag; } tt[1 << TTBITS];
 
-static void tt_key(int p, int blkstart, int lastchord, uint64_t *k0, uint64_t *k1)
+static void tt_key(int p, int blkstart, int lastchord,
+                   EdgeSet *key, uint64_t *tag)
 {
-    uint64_t a = 0, b = 0; int u, v, i = 0;
-    for (u = 0; u < p; u++)
-        for (v = u + 1; v < p; v++, i++)
-            if ((adjm[u] >> v) & 1) { if (i < 64) a |= 1ull << i; else b |= 1ull << (i - 64); }
-    b |= (uint64_t) p << 44;
-    b |= (uint64_t) blkstart << 50;
-    b |= (uint64_t) (lastchord + 1) << 56;
-    *k0 = a; *k1 = b;
+    *key = graph_key[p];
+    *tag = (uint64_t) gen |
+           ((uint64_t) p << 16) |
+           ((uint64_t) blkstart << 20) |
+           ((uint64_t) (lastchord + 1) << 24);
 }
 
 static void save_witness(int p)
@@ -310,13 +491,16 @@ static void save_witness(int p)
     for (i = 0; i < p; i++) wit[i] = adjm[i];
 }
 
-static int dfs_block(int p, int spec, int mu, int blkstart, int lastchord, int first);
+static int dfs_block(int p, int spec, int mu, int blkstart, int lastchord,
+                     int first, int prior_spec);
 
 /* the current block is finished; glue further blocks to the hub 0      */
-static int dfs_newblock(int p, int spec, int mu)
+static int dfs_newblock(int p, int spec, int mu, int prior_spec)
 {
     int c, j, base, ns;
 
+    /* In a vertex-minimal witness this block cannot be redundant. */
+    if ((spec & ~prior_spec) == 0) return 0;
     if (p < 1 || p >= MAXN || mu < 0 || mu > MAXMU) {
         fprintf(stderr, "internal error: invalid cache index p=%d, mu=%d\n", p, mu);
         exit(EXIT_FAILURE);
@@ -324,21 +508,33 @@ static int dfs_newblock(int p, int spec, int mu)
     if (p - 1 + mu >= ebound) return 0;            /* (L3) edge bound   */
     if (memo[spec >> 3][p][mu] == gen) return 0;
     for (c = 3; p + c - 1 <= nbudget; c++) {
+        EdgeSet base_edges = {0, 0}, saved_common;
         ns = spec | (1 << c);
         if (ns & ~target) continue;
         base = p;                                  /* cycle 0-base-...-0 */
         for (j = 0; j < c - 1; j++) adjm[base + j] = 0;
-        adjm[0] |= 1 << base;
-        adjm[base] |= 1;
-        for (j = 0; j + 1 < c - 1; j++) {
-            adjm[base + j] |= 1 << (base + j + 1);
-            adjm[base + j + 1] |= 1 << (base + j);
+        add_edge(0, base);
+        base_edges = edge_set_or(base_edges, edge_bit[0][base]);
+        for (j = 0; j + 1 < c - 1; j++)
+        {
+            add_edge(base + j, base + j + 1);
+            base_edges =
+                edge_set_or(base_edges, edge_bit[base + j][base + j + 1]);
         }
-        adjm[base + c - 2] |= 1;
-        adjm[0] |= 1 << (base + c - 2);
+        add_edge(base + c - 2, 0);
+        base_edges = edge_set_or(base_edges, edge_bit[base + c - 2][0]);
+        saved_common = common_cycle_edges[c];
+        if ((spec >> c) & 1)
+            common_cycle_edges[c] =
+                edge_set_and(common_cycle_edges[c], base_edges);
+        else common_cycle_edges[c] = base_edges;
         if (ns == target) { save_witness(p + c - 1); return 1; }
-        if (dfs_block(p + c - 1, ns, mu + 1, base, -1, 0)) return 1;
-        adjm[0] &= ~((1 << base) | (1 << (base + c - 2)));
+        if (dfs_block(p + c - 1, ns, mu + 1, base, -1, 0, spec)) return 1;
+        common_cycle_edges[c] = saved_common;
+        remove_edge(0, base);
+        for (j = 0; j + 1 < c - 1; j++)
+            remove_edge(base + j, base + j + 1);
+        remove_edge(base + c - 2, 0);
         for (j = 0; j < c - 1; j++) adjm[base + j] = 0;
     }
     memo[spec >> 3][p][mu] = gen;
@@ -352,12 +548,19 @@ static int dfs_newblock(int p, int spec, int mu)
  *            (the block is {0} U {blkstart,...,p-1})
  * lastchord  code of the previous ear if that ear was a chord, else -1
  * first      the graph is exactly the base cycle C_max(S)              */
-static int dfs_block(int p, int spec, int mu, int blkstart, int lastchord, int first)
+static int dfs_block(int p, int spec, int mu, int blkstart, int lastchord,
+                     int first, int prior_spec)
 {
-    int bmask, u, v, k, j, base, prev, ns, idx, t, pl[MAXN];
+    int bmask, u, v, k, j, base, prev, ns, idx, t, d, pl[MAXN];
+    EdgeSet common[MAXN][MAXN], saved_common[MAXN], ear_edges;
 
-    uint64_t k0, k1; size_t h;
+    EdgeSet key;
+    uint64_t tag, hash;
+    size_t h;
     nodes++;
+#ifdef VERIFY_COMMON_EDGES
+    audit_common_cycle_edges(p, spec);
+#endif
     if (nodes >= next_node_report) {
         char set_text[4 * MAXN];
         const int spectrum_total = (1 << (nbudget - 2)) - 1;
@@ -370,10 +573,22 @@ static int dfs_block(int p, int spec, int mu, int blkstart, int lastchord, int f
                 wall_seconds() - spectrum_t0);
         next_node_report += NODE_PROGRESS_INTERVAL;
     }
-    tt_key(p, blkstart, lastchord, &k0, &k1);
-    h = (size_t) ((k0 * 0x9E3779B97F4A7C15ull ^ k1 * 0xC2B2AE3D27D4EB4Full) >> 40) & ((1 << TTBITS) - 1);
-    if (tt[h].g == gen && tt[h].k0 == k0 && tt[h].k1 == k1) return 0;
-    if (dfs_newblock(p, spec, mu)) return 1;       /* close this block  */
+    tt_key(p, blkstart, lastchord, &key, &tag);
+    hash = key.lo * UINT64_C(0x9E3779B97F4A7C15) ^
+           key.hi * UINT64_C(0xC2B2AE3D27D4EB4F) ^
+           tag * UINT64_C(0x165667B19E3779F9);
+    hash ^= hash >> 29;
+    h = (size_t) hash & ((1u << TTBITS) - 1u);
+    if (edge_set_equal((EdgeSet) {tt[h].lo, tt[h].hi}, key) &&
+        tt[h].tag == tag)
+        return 0;
+    /* This history-dependent bound is used only in the first block, so
+     * the coarser block-boundary memo below remains history-independent. */
+    if (blkstart == 1 && exceeds_missing_cycle_capacity(p, spec, mu)) {
+        tt[h].lo = key.lo; tt[h].hi = key.hi; tt[h].tag = tag;
+        return 0;
+    }
+    if (dfs_newblock(p, spec, mu, prior_spec)) return 1; /* close block */
     if (p - 1 + mu >= ebound) return 0;            /* (L3) edge bound   */
 
     bmask = 1 | (((1 << p) - 1) & ~((1 << blkstart) - 1));
@@ -381,7 +596,7 @@ static int dfs_block(int p, int spec, int mu, int blkstart, int lastchord, int f
         u = __builtin_ctz((unsigned int) t);
         if (first && u != 0) break;                /* C_M is vertex-transitive */
         for (j = 0; j < p; j++) pl[j] = 0;
-        path_lengths(u, bmask, pl);
+        path_lengths(u, bmask, pl, common);
         for (v = u + 1; v < p; v++) {
             if (!((bmask >> v) & 1)) continue;
             if (first && v > p / 2) break;         /* dihedral symmetry */
@@ -396,27 +611,45 @@ static int dfs_block(int p, int spec, int mu, int blkstart, int lastchord, int f
                 base = p;
                 for (j = 0; j < k; j++) adjm[base + j] = 0;
                 prev = u;
+                ear_edges = (EdgeSet) {0, 0};
                 for (j = 0; j < k; j++) {
-                    adjm[prev] |= 1 << (base + j);
-                    adjm[base + j] |= 1 << prev;
+                    add_edge(prev, base + j);
+                    ear_edges =
+                        edge_set_or(ear_edges, edge_bit[prev][base + j]);
                     prev = base + j;
                 }
-                adjm[prev] |= 1 << v;
-                adjm[v] |= 1 << prev;
+                add_edge(prev, v);
+                ear_edges = edge_set_or(ear_edges, edge_bit[prev][v]);
+                memcpy(saved_common, common_cycle_edges,
+                       sizeof common_cycle_edges);
+                for (d = 1; d < MAXN; d++) {
+                    int L;
+                    EdgeSet created_common;
+                    if (!((pl[v] >> d) & 1)) continue;
+                    L = d + k + 1;
+                    created_common = edge_set_or(common[v][d], ear_edges);
+                    if ((spec >> L) & 1)
+                        common_cycle_edges[L] =
+                            edge_set_and(common_cycle_edges[L], created_common);
+                    else
+                        common_cycle_edges[L] = created_common;
+                }
                 if (ns == target) { save_witness(p + k); return 1; }
-                if (dfs_block(p + k, ns, mu + 1, blkstart, k ? -1 : idx, 0)) return 1;
+                if (dfs_block(p + k, ns, mu + 1, blkstart,
+                              k ? -1 : idx, 0, prior_spec)) return 1;
+                memcpy(common_cycle_edges, saved_common,
+                       sizeof common_cycle_edges);
                 prev = u;
                 for (j = 0; j < k; j++) {
-                    adjm[prev] &= ~(1 << (base + j));
+                    remove_edge(prev, base + j);
                     prev = base + j;
                 }
-                adjm[prev] &= ~(1 << v);
-                adjm[v] &= ~(1 << prev);
+                remove_edge(prev, v);
                 for (j = 0; j < k; j++) adjm[base + j] = 0;
             }
         }
     }
-    tt[h].g = gen; tt[h].k0 = k0; tt[h].k1 = k1;
+    tt[h].lo = key.lo; tt[h].hi = key.hi; tt[h].tag = tag;
     return 0;
 }
 
@@ -433,14 +666,21 @@ static int realizable(int S, int n)
     for (emax = 0, i = 3; i <= n; i++) if ((S >> i) & 1) emax += i;
     ebound  = 0;                                   /* sum of L over S   */
     for (L = 3; L <= M; L++) if ((S >> L) & 1) ebound += L;
-    if (++gen == 0) { memset(memo, 0, sizeof memo); gen = 1; }
+    if (++gen == 0) {
+        memset(memo, 0, sizeof memo);
+        memset(tt, 0, sizeof tt);
+        gen = 1;
+    }
     for (i = 0; i < MAXN; i++) adjm[i] = 0;
+    memset(graph_key, 0, sizeof graph_key);
+    memset(common_cycle_edges, 0, sizeof common_cycle_edges);
     for (i = 0; i < M; i++) {                      /* the base cycle C_M */
-        adjm[i] |= 1 << ((i + 1) % M);
-        adjm[(i + 1) % M] |= 1 << i;
+        add_edge(i, (i + 1) % M);
+        common_cycle_edges[M] =
+            edge_set_or(common_cycle_edges[M], edge_bit[i][(i + 1) % M]);
     }
     if (S == (1 << M)) { save_witness(M); return 1; }
-    return dfs_block(M, 1 << M, 1, 1, -1, 1);
+    return dfs_block(M, 1 << M, 1, 1, -1, 1, 0);
 }
 
 /* ================================================================== */
@@ -834,6 +1074,7 @@ int main(int argc, char **argv)
         perror("signal");
         return 1;
     }
+    initialize_edge_keys();
 
     for (n = 0; n <= nmax; n++) {
         double t0 = wall_seconds();
