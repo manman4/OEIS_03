@@ -154,6 +154,8 @@
 /* Since nmax < MAXN, p <= MAXN-1.  For a connected simple p-vertex
  * graph, mu = |E|-|V|+1 <= (p-1)(p-2)/2. */
 #define MAXMU (((MAXN - 2) * (MAXN - 3)) / 2)
+#define NODE_PROGRESS_INTERVAL UINT64_C(10000000)
+#define SPECTRUM_PROGRESS_INTERVAL 16
 
 /* ------------------------------------------------------------------ */
 /* independent computation of the cycle spectrum of a labelled graph,  */
@@ -202,6 +204,8 @@ static int   ebound;               /* proven (L3) edge bound           */
 static int   adjm[MAXN];           /* current graph                    */
 static int   wit[MAXN], witp;      /* witness found, and its order     */
 static uint64_t nodes;             /* statistics                       */
+static uint64_t next_node_report;  /* next per-spectrum progress mark  */
+static clock_t spectrum_t0;        /* start time of the current search */
 
 /* failure cache for the state at a block boundary, see (3) above      */
 static uint16_t memo[1 << (MAXN - 3)][MAXN][MAXMU + 1];
@@ -212,6 +216,8 @@ static uint16_t gen;
  * every entry of ends[] is cleared again while walking, so the table
  * needs no initialisation.  (L6)                                      */
 static uint16_t ends[1 << MAXN];
+
+static void fprint_set(FILE *stream, int S, int n);
 
 static void path_lengths(int u, int bmask, int *pl)
 {
@@ -313,6 +319,16 @@ static int dfs_block(int p, int spec, int mu, int blkstart, int lastchord, int f
 
     uint64_t k0, k1; size_t h;
     nodes++;
+    if (nodes >= next_node_report) {
+        const int spectrum_total = (1 << (nbudget - 2)) - 1;
+        fprintf(stderr, "  [n=%d: spectrum %d/%d (%.1f%%) ",
+                nbudget, target >> 3, spectrum_total,
+                100.0 * (double) (target >> 3) / (double) spectrum_total);
+        fprint_set(stderr, target, nbudget);
+        fprintf(stderr, ": %" PRIu64 " nodes, %.1f s]\n", nodes,
+                (double) (clock() - spectrum_t0) / CLOCKS_PER_SEC);
+        next_node_report += NODE_PROGRESS_INTERVAL;
+    }
     tt_key(p, blkstart, lastchord, &k0, &k1);
     h = (size_t) ((k0 * 0x9E3779B97F4A7C15ull ^ k1 * 0xC2B2AE3D27D4EB4Full) >> 40) & ((1 << TTBITS) - 1);
     if (tt[h].g == gen && tt[h].k0 == k0 && tt[h].k1 == k1) return 0;
@@ -371,6 +387,8 @@ static int realizable(int S, int n)
     if (M > n) return 0;
     nbudget = n;
     target  = S;
+    spectrum_t0 = clock();
+    next_node_report = NODE_PROGRESS_INTERVAL;
     for (emax = 0, i = 3; i <= n; i++) if ((S >> i) & 1) emax += i;
     ebound  = 0;                                   /* sum of L over S   */
     for (L = 3; L <= M; L++) if ((S >> L) & 1) ebound += L;
@@ -447,13 +465,21 @@ static int brute_force(int n)                  /* returns a(n)          */
 
 /* ================================================================== */
 
-static void print_set(int S, int n)
+static void fprint_set(FILE *stream, int S, int n)
 {
     int L, first = 1;
-    printf("{");
+    fprintf(stream, "{");
     for (L = 3; L <= n; L++)
-        if ((S >> L) & 1) { printf(first ? "%d" : ",%d", L); first = 0; }
-    printf("}");
+        if ((S >> L) & 1) {
+            fprintf(stream, first ? "%d" : ",%d", L);
+            first = 0;
+        }
+    fprintf(stream, "}");
+}
+
+static void print_set(int S, int n)
+{
+    fprint_set(stdout, S, n);
 }
 
 static void print_witness(void)
@@ -509,6 +535,7 @@ int main(int argc, char **argv)
         if (bf) {
             cnt = (n < 3) ? 1 : brute_force(n);
         } else {
+            const int spectrum_total = n >= 3 ? (1 << (n - 2)) - 1 : 0;
             cnt = 1;                                   /* S = {} */
             for (S = 8; S < (1 << (n + 1)); S += 8) {  /* subsets of {3,...,n} */
                 if (!ok[S >> 3]) {
@@ -524,6 +551,15 @@ int main(int argc, char **argv)
                     tot += nodes;
                 }
                 if (ok[S >> 3]) cnt++;
+                if (n >= 9 &&
+                    (((S >> 3) % SPECTRUM_PROGRESS_INTERVAL) == 0 ||
+                     (S >> 3) == spectrum_total)) {
+                    fprintf(stderr,
+                            "  [n=%d: spectra %d/%d (%.1f%%), realized=%d, %.1f s]\n",
+                            n, S >> 3, spectrum_total,
+                            100.0 * (double) (S >> 3) / (double) spectrum_total, cnt,
+                            (double) (clock() - t0) / CLOCKS_PER_SEC);
+                }
             }
         }
         printf("%d %d\n", n, cnt);                 /* b-file format on stdout */
