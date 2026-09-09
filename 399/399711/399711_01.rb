@@ -1,5 +1,5 @@
 def max_f(n)
-  subs = (1...(1 << n)).map{|m| (1..n).select{|v| m[v - 1] == 1}}
+  subs = (1..(1 << n) - 1).map{|m| (1..n).select{|v| m[v - 1] == 1}}
   best = [0, [], []]
   subs.each_with_index{|a, i|
     subs[i..].each{|b|                    
