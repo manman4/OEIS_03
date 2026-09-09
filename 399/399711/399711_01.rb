@@ -11,9 +11,7 @@ def max_f(n)
   }
   best
 end
-
 def A399711(n)
   (1..n).map{|k| max_f(k)[0]}
 end
-
 p A399711(10)
