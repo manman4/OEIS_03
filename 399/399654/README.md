@@ -166,17 +166,3 @@ The verifier has no reference value for `f(11)`: it checks the complete graph
 count and every stored witness, but labels the resulting `f(11)` as having no
 reference value.
 
-## Reporting checklist
-
-Before posting results to upstream Issue #290:
-
-- record the exact commands and Python/NetworkX versions;
-- confirm that `compare_results.py` reports exact agreement;
-- inspect representative witnesses, including the empty set and `{n}`;
-- retain the JSON output so every claimed cycle set has a witness;
-- disclose that the initial programs were written with AI assistance;
-- do not submit AI-generated or AI-assisted material directly to the OEIS.
-
-The computation should first be reported as reproducible evidence on the GitHub
-issue. Any OEIS submission requires a genuinely independent human derivation
-and must follow the project's `CONTRIBUTING.md` rules.
