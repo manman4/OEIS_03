@@ -6,6 +6,10 @@ values associated with [Erdős problem #84](https://www.erdosproblems.com/84).
 An unofficial Japanese translation of the problem statement is available in
 [`PROBLEM_JA.md`](PROBLEM_JA.md).
 
+The edge bound shared by the candidate-spectrum searches is proved in
+[`A399654_EDGE_BOUND_PROOF_JA.md`](A399654_EDGE_BOUND_PROOF_JA.md).  Its Lean 4
+formalization is in [`lean/`](lean/).
+
 For a simple undirected graph `G` on `n` vertices, its cycle set is
 
 ```text
