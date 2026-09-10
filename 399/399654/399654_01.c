@@ -139,12 +139,13 @@
  *
  * Compile: cc -O3 -march=native -std=c17 -o 399654_01 399654_01.c
  * Audit  : cc -O2 -std=c17 -DVERIFY_COMMON_EDGES -o 399654_audit 399654_01.c
- * Usage  : ./399654_01 [-b] [-v] [-m0] [-j JOBS] [nmax]
+ * Usage  : ./399654_01 [-b] [-v] [-m0] [-j JOBS] [-o FILE] [nmax]
  *            -b     use algorithm 1 (exhaustive; nmax <= 8)
  *            -v     also print every realizable set and a witness
  *            -m0    exact search (accepted for compatibility; default)
  *            -m1    deliberately disabled: its pruning is unproved
  *            -j N   use N worker processes for n >= 10 (1 <= N <= 8)
+ *            -o F   write the realizable spectra for nmax to new file F
  *            nmax   last term to compute (default 10, maximum 12)
  */
 
@@ -763,6 +764,42 @@ static void print_set(int S, int n)
     fprint_set(stdout, S, n);
 }
 
+/* The format is deliberately shared with 399654_03.c so that cmp(1) checks
+ * the complete families of spectra, rather than only their cardinalities. */
+static int write_spectra_file(const char *path, int n, const char *ok,
+                              int count)
+{
+    FILE *stream;
+    int index;
+    int total = n >= 3 ? (1 << (n - 2)) - 1 : 0;
+
+    stream = fopen(path, "wx");
+    if (stream == NULL) {
+        fprintf(stderr, "cannot create output file %s: %s\n",
+                path, strerror(errno));
+        return 0;
+    }
+    if (fprintf(stream, "n=%d\ncount=%d\n", n, count) < 0) goto failure;
+    for (index = 0; index <= total; index++) {
+        if (!ok[index]) continue;
+        if (fprintf(stream, "%d\t", index) < 0) goto failure;
+        fprint_set(stream, index << 3, n);
+        if (fputc('\n', stream) == EOF) goto failure;
+    }
+    if (fclose(stream) != 0) {
+        fprintf(stderr, "cannot finish output file %s: %s\n",
+                path, strerror(errno));
+        return 0;
+    }
+    return 1;
+
+failure:
+    fprintf(stderr, "cannot write output file %s: %s\n",
+            path, strerror(errno));
+    fclose(stream);
+    return 0;
+}
+
 static void print_witness(void)
 {
     int u, v, first = 1;
@@ -1044,6 +1081,7 @@ int main(int argc, char **argv)
 {
     int nmax = 10, verbose = 0, bf = 0, jobs = 1, n, S, cnt, i;
     static char ok[1 << (MAXN - 2)];
+    const char *output_path = NULL;
     uint64_t tot;
 
     for (i = 1; i < argc; i++) {
@@ -1060,6 +1098,13 @@ int main(int argc, char **argv)
                 return 1;
             }
         }
+        else if (!strcmp(argv[i], "-o")) {
+            if (++i >= argc || argv[i][0] == '\0') {
+                fprintf(stderr, "option -o requires a file path\n");
+                return 1;
+            }
+            output_path = argv[i];
+        }
         else if (!strcmp(argv[i], "-v")) verbose = 1;
         else if (!parse_nmax(argv[i], &nmax)) {
             fprintf(stderr, "invalid option or nmax: %s\n", argv[i]);
@@ -1070,11 +1115,17 @@ int main(int argc, char **argv)
     if (bf && nmax > 8) { fprintf(stderr, "option -b is limited to nmax <= 8\n"); return 1; }
     if (jobs > 1 && bf) { fprintf(stderr, "options -j and -b cannot be combined\n"); return 1; }
     if (jobs > 1 && verbose) { fprintf(stderr, "options -j and -v cannot be combined\n"); return 1; }
+    if (bf && output_path) { fprintf(stderr, "options -b and -o cannot be combined\n"); return 1; }
+    if (output_path && access(output_path, F_OK) == 0) {
+        fprintf(stderr, "output file already exists: %s\n", output_path);
+        return 1;
+    }
     if (jobs > 1 && signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
         perror("signal");
         return 1;
     }
     initialize_edge_keys();
+    ok[0] = 1;
 
     for (n = 0; n <= nmax; n++) {
         double t0 = wall_seconds();
@@ -1118,5 +1169,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "  [n=%2d: %.2f s, %" PRIu64 " nodes]\n", n,
                 wall_seconds() - t0, tot);
     }
+    if (output_path && !write_spectra_file(output_path, nmax, ok, cnt))
+        return 1;
     return 0;
 }
