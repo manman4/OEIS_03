@@ -22,9 +22,21 @@ $$
 
 頂点集合を $V_n$ とし、次の禁止辺を考える。
 
-1. 相異なる $x,y$ に対し、$x\mid y^2$ または $y\mid x^2$ ならば、2点集合 $\lbrace x,y\rbrace$ を禁止辺とする。
+**禁止ペア。** 相異なる $x,y$ について、
 
-2. 相異なる $x,y,z$ に対し、$x\mid yz$、$y\mid xz$、$z\mid xy$ のいずれかが成り立つならば、3点集合 $\lbrace x,y,z\rbrace$ を禁止辺とする。
+$$
+x\mid y^2\quad\text{または}\quad y\mid x^2
+$$
+
+が成り立つならば、2点集合 $\lbrace x,y\rbrace$ を禁止辺とする。
+
+**禁止トリプル。** 相異なる $x,y,z$ について、
+
+$$
+x\mid yz,\qquad y\mid xz,\qquad z\mid xy
+$$
+
+のいずれかが成り立つならば、3点集合 $\lbrace x,y,z\rbrace$ を禁止辺とする。
 
 ただし、禁止ペアを含む禁止トリプルは保存しない。
 
