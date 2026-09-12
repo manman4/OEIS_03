@@ -12,6 +12,6 @@ for(n=0, 30, print1(a(n)-b(n), ", "));
 c(n) = if(n==0, 1, (1/n) * sum(k=0, n-1, (6*k+28) * 5^k * binomial(k+3,3) * binomial(6*n+7,n-1-k)));
 for(n=0, 30, print1(a(n)-c(n), ", "));
 
-\\ a(0) = 1; a(n) = (1/n) * Sum_{k=0..n-1} (3*k+20) * 4^k * binomial(k+3,3) * binomial(4*n+3-k,n-1-k).a(0) = 1; a(n) = (1/n) * Sum_{k=0..n-1} (5*k+28) * 6^k * binomial(k+3,3) * binomial(6*n+3-k,n-1-k).
+\\ a(0) = 1; a(n) = (1/n) * Sum_{k=0..n-1} (5*k+28) * 6^k * binomial(k+3,3) * binomial(6*n+3-k,n-1-k).
 d(n) = if(n==0, 1, (1/n) * sum(k=0, n-1, (5*k+28) * 6^k * binomial(k+3,3) * binomial(6*n+3-k,n-1-k)));
 for(n=0, 30, print1(a(n)-d(n), ", "));
