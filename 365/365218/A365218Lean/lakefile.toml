@@ -1,0 +1,12 @@
+name = "A365218Lean"
+version = "0.1.0"
+defaultTargets = ["A365218Lean"]
+
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4.git"
+rev = "v4.27.0"
+
+[[lean_lib]]
+name = "A365218Lean"
+
