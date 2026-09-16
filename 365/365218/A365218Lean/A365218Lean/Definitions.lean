@@ -4,11 +4,8 @@ import Mathlib.Algebra.Polynomial.Derivative
 # Definitions for A365218
 
 For positive n, Lagrange inversion gives a(n) as 1/n times the coefficient of
-t^(n-1) in (1-t)^n * (1+t)^(6*n).
-
-This file uses that coefficient formula as the definition. The derivation
-from the original implicit generating function is outside the formalized
-scope.
+t^(n-1) in (1-t)^n * (1+t)^(6*n).  The derivation from the original implicit
+generating function is formalized in `GeneratingFunction.lean`.
 -/
 
 noncomputable section
