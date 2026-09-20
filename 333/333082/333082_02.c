@@ -1,84 +1,83 @@
 /*
- * A333082 -- sparse ratio-class inclusion-exclusion DP.
+ * A333082 -- oriented ratio-class DP with a prime-border lift.
  *
- * Count permutations sigma of [n] for which the rational numbers
- * sigma(k)/k are pairwise distinct.
+ * This is an intentionally different algorithm from 333082_01.c.  Program
+ * 01 uses 61-bit residues and folds transpose-related states after reciprocal
+ * ratio classes.  This program keeps all oriented (row mask, column mask)
+ * states, uses 31-bit modular passes, obtains a(19) from an 18 by 18 DP,
+ * and computes a(20) and a(21) directly in their full universes.
  *
- * Ratio classes
- * -------------
- * Regard (i,j) as a cell in an n by n board.  A permutation selects one
- * cell in every row and column.  If a/b is a reduced positive fraction,
- * the cells having j/i=a/b are exactly
+ * Ratio-class inclusion-exclusion
+ * ---------------------------------
+ * A permutation is a placement of nonattacking rooks.  For every reduced
+ * positive fraction a/b, the cells with column/row ratio a/b are
  *
- *                         (b*t, a*t),
+ *                         (b*t, a*t).
  *
- * for 1 <= t <= floor(n/max(a,b)).  Distinct cells in one ratio class do
- * not share a row or column.
- *
- * If a full rook placement contains u cells from one ratio class, then
+ * If a placement uses u cells of a ratio class, then
  *
  *   [u <= 1] = 1 + sum_{r=2..u} C(u,r) (-1)^(r-1) (r-1).            (1)
  *
- * For u>=2 this follows from the binomial identities for the zeroth and
- * first alternating moments; the sum after the initial 1 is -1.  Thus a
- * nontrivial ratio class contributes either no marked cell with weight 1,
- * or a subset S of at least two cells with weight
- * (-1)^(|S|-1)(|S|-1).
+ * The DP expands (1) for every non-diagonal ratio class.  A state stores the
+ * row and column masks of marked cells.  The diagonal ratio 1 is evaluated
+ * analytically after the DP.
  *
- * The sparse DP processes every non-diagonal ratio class once.  A state is
- * the pair of masks of rows and columns occupied by marked cells.  States
- * with the same masks can be combined because compatibility with future
- * classes depends only on these masks.
+ * Prime-border lift
+ * -----------------
+ * Let p=m+1 be prime.  Every non-corner border ratio j/p or p/i is reduced
+ * with numerator or denominator p, so it cannot equal an interior ratio.
+ * A lower-border ratio is below 1 and a right-border ratio is above 1, hence
+ * the two border ratios cannot equal each other either.
  *
- * Transposition sends the class a/b to its reciprocal b/a.  Reciprocal
- * classes are therefore processed in adjacent pairs.  The product of their
- * two transition operators commutes with transposition (the two class
- * polynomials commute), so while the second class is inserted the states
- * (R,C) and (C,R) are folded together.  The stored coefficient is their
- * orbit sum; no separate scan of the resulting table is needed.
- * Equation (2) is symmetric in R and C, so this exact quotient is also valid
- * at the final evaluation.  No quotient is taken between the two members of
- * a reciprocal pair.
+ * For a state, let s be the number of unused rows (and columns), and let d
+ * be the number of indices unused on both sides.  Marking r diagonal cells
+ * has coefficient c_0=1, c_1=0, and
+ * c_r=(-1)^(r-1)(r-1) for r>=2.  Therefore the base completion factor is
  *
- * The diagonal class j/i=1 contains n cells and would have exponentially
- * many explicit choices.  It is left until the final evaluation.  For a DP
- * state with k marked rows, put m=n-k and let d be the number of indices
- * unused as both a row and a column.  Exactly C(d,r) diagonal subsets of
- * size r are compatible, and each leaves (m-r)! completions.  The state's
- * exact completion multiplier is therefore
+ *   F(s,d) = sum_r C(d,r)c_r(s-r)!.                                 (2)
  *
- *   F(m,d) = m! + sum_{r=2..d} C(d,r)(-1)^(r-1)(r-1)(m-r)!.          (2)
+ * If the corner (p,p) is used, ratio 1 is already occupied, so the interior
+ * must have no fixed point.  Its factor is
  *
- * Summing weight(state)*F(m,d) gives a(n).  Equations (1) and (2) are
- * identities over the integers; no heuristic pruning is used.
+ *   J(s,d) = sum_{r=0..d} C(d,r)(-1)^r(s-r)!.                        (3)
  *
- * Exact arithmetic and validation
- * -------------------------------
- * Sparse passes are performed modulo distinct 61-bit primes.  CRT continues
- * until the product of the moduli is strictly greater than n!.  Since the
- * answer is a number of permutations, 0 <= a(n) <= n!, so the reconstructed
- * nonnegative residue is the unique exact answer.
+ * Otherwise choose the row mapped to p and the image of p.  After r marked
+ * diagonal cells there are (s-r)^2 choices for this ordered pair and
+ * (s-r-1)! completions.  Thus
  *
- * For n<=10 an independent DFS reduces every candidate ratio sigma(k)/k to
- * a coprime numerator-denominator pair and checks uniqueness directly.  The
- * published terms through n=15 are post-computation checks only.
+ *   H(s,d) = sum_r C(d,r)c_r(s-r)^2(s-r-1)!,                         (4)
  *
- * Every completed term is flushed and fsynced to b333082_01_part.txt beside
- * the executable.  Complete success atomically replaces b333082_01.txt.
+ * where only terms with s-r>=1 occur.  The lifted completion factor is
+ * J(s,d)+H(s,d).  Equations (1)--(4) are integer identities.
+ *
+ * The primality condition is essential.  For composite 21, for example,
+ * 3/21=1/7 is already an interior ratio.  Consequently this program's
+ * border lift deliberately stops at 18 -> 19.  The program computes n=20
+ * and n=21 directly; it never applies the prime-border formula to 21.
+ *
+ * Exact arithmetic and checks
+ * ---------------------------
+ * DP passes use distinct primes below 2^31 and CRT continues until their
+ * product exceeds the relevant factorial bound.  For n<=10, an independent
+ * row-by-row search checks reduced ratio pairs directly.  The prime-border
+ * identity is independently checked for every prime p<=11.  Published terms
+ * through n=15 are post-computation checks only.
+ *
+ * Each finished row is flushed and fsynced to b333082_02_part.txt beside
+ * the executable.  Complete success atomically replaces b333082_02.txt.
  * Progress is reported to stderr at most once per minute.
  *
  * Build:
  *
- *   clang -O3 -std=c11 -Wall -Wextra -Wpedantic 333082_01.c \
- *     $(pkg-config --cflags --libs gmp) -o 333082_01
+ *   clang -O3 -std=c11 -Wall -Wextra -Wpedantic 333082_02.c \
+ *     $(pkg-config --cflags --libs gmp) -o 333082_02
  *
  * Usage:
  *
- *   A333082_MEMORY_MIB=8192 ./333082_01 N [FROM]
+ *   A333082_02_MEMORY_MIB=8192 ./333082_02 N [FROM]
  *
- * N is in 0..31.  FROM is at most 16; verified terms below FROM are copied
- * so stdout and the b-file remain complete from offset 0.  The exponential
- * state count normally makes the practical limit smaller than 31.
+ * N is in 0..21.  FROM is at most 16; verified terms below FROM are copied
+ * to keep both stdout and the b-file complete from offset 0.
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -101,20 +100,15 @@
 #endif
 
 #if ULONG_MAX < UINT64_MAX
-#error "333082_01.c requires a platform with 64-bit unsigned long"
+#error "333082_02.c requires a platform with 64-bit unsigned long"
 #endif
 
-#if !defined(__SIZEOF_INT128__)
-#error "333082_01.c requires unsigned __int128"
-#endif
-
-__extension__ typedef unsigned __int128 U128;
-
-#define MAX_N 31
+#define MAX_N 21
+#define MAX_BASE_N 21
 #define DIRECT_CHECK_MAX_N 10
 #define VERIFIED_MAX_N 15
 #define FIRST_UNVERIFIED_N (VERIFIED_MAX_N + 1)
-#define MAX_CRT_PRIMES 4
+#define MAX_CRT_PRIMES 3
 #define INITIAL_CAPACITY ((size_t)16)
 #define LOAD_NUMERATOR ((size_t)7)
 #define LOAD_DENOMINATOR ((size_t)10)
@@ -124,6 +118,11 @@ __extension__ typedef unsigned __int128 U128;
 #ifndef PROGRESS_INTERVAL_SECONDS
 #define PROGRESS_INTERVAL_SECONDS 60.0
 #endif
+
+static const uint32_t available_moduli[MAX_CRT_PRIMES] = {
+    UINT32_C(2147483647), UINT32_C(2147483629),
+    UINT32_C(2147483587)
+};
 
 static const char *const verified_terms[VERIFIED_MAX_N + 1] = {
     "1", "1", "1", "5", "13", "79", "345", "2785",
@@ -146,8 +145,8 @@ typedef struct {
 } RatioGroup;
 
 typedef struct {
-    uint64_t *keys;       /* key + 1; zero denotes an empty bucket */
-    uint64_t *values;
+    uint64_t *keys;       /* key + 1; zero is an empty bucket */
+    uint32_t *values;
     size_t capacity;
     size_t size;
     uint64_t bytes;
@@ -205,7 +204,7 @@ static void report_progress(Progress *progress, const char *phase,
                             ? 100.0
                             : 100.0 * (double)scanned / (double)scan_total;
     fprintf(stderr,
-            "A333082 n=%d progress CRT=%d/%d group=%zu/%zu phase=%s "
+            "A333082_02 n=%d progress CRT=%d/%d group=%zu/%zu phase=%s "
             "scan=%.1f%% states=%zu elapsed=%.0fs peak=%.1f MiB\n",
             progress->n, progress->crt_pass, progress->crt_count,
             group_number, progress->group_count, phase, percentage, states,
@@ -256,7 +255,7 @@ static int parse_int_range(const char *text, int minimum, int maximum,
 
 static uint64_t parse_memory_limit(void)
 {
-    const char *text = getenv("A333082_MEMORY_MIB");
+    const char *text = getenv("A333082_02_MEMORY_MIB");
     uint64_t mib = DEFAULT_MEMORY_MIB;
     if (text != NULL && *text != '\0') {
         char *end = NULL;
@@ -265,7 +264,7 @@ static uint64_t parse_memory_limit(void)
         if (errno != 0 || end == text || *end != '\0' ||
             value < MIN_MEMORY_MIB || value > MAX_MEMORY_MIB) {
             fprintf(stderr,
-                    "error: A333082_MEMORY_MIB must be in %" PRIu64
+                    "error: A333082_02_MEMORY_MIB must be in %" PRIu64
                     "..%" PRIu64 ": %s\n",
                     MIN_MEMORY_MIB, MAX_MEMORY_MIB, text);
             exit(EXIT_FAILURE);
@@ -319,16 +318,6 @@ static char *path_beside_executable(const char *argv0,
     return path;
 }
 
-static int gcd_int(int left, int right)
-{
-    while (right != 0) {
-        int remainder = left % right;
-        left = right;
-        right = remainder;
-    }
-    return left;
-}
-
 static uint64_t mix64(uint64_t value)
 {
     value ^= value >> 30;
@@ -340,10 +329,12 @@ static uint64_t mix64(uint64_t value)
 
 static uint64_t table_bytes(size_t capacity)
 {
-    if (capacity > UINT64_MAX / (2U * sizeof(uint64_t))) {
+    const uint64_t bytes_per_slot =
+        sizeof(uint64_t) + sizeof(uint32_t);
+    if (capacity > UINT64_MAX / bytes_per_slot) {
         die("hash-table size overflow");
     }
-    return (uint64_t)capacity * 2U * sizeof(uint64_t);
+    return (uint64_t)capacity * bytes_per_slot;
 }
 
 static void budget_acquire(MemoryBudget *budget, uint64_t bytes)
@@ -351,7 +342,7 @@ static void budget_acquire(MemoryBudget *budget, uint64_t bytes)
     if (bytes > budget->limit || budget->current > budget->limit - bytes) {
         fprintf(stderr,
                 "error: sparse tables need more than %.3f GiB; "
-                "raise A333082_MEMORY_MIB\n",
+                "raise A333082_02_MEMORY_MIB\n",
                 (double)budget->limit / (double)(UINT64_C(1) << 30));
         exit(EXIT_FAILURE);
     }
@@ -403,7 +394,7 @@ static size_t table_slot(const StateTable *table, uint64_t stored_key)
     return slot;
 }
 
-static void table_insert_raw(StateTable *table, uint64_t key, uint64_t value)
+static void table_insert_raw(StateTable *table, uint64_t key, uint32_t value)
 {
     uint64_t stored_key = key + 1;
     if (stored_key == 0) {
@@ -435,54 +426,26 @@ static void table_grow(StateTable *table, MemoryBudget *budget)
     *table = larger;
 }
 
-static uint64_t add_mod(uint64_t left, uint64_t right, uint64_t modulus)
+static uint32_t add_mod(uint32_t a, uint32_t b, uint32_t modulus)
 {
-    uint64_t sum = left + right;
+    uint64_t sum = (uint64_t)a + b;
     if (sum >= modulus) {
         sum -= modulus;
     }
-    return sum;
+    return (uint32_t)sum;
 }
 
-static uint64_t subtract_mod(uint64_t left, uint64_t right,
-                             uint64_t modulus)
-{
-    return left >= right ? left - right : left + modulus - right;
-}
-
-static uint64_t multiply_mod(uint64_t left, uint64_t right,
-                             uint64_t modulus)
+static uint32_t multiply_small_mod(uint32_t value, uint32_t factor,
+                                   uint32_t modulus)
 {
     if (modulus == 0) {
         die("zero modulus");
     }
-    return (uint64_t)((U128)left * right % modulus);
+    return (uint32_t)((uint64_t)value * factor % modulus);
 }
 
-static uint64_t multiply_small_mod(uint64_t value, unsigned factor,
-                                   uint64_t modulus)
-{
-    if (factor == 0) {
-        return 0;
-    }
-    if (factor == 1) {
-        return value;
-    }
-    uint64_t result = 0;
-    while (factor != 0) {
-        if ((factor & 1U) != 0) {
-            result = add_mod(result, value, modulus);
-        }
-        factor >>= 1;
-        if (factor != 0) {
-            value = add_mod(value, value, modulus);
-        }
-    }
-    return result;
-}
-
-static void table_add(StateTable *table, uint64_t key, uint64_t addend,
-                      uint64_t modulus, MemoryBudget *budget,
+static void table_add(StateTable *table, uint64_t key, uint32_t addend,
+                      uint32_t modulus, MemoryBudget *budget,
                       PassStats *stats)
 {
     if (addend == 0) {
@@ -512,26 +475,22 @@ static void table_add(StateTable *table, uint64_t key, uint64_t addend,
     ++stats->insertions;
 }
 
+static int gcd_int(int left, int right)
+{
+    while (right != 0) {
+        int remainder = left % right;
+        left = right;
+        right = remainder;
+    }
+    return left;
+}
+
 static int compare_groups(const void *left_pointer, const void *right_pointer)
 {
     const RatioGroup *left = left_pointer;
     const RatioGroup *right = right_pointer;
     if (left->cell_count != right->cell_count) {
         return left->cell_count < right->cell_count ? -1 : 1;
-    }
-    int left_low = left->numerator < left->denominator
-                       ? left->numerator : left->denominator;
-    int right_low = right->numerator < right->denominator
-                        ? right->numerator : right->denominator;
-    if (left_low != right_low) {
-        return left_low < right_low ? -1 : 1;
-    }
-    int left_high = left->numerator > left->denominator
-                        ? left->numerator : left->denominator;
-    int right_high = right->numerator > right->denominator
-                         ? right->numerator : right->denominator;
-    if (left_high != right_high) {
-        return left_high < right_high ? -1 : 1;
     }
     if (left->numerator != right->numerator) {
         return left->numerator < right->numerator ? -1 : 1;
@@ -544,7 +503,8 @@ static RatioGroup *make_groups(int n, size_t *group_count_out,
                                size_t *choice_count_out)
 {
     size_t maximum_groups = (size_t)n * (size_t)n;
-    RatioGroup *groups = checked_calloc(maximum_groups, sizeof(*groups));
+    RatioGroup *groups =
+        checked_calloc(maximum_groups, sizeof(*groups));
     size_t group_count = 0;
     size_t total_choices = 0;
 
@@ -554,18 +514,21 @@ static RatioGroup *make_groups(int n, size_t *group_count_out,
                 gcd_int(numerator, denominator) != 1) {
                 continue;
             }
-            int cell_count = n /
-                (numerator > denominator ? numerator : denominator);
+            int maximum = numerator > denominator
+                              ? numerator : denominator;
+            int cell_count = n / maximum;
             if (cell_count < 2) {
                 continue;
             }
             size_t subset_count = (size_t)1 << cell_count;
             size_t choice_count =
                 subset_count - 1U - (size_t)cell_count;
-            Choice *choices = checked_malloc(choice_count, sizeof(*choices));
+            Choice *choices =
+                checked_malloc(choice_count, sizeof(*choices));
             size_t at = 0;
             for (size_t subset = 0; subset < subset_count; ++subset) {
-                int cardinality = __builtin_popcountll((uint64_t)subset);
+                int cardinality =
+                    __builtin_popcountll((uint64_t)subset);
                 if (cardinality < 2) {
                     continue;
                 }
@@ -573,15 +536,18 @@ static RatioGroup *make_groups(int n, size_t *group_count_out,
                 uint32_t columns = 0;
                 for (int t = 1; t <= cell_count; ++t) {
                     if ((subset & ((size_t)1 << (t - 1))) != 0) {
-                        rows |= UINT32_C(1) << (denominator * t - 1);
-                        columns |= UINT32_C(1) << (numerator * t - 1);
+                        rows |= UINT32_C(1)
+                                << (denominator * t - 1);
+                        columns |= UINT32_C(1)
+                                   << (numerator * t - 1);
                     }
                 }
                 choices[at].rows = rows;
                 choices[at].columns = columns;
-                choices[at].coefficient = (int8_t)((cardinality & 1)
-                                             ? cardinality - 1
-                                             : -(cardinality - 1));
+                choices[at].coefficient =
+                    (int8_t)((cardinality & 1)
+                                 ? cardinality - 1
+                                 : -(cardinality - 1));
                 ++at;
             }
             if (at != choice_count) {
@@ -599,7 +565,6 @@ static RatioGroup *make_groups(int n, size_t *group_count_out,
             total_choices += choice_count;
         }
     }
-
     qsort(groups, group_count, sizeof(*groups), compare_groups);
     *group_count_out = group_count;
     *choice_count_out = total_choices;
@@ -614,127 +579,11 @@ static void free_groups(RatioGroup *groups, size_t group_count)
     free(groups);
 }
 
-static void make_completion_weights(uint64_t weights[MAX_N + 1][MAX_N + 1],
-                                    int n, uint64_t modulus)
-{
-    uint64_t factorial[MAX_N + 1] = {0};
-    uint64_t choose[MAX_N + 1][MAX_N + 1] = {{0}};
-    factorial[0] = 1;
-    for (int i = 1; i <= n; ++i) {
-        factorial[i] = multiply_mod(factorial[i - 1], (uint64_t)i,
-                                    modulus);
-    }
-    choose[0][0] = 1;
-    for (int i = 1; i <= n; ++i) {
-        choose[i][0] = 1;
-        choose[i][i] = 1;
-        for (int j = 1; j < i; ++j) {
-            choose[i][j] = add_mod(choose[i - 1][j - 1],
-                                   choose[i - 1][j], modulus);
-        }
-    }
-
-    memset(weights, 0,
-           (size_t)(MAX_N + 1) * (MAX_N + 1) * sizeof(uint64_t));
-    for (int unused = 0; unused <= n; ++unused) {
-        for (int diagonal = 0; diagonal <= unused; ++diagonal) {
-            uint64_t value = factorial[unused];
-            for (int r = 2; r <= diagonal; ++r) {
-                uint64_t term = multiply_mod(choose[diagonal][r],
-                                             (uint64_t)(r - 1), modulus);
-                term = multiply_mod(term, factorial[unused - r], modulus);
-                value = (r & 1) ? add_mod(value, term, modulus)
-                                : subtract_mod(value, term, modulus);
-            }
-            weights[unused][diagonal] = value;
-        }
-    }
-}
-
-static uint64_t pack_state(uint32_t rows, uint32_t columns, int n)
-{
-    return (uint64_t)rows | ((uint64_t)columns << n);
-}
-
-static uint64_t pack_canonical_state(uint32_t rows, uint32_t columns, int n)
-{
-    if (rows > columns) {
-        uint32_t temporary = rows;
-        rows = columns;
-        columns = temporary;
-    }
-    return pack_state(rows, columns, n);
-}
-
-static void apply_group(StateTable *destination, const StateTable *source,
-                        const RatioGroup *group, int n,
-                        uint64_t row_mask_limit, uint64_t modulus,
-                        MemoryBudget *budget, PassStats *stats,
-                        Progress *progress, size_t group_number,
-                        bool canonicalize_output)
-{
-    size_t initial_capacity = canonicalize_output
-                                  ? source->capacity / 2
-                                  : source->capacity;
-    if (initial_capacity < INITIAL_CAPACITY) {
-        initial_capacity = INITIAL_CAPACITY;
-    }
-    table_init(destination, initial_capacity, budget);
-    for (size_t bucket = 0; bucket < source->capacity; ++bucket) {
-        if ((bucket & (size_t)16383) == 0) {
-            report_progress(progress,
-                            canonicalize_output
-                                ? "ratio-transition+fold"
-                                : "ratio-transition",
-                            group_number,
-                            bucket, source->capacity,
-                            destination->size, budget);
-        }
-        if (source->keys[bucket] == 0 || source->values[bucket] == 0) {
-            continue;
-        }
-        uint64_t key = source->keys[bucket] - 1;
-        uint64_t value = source->values[bucket];
-        uint32_t rows = (uint32_t)(key & row_mask_limit);
-        uint32_t columns = (uint32_t)(key >> n);
-        ++stats->source_states;
-        uint64_t destination_key = canonicalize_output
-                                       ? pack_canonical_state(rows, columns,
-                                                              n)
-                                       : key;
-        table_add(destination, destination_key, value, modulus,
-                  budget, stats);
-        for (size_t c = 0; c < group->choice_count; ++c) {
-            const Choice *choice = &group->choices[c];
-            if ((rows & choice->rows) != 0 ||
-                (columns & choice->columns) != 0) {
-                continue;
-            }
-            ++stats->compatible_choices;
-            unsigned magnitude = choice->coefficient < 0
-                                     ? (unsigned)(-choice->coefficient)
-                                     : (unsigned)choice->coefficient;
-            uint64_t weighted =
-                multiply_small_mod(value, magnitude, modulus);
-            if (choice->coefficient < 0 && weighted != 0) {
-                weighted = modulus - weighted;
-            }
-            uint32_t next_rows = rows | choice->rows;
-            uint32_t next_columns = columns | choice->columns;
-            uint64_t next_key = canonicalize_output
-                                    ? pack_canonical_state(next_rows,
-                                                           next_columns, n)
-                                    : pack_state(next_rows, next_columns, n);
-            table_add(destination, next_key, weighted, modulus,
-                      budget, stats);
-        }
-    }
-}
-
-static uint64_t dp_residue(int n, const RatioGroup *groups,
-                           size_t group_count, uint64_t modulus,
-                           uint64_t memory_limit, PassStats *stats,
-                           int crt_pass, int crt_count)
+static void dp_residues(int n, const RatioGroup *groups,
+                        size_t group_count, uint32_t modulus,
+                        uint64_t memory_limit, bool want_prime_lift,
+                        uint32_t *base_answer, uint32_t *lifted_answer,
+                        PassStats *stats, int crt_pass, int crt_count)
 {
     double started = monotonic_seconds();
     Progress progress = {
@@ -746,36 +595,70 @@ static uint64_t dp_residue(int n, const RatioGroup *groups,
     table_add(&current, 0, 1, modulus, &budget, stats);
     uint64_t row_mask_limit = (UINT64_C(1) << n) - 1;
 
-    if ((group_count & 1U) != 0) {
-        die("non-diagonal ratio groups do not form reciprocal pairs");
-    }
-    for (size_t group_index = 0; group_index < group_count;
-         group_index += 2) {
-        const RatioGroup *first = &groups[group_index];
-        const RatioGroup *second = &groups[group_index + 1];
-        if (first->numerator != second->denominator ||
-            first->denominator != second->numerator) {
-            die("ratio groups are not adjacent reciprocal pairs");
-        }
+    for (size_t group_index = 0; group_index < group_count; ++group_index) {
+        const RatioGroup *group = &groups[group_index];
         StateTable next = {0};
-        apply_group(&next, &current, first, n, row_mask_limit,
-                    modulus, &budget, stats, &progress, group_index + 1,
-                    false);
-        table_clear(&current, &budget);
-        current = next;
-
-        memset(&next, 0, sizeof(next));
-        apply_group(&next, &current, second, n, row_mask_limit,
-                    modulus, &budget, stats, &progress, group_index + 2,
-                    true);
+        table_init(&next, current.capacity, &budget);
+        for (size_t bucket = 0; bucket < current.capacity; ++bucket) {
+            if ((bucket & (size_t)16383) == 0) {
+                report_progress(&progress, "ratio-transition",
+                                group_index + 1, bucket,
+                                current.capacity, next.size, &budget);
+            }
+            if (current.keys[bucket] == 0 || current.values[bucket] == 0) {
+                continue;
+            }
+            uint64_t key = current.keys[bucket] - 1;
+            uint32_t value = current.values[bucket];
+            uint32_t rows = (uint32_t)(key & row_mask_limit);
+            uint32_t columns = (uint32_t)(key >> n);
+            ++stats->source_states;
+            table_add(&next, key, value, modulus, &budget, stats);
+            for (size_t c = 0; c < group->choice_count; ++c) {
+                const Choice *choice = &group->choices[c];
+                if ((rows & choice->rows) != 0 ||
+                    (columns & choice->columns) != 0) {
+                    continue;
+                }
+                ++stats->compatible_choices;
+                unsigned magnitude = choice->coefficient < 0
+                                         ? (unsigned)(-choice->coefficient)
+                                         : (unsigned)choice->coefficient;
+                uint32_t weighted = multiply_small_mod(
+                    value, (uint32_t)magnitude, modulus);
+                if (choice->coefficient < 0 && weighted != 0) {
+                    weighted = modulus - weighted;
+                }
+                uint32_t next_rows = rows | choice->rows;
+                uint32_t next_columns = columns | choice->columns;
+                uint64_t next_key = (uint64_t)next_rows |
+                    ((uint64_t)next_columns << n);
+                table_add(&next, next_key, weighted, modulus,
+                          &budget, stats);
+            }
+        }
         table_clear(&current, &budget);
         current = next;
     }
 
-    uint64_t completion[MAX_N + 1][MAX_N + 1];
-    make_completion_weights(completion, n, modulus);
+    uint32_t factorial[MAX_BASE_N + 1] = {0};
+    uint32_t choose[MAX_BASE_N + 1][MAX_BASE_N + 1] = {{0}};
+    factorial[0] = 1;
+    choose[0][0] = 1;
+    for (int k = 1; k <= n; ++k) {
+        factorial[k] = multiply_small_mod(factorial[k - 1],
+                                          (uint32_t)k, modulus);
+        choose[k][0] = 1;
+        choose[k][k] = 1;
+        for (int r = 1; r < k; ++r) {
+            choose[k][r] =
+                add_mod(choose[k - 1][r - 1], choose[k - 1][r],
+                        modulus);
+        }
+    }
+    uint32_t base = 0;
+    uint32_t lifted = 0;
     uint32_t full_mask = (UINT32_C(1) << n) - 1;
-    uint64_t answer = 0;
     for (size_t bucket = 0; bucket < current.capacity; ++bucket) {
         if ((bucket & (size_t)16383) == 0) {
             report_progress(&progress, "final-sum", group_count,
@@ -795,11 +678,70 @@ static uint64_t dp_residue(int n, const RatioGroup *groups,
         }
         int unused = n - row_count;
         int diagonal = __builtin_popcount(full_mask & ~(rows | columns));
-        uint64_t term = multiply_mod(current.values[bucket],
-                                     completion[unused][diagonal], modulus);
-        answer = add_mod(answer, term, modulus);
+        uint32_t value = current.values[bucket];
+
+        uint32_t base_factor = factorial[unused];
+        for (int r = 2; r <= diagonal; ++r) {
+            uint32_t term = multiply_small_mod(
+                factorial[unused - r], choose[diagonal][r], modulus);
+            term = multiply_small_mod(term, (uint32_t)(r - 1),
+                                      modulus);
+            base_factor = (r & 1)
+                              ? add_mod(base_factor, term, modulus)
+                              : add_mod(base_factor,
+                                        term == 0 ? 0 : modulus - term,
+                                        modulus);
+        }
+        base = add_mod(base,
+                       multiply_small_mod(value, base_factor, modulus),
+                       modulus);
+
+        if (want_prime_lift) {
+            uint32_t fixed_factor = 0;
+            for (int r = 0; r <= diagonal; ++r) {
+                uint32_t term = multiply_small_mod(
+                    factorial[unused - r], choose[diagonal][r],
+                    modulus);
+                fixed_factor =
+                    (r & 1)
+                        ? add_mod(fixed_factor,
+                                  term == 0 ? 0 : modulus - term,
+                                  modulus)
+                        : add_mod(fixed_factor, term, modulus);
+            }
+
+            uint32_t border_factor = 0;
+            if (unused > 0) {
+                border_factor = multiply_small_mod(
+                    factorial[unused], (uint32_t)unused, modulus);
+            }
+            for (int r = 2; r <= diagonal && r < unused; ++r) {
+                int remaining = unused - r;
+                uint32_t term = multiply_small_mod(
+                    factorial[remaining], choose[diagonal][r],
+                    modulus);
+                term = multiply_small_mod(term, (uint32_t)(r - 1),
+                                          modulus);
+                term = multiply_small_mod(term, (uint32_t)remaining,
+                                          modulus);
+                border_factor =
+                    (r & 1)
+                        ? add_mod(border_factor, term, modulus)
+                        : add_mod(border_factor,
+                                  term == 0 ? 0 : modulus - term,
+                                  modulus);
+            }
+            uint32_t lift_factor =
+                add_mod(fixed_factor, border_factor, modulus);
+            lifted = add_mod(
+                lifted,
+                multiply_small_mod(value, lift_factor, modulus),
+                modulus);
+        }
     }
 
+    *base_answer = base;
+    *lifted_answer = lifted;
     stats->final_states = current.size;
     stats->peak_bytes = budget.peak;
     stats->seconds = monotonic_seconds() - started;
@@ -807,38 +749,44 @@ static uint64_t dp_residue(int n, const RatioGroup *groups,
     if (budget.current != 0) {
         die("internal memory-accounting leak");
     }
-    return answer;
 }
 
-static int generate_moduli(uint64_t *moduli, const mpz_t bound)
+static void verify_moduli(void)
 {
-    mpz_t candidate;
+    mpz_t value;
+    mpz_init(value);
+    for (int i = 0; i < MAX_CRT_PRIMES; ++i) {
+        mpz_set_ui(value, available_moduli[i]);
+        if (mpz_probab_prime_p(value, 32) == 0) {
+            die("a fixed CRT modulus is not prime");
+        }
+        for (int j = 0; j < i; ++j) {
+            if (available_moduli[i] == available_moduli[j]) {
+                die("duplicate CRT modulus");
+            }
+        }
+    }
+    mpz_clear(value);
+}
+
+static int required_moduli(const mpz_t bound)
+{
     mpz_t product;
-    mpz_init(candidate);
     mpz_init_set_ui(product, 1);
-    mpz_set_ui(candidate, 1);
-    mpz_mul_2exp(candidate, candidate, 61);
-    mpz_sub_ui(candidate, candidate, UINT64_C(50000000));
     int count = 0;
     while (mpz_cmp(product, bound) <= 0) {
         if (count >= MAX_CRT_PRIMES) {
-            die("not enough CRT moduli");
+            die("fixed CRT moduli do not exceed the factorial bound");
         }
-        mpz_nextprime(candidate, candidate);
-        if (mpz_sizeinbase(candidate, 2) > 61) {
-            die("failed to generate a 61-bit CRT modulus");
-        }
-        moduli[count] = (uint64_t)mpz_get_ui(candidate);
-        mpz_mul_ui(product, product, (unsigned long)moduli[count]);
+        mpz_mul_ui(product, product, available_moduli[count]);
         ++count;
     }
     mpz_clear(product);
-    mpz_clear(candidate);
     return count;
 }
 
-static void reconstruct_crt(mpz_t result, const uint64_t *residues,
-                            const uint64_t *moduli, int count)
+static void reconstruct_crt(mpz_t result, const uint32_t *residues,
+                            int count)
 {
     mpz_t product;
     mpz_t modulus_integer;
@@ -850,22 +798,18 @@ static void reconstruct_crt(mpz_t result, const uint64_t *residues,
     mpz_init(inverse);
     mpz_set_ui(result, 0);
     for (int q = 0; q < count; ++q) {
-        if (moduli[q] < 2) {
-            die("invalid CRT modulus");
-        }
-        unsigned long modulus = (unsigned long)moduli[q];
+        unsigned long modulus = available_moduli[q];
         unsigned long current = mpz_fdiv_ui(result, modulus);
-        uint64_t delta = residues[q] >= current
-                             ? residues[q] - current
-                             : residues[q] + moduli[q] - current;
+        uint32_t delta = residues[q] >= current
+                             ? residues[q] - (uint32_t)current
+                             : (uint32_t)(residues[q] + modulus - current);
         mpz_set_ui(modulus_integer, modulus);
         mpz_set_ui(product_modulus, mpz_fdiv_ui(product, modulus));
         if (mpz_invert(inverse, product_modulus, modulus_integer) == 0) {
-            die("CRT moduli are not pairwise coprime");
+            die("CRT moduli are not coprime");
         }
         uint64_t multiplier =
-            (uint64_t)((U128)delta * (uint64_t)mpz_get_ui(inverse) %
-                       moduli[q]);
+            (uint64_t)delta * mpz_get_ui(inverse) % modulus;
         mpz_addmul_ui(result, product, (unsigned long)multiplier);
         mpz_mul_ui(product, product, modulus);
     }
@@ -890,14 +834,14 @@ static uint64_t direct_search(int n, int row, uint32_t used_columns,
         int divisor = gcd_int(column, row);
         int numerator = column / divisor;
         int denominator = row / divisor;
-        size_t ratio = (size_t)numerator * (size_t)(n + 1) +
+        size_t ratio = (size_t)numerator * ((size_t)n + 1) +
                        (size_t)denominator;
         if (used_ratios[ratio]) {
             continue;
         }
         used_ratios[ratio] = true;
-        uint64_t add = direct_search(n, row + 1, used_columns | bit,
-                                     used_ratios);
+        uint64_t add = direct_search(n, row + 1,
+                                     used_columns | bit, used_ratios);
         if (count > UINT64_MAX - add) {
             die("direct verifier overflow");
         }
@@ -910,52 +854,55 @@ static uint64_t direct_search(int n, int row, uint32_t used_columns,
 static uint64_t direct_count(int n)
 {
     size_t side = (size_t)n + 1;
-    bool *used_ratios = checked_calloc(side * side, sizeof(*used_ratios));
+    bool *used_ratios =
+        checked_calloc(side * side, sizeof(*used_ratios));
     uint64_t result = direct_search(n, 1, 0, used_ratios);
     free(used_ratios);
     return result;
 }
 
-static void calculate_term(mpz_t answer, int n, uint64_t memory_limit)
+static bool is_prime_int(int value)
 {
-    size_t group_count = 0;
-    size_t choice_count = 0;
-    RatioGroup *groups = make_groups(n, &group_count, &choice_count);
-    mpz_t factorial_bound;
-    mpz_init(factorial_bound);
-    mpz_fac_ui(factorial_bound, (unsigned long)n);
-    uint64_t moduli[MAX_CRT_PRIMES];
-    uint64_t residues[MAX_CRT_PRIMES];
-    int modulus_count = generate_moduli(moduli, factorial_bound);
-    double total_seconds = 0.0;
-    uint64_t maximum_peak = 0;
-    size_t final_states = 0;
-    uint64_t compatible = 0;
+    if (value < 2) {
+        return false;
+    }
+    for (int divisor = 2; divisor <= value / divisor; ++divisor) {
+        if (value % divisor == 0) {
+            return value == divisor;
+        }
+    }
+    return true;
+}
 
-    for (int q = 0; q < modulus_count; ++q) {
+static void verify_prime_lift_small(uint64_t memory_limit)
+{
+    const uint32_t modulus = available_moduli[0];
+    for (int base_n = 1; base_n <= DIRECT_CHECK_MAX_N; ++base_n) {
+        if (!is_prime_int(base_n + 1)) {
+            continue;
+        }
+        size_t group_count = 0;
+        size_t choice_count = 0;
+        RatioGroup *groups =
+            make_groups(base_n, &group_count, &choice_count);
+        (void)choice_count;
+        uint32_t base_residue = 0;
+        uint32_t lifted_residue = 0;
         PassStats stats = {0};
-        residues[q] = dp_residue(n, groups, group_count, moduli[q],
-                                 memory_limit, &stats, q + 1,
-                                 modulus_count);
-        total_seconds += stats.seconds;
-        if (stats.peak_bytes > maximum_peak) {
-            maximum_peak = stats.peak_bytes;
+        dp_residues(base_n, groups, group_count, modulus, memory_limit,
+                    true, &base_residue, &lifted_residue, &stats, 1, 1);
+        if (direct_count(base_n) != base_residue ||
+            direct_count(base_n + 1) != lifted_residue) {
+            die("small direct check of the prime-border lift failed");
         }
-        if (q == 0) {
-            final_states = stats.final_states;
-            compatible = stats.compatible_choices;
-        }
+        free_groups(groups, group_count);
     }
+    fprintf(stderr,
+            "A333082_02 prime-border lift direct-check=ok through p=11\n");
+}
 
-    reconstruct_crt(answer, residues, moduli, modulus_count);
-    if (mpz_sgn(answer) < 0 || mpz_cmp(answer, factorial_bound) > 0) {
-        die("CRT reconstruction is outside 0..n!");
-    }
-    for (int q = 0; q < modulus_count; ++q) {
-        if (mpz_fdiv_ui(answer, (unsigned long)moduli[q]) != residues[q]) {
-            die("CRT residue replay failed");
-        }
-    }
+static void verify_base_answer(const mpz_t answer, int n)
+{
     if (n <= DIRECT_CHECK_MAX_N) {
         uint64_t direct = direct_count(n);
         if (!mpz_fits_ulong_p(answer) || mpz_get_ui(answer) != direct) {
@@ -973,17 +920,94 @@ static void calculate_term(mpz_t answer, int n, uint64_t memory_limit)
         }
         mpz_clear(expected);
     }
+}
+
+static void calculate_base_and_optional_lift(
+    mpz_t base_answer, mpz_t lifted_answer, int n, bool want_prime_lift,
+    uint64_t memory_limit)
+{
+    if (n < 0 || n > MAX_BASE_N) {
+        die("invalid base universe");
+    }
+    if (want_prime_lift && n + 1 != 19) {
+        die("prime lift is implemented only for 18 to 19");
+    }
+    size_t group_count = 0;
+    size_t choice_count = 0;
+    RatioGroup *groups = make_groups(n, &group_count, &choice_count);
+
+    mpz_t bound;
+    mpz_init(bound);
+    mpz_fac_ui(bound, (unsigned long)(want_prime_lift ? n + 1 : n));
+    int modulus_count = required_moduli(bound);
+    uint32_t base_residues[MAX_CRT_PRIMES] = {0};
+    uint32_t lifted_residues[MAX_CRT_PRIMES] = {0};
+    double total_seconds = 0.0;
+    uint64_t maximum_peak = 0;
+    size_t final_states = 0;
+    uint64_t compatible = 0;
+
+    for (int q = 0; q < modulus_count; ++q) {
+        PassStats stats = {0};
+        dp_residues(n, groups, group_count, available_moduli[q],
+                    memory_limit, want_prime_lift, &base_residues[q],
+                    &lifted_residues[q], &stats, q + 1, modulus_count);
+        total_seconds += stats.seconds;
+        if (stats.peak_bytes > maximum_peak) {
+            maximum_peak = stats.peak_bytes;
+        }
+        if (q == 0) {
+            final_states = stats.final_states;
+            compatible = stats.compatible_choices;
+        }
+        fprintf(stderr,
+                "A333082_02 base=%d CRT-pass=%d/%d done %.3fs "
+                "peak=%.3f MiB\n",
+                n, q + 1, modulus_count, stats.seconds,
+                (double)stats.peak_bytes / (1024.0 * 1024.0));
+    }
+
+    reconstruct_crt(base_answer, base_residues, modulus_count);
+    mpz_t base_bound;
+    mpz_init(base_bound);
+    mpz_fac_ui(base_bound, (unsigned long)n);
+    if (mpz_sgn(base_answer) < 0 || mpz_cmp(base_answer, base_bound) > 0) {
+        die("base CRT result is outside 0..n!");
+    }
+    for (int q = 0; q < modulus_count; ++q) {
+        if (mpz_fdiv_ui(base_answer, available_moduli[q]) !=
+            base_residues[q]) {
+            die("base CRT residue replay failed");
+        }
+    }
+    verify_base_answer(base_answer, n);
+
+    if (want_prime_lift) {
+        reconstruct_crt(lifted_answer, lifted_residues, modulus_count);
+        if (mpz_sgn(lifted_answer) < 0 || mpz_cmp(lifted_answer, bound) > 0) {
+            die("lifted CRT result is outside 0..(n+1)!");
+        }
+        for (int q = 0; q < modulus_count; ++q) {
+            if (mpz_fdiv_ui(lifted_answer, available_moduli[q]) !=
+                lifted_residues[q]) {
+                die("lifted CRT residue replay failed");
+            }
+        }
+    } else {
+        mpz_set_ui(lifted_answer, 0);
+    }
 
     fprintf(stderr,
-            "A333082 n=%d groups=%zu choices=%zu states=%zu "
-            "compatible=%" PRIu64 " CRT=%d time=%.3fs peak=%.3f MiB%s%s\n",
+            "A333082_02 base=%d groups=%zu choices=%zu states=%zu "
+            "compatible=%" PRIu64 " CRT=%d total=%.3fs peak=%.3f MiB%s%s\n",
             n, group_count, choice_count, final_states, compatible,
             modulus_count, total_seconds,
             (double)maximum_peak / (1024.0 * 1024.0),
             n <= DIRECT_CHECK_MAX_N ? " direct-check=ok" : "",
             n <= VERIFIED_MAX_N ? " known-term=ok" : "");
 
-    mpz_clear(factorial_bound);
+    mpz_clear(base_bound);
+    mpz_clear(bound);
     free_groups(groups, group_count);
 }
 
@@ -1026,9 +1050,12 @@ int main(int argc, char **argv)
                       ? parse_int_range(argv[2], 0, maximum_from, "FROM")
                       : 0;
     uint64_t memory_limit = parse_memory_limit();
+    verify_moduli();
+    verify_prime_lift_small(memory_limit);
+
     char *part_path =
-        path_beside_executable(argv[0], "b333082_01_part.txt");
-    char *final_path = path_beside_executable(argv[0], "b333082_01.txt");
+        path_beside_executable(argv[0], "b333082_02_part.txt");
+    char *final_path = path_beside_executable(argv[0], "b333082_02.txt");
     FILE *bfile = fopen(part_path, "w");
     if (bfile == NULL) {
         fprintf(stderr, "error: could not open %s: %s\n",
@@ -1039,19 +1066,27 @@ int main(int argc, char **argv)
     }
 
     mpz_t answer;
-    mpz_init(answer);
+    mpz_t lifted;
+    mpz_inits(answer, lifted, NULL);
     for (int n = 0; n < first_n; ++n) {
         if (mpz_set_str(answer, verified_terms[n], 10) != 0) {
             die("invalid built-in verification term");
         }
         write_term(bfile, part_path, n, answer);
-        fprintf(stderr, "A333082 n=%d loaded from verified prefix\n", n);
+        fprintf(stderr, "A333082_02 n=%d loaded from verified prefix\n", n);
     }
+
     for (int n = first_n; n <= maximum_n; ++n) {
-        calculate_term(answer, n, memory_limit);
+        bool lift_to_19 = n == 18 && maximum_n >= 19;
+        calculate_base_and_optional_lift(answer, lifted, n, lift_to_19,
+                                         memory_limit);
         write_term(bfile, part_path, n, answer);
+        if (lift_to_19) {
+            write_term(bfile, part_path, 19, lifted);
+            ++n;
+        }
     }
-    mpz_clear(answer);
+    mpz_clears(lifted, answer, NULL);
 
     if (fclose(bfile) != 0) {
         fprintf(stderr, "error: could not close %s: %s\n",
