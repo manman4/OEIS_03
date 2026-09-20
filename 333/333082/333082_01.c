@@ -120,7 +120,9 @@ __extension__ typedef unsigned __int128 U128;
 #define DEFAULT_MEMORY_MIB UINT64_C(8192)
 #define MIN_MEMORY_MIB UINT64_C(64)
 #define MAX_MEMORY_MIB UINT64_C(65536)
+#ifndef PROGRESS_INTERVAL_SECONDS
 #define PROGRESS_INTERVAL_SECONDS 60.0
+#endif
 
 static const char *const verified_terms[VERIFIED_MAX_N + 1] = {
     "1", "1", "1", "5", "13", "79", "345", "2785",
@@ -165,6 +167,15 @@ typedef struct {
     double seconds;
 } PassStats;
 
+typedef struct {
+    int n;
+    int crt_pass;
+    int crt_count;
+    size_t group_count;
+    double started;
+    double last_report;
+} Progress;
+
 static _Noreturn void die(const char *message)
 {
     fprintf(stderr, "error: %s\n", message);
@@ -178,6 +189,29 @@ static double monotonic_seconds(void)
         die("clock_gettime failed");
     }
     return (double)now.tv_sec + (double)now.tv_nsec / 1000000000.0;
+}
+
+static void report_progress(Progress *progress, const char *phase,
+                            size_t group_number, size_t scanned,
+                            size_t scan_total, size_t states,
+                            const MemoryBudget *budget)
+{
+    double now = monotonic_seconds();
+    if (now - progress->last_report < PROGRESS_INTERVAL_SECONDS) {
+        return;
+    }
+    double percentage = scan_total == 0
+                            ? 100.0
+                            : 100.0 * (double)scanned / (double)scan_total;
+    fprintf(stderr,
+            "A333082 n=%d progress CRT=%d/%d group=%zu/%zu phase=%s "
+            "scan=%.1f%% states=%zu elapsed=%.0fs peak=%.1f MiB\n",
+            progress->n, progress->crt_pass, progress->crt_count,
+            group_number, progress->group_count, phase, percentage, states,
+            now - progress->started,
+            (double)budget->peak / (1024.0 * 1024.0));
+    fflush(stderr);
+    progress->last_report = now;
 }
 
 static void *checked_malloc(size_t count, size_t size)
@@ -612,10 +646,16 @@ static uint64_t pack_canonical_state(uint32_t rows, uint32_t columns, int n)
 static void apply_group(StateTable *destination, const StateTable *source,
                         const RatioGroup *group, int n,
                         uint64_t row_mask_limit, uint64_t modulus,
-                        MemoryBudget *budget, PassStats *stats)
+                        MemoryBudget *budget, PassStats *stats,
+                        Progress *progress, size_t group_number)
 {
     table_init(destination, source->capacity, budget);
     for (size_t bucket = 0; bucket < source->capacity; ++bucket) {
+        if ((bucket & (size_t)16383) == 0) {
+            report_progress(progress, "ratio-transition", group_number,
+                            bucket, source->capacity,
+                            destination->size, budget);
+        }
         if (source->keys[bucket] == 0 || source->values[bucket] == 0) {
             continue;
         }
@@ -650,7 +690,8 @@ static void apply_group(StateTable *destination, const StateTable *source,
 
 static void fold_transpose(StateTable *table, int n,
                            uint64_t row_mask_limit, uint64_t modulus,
-                           MemoryBudget *budget, PassStats *stats)
+                           MemoryBudget *budget, PassStats *stats,
+                           Progress *progress, size_t group_number)
 {
     StateTable folded = {0};
     size_t initial_capacity = table->capacity / 2;
@@ -659,6 +700,11 @@ static void fold_transpose(StateTable *table, int n,
     }
     table_init(&folded, initial_capacity, budget);
     for (size_t bucket = 0; bucket < table->capacity; ++bucket) {
+        if ((bucket & (size_t)16383) == 0) {
+            report_progress(progress, "transpose-fold", group_number,
+                            bucket, table->capacity, folded.size,
+                            budget);
+        }
         if (table->keys[bucket] == 0 || table->values[bucket] == 0) {
             continue;
         }
@@ -675,10 +721,13 @@ static void fold_transpose(StateTable *table, int n,
 
 static uint64_t dp_residue(int n, const RatioGroup *groups,
                            size_t group_count, uint64_t modulus,
-                           uint64_t memory_limit, PassStats *stats)
+                           uint64_t memory_limit, PassStats *stats,
+                           int crt_pass, int crt_count)
 {
     double started = monotonic_seconds();
-    double last_progress = started;
+    Progress progress = {
+        n, crt_pass, crt_count, group_count, started, started
+    };
     MemoryBudget budget = {memory_limit, 0, 0};
     StateTable current = {0};
     table_init(&current, INITIAL_CAPACITY, &budget);
@@ -698,30 +747,17 @@ static uint64_t dp_residue(int n, const RatioGroup *groups,
         }
         StateTable next = {0};
         apply_group(&next, &current, first, n, row_mask_limit,
-                    modulus, &budget, stats);
+                    modulus, &budget, stats, &progress, group_index + 1);
         table_clear(&current, &budget);
         current = next;
 
         memset(&next, 0, sizeof(next));
         apply_group(&next, &current, second, n, row_mask_limit,
-                    modulus, &budget, stats);
+                    modulus, &budget, stats, &progress, group_index + 2);
         table_clear(&current, &budget);
         current = next;
         fold_transpose(&current, n, row_mask_limit, modulus,
-                       &budget, stats);
-
-        double now = monotonic_seconds();
-        if (group_index + 2 < group_count &&
-            now - last_progress >= PROGRESS_INTERVAL_SECONDS) {
-            fprintf(stderr,
-                    "A333082 n=%d progress group=%zu/%zu states=%zu "
-                    "elapsed=%.0fs peak=%.1f MiB\n",
-                    n, group_index + 2, group_count, current.size,
-                    now - started,
-                    (double)budget.peak / (1024.0 * 1024.0));
-            fflush(stderr);
-            last_progress = now;
-        }
+                       &budget, stats, &progress, group_index + 2);
     }
 
     uint64_t completion[MAX_N + 1][MAX_N + 1];
@@ -729,6 +765,11 @@ static uint64_t dp_residue(int n, const RatioGroup *groups,
     uint32_t full_mask = (UINT32_C(1) << n) - 1;
     uint64_t answer = 0;
     for (size_t bucket = 0; bucket < current.capacity; ++bucket) {
+        if ((bucket & (size_t)16383) == 0) {
+            report_progress(&progress, "final-sum", group_count,
+                            bucket, current.capacity, current.size,
+                            &budget);
+        }
         if (current.keys[bucket] == 0 || current.values[bucket] == 0) {
             continue;
         }
@@ -882,7 +923,8 @@ static void calculate_term(mpz_t answer, int n, uint64_t memory_limit)
     for (int q = 0; q < modulus_count; ++q) {
         PassStats stats = {0};
         residues[q] = dp_residue(n, groups, group_count, moduli[q],
-                                 memory_limit, &stats);
+                                 memory_limit, &stats, q + 1,
+                                 modulus_count);
         total_seconds += stats.seconds;
         if (stats.peak_bytes > maximum_peak) {
             maximum_peak = stats.peak_bytes;
