@@ -28,9 +28,16 @@
  * The sparse DP processes every non-diagonal ratio class once.  A state is
  * the pair of masks of rows and columns occupied by marked cells.  States
  * with the same masks can be combined because compatibility with future
- * classes depends only on these masks.  Unlike A333083_01, ratio classes
- * are generally not invariant under transposition, so no transpose quotient
- * is used here.
+ * classes depends only on these masks.
+ *
+ * Transposition sends the class a/b to its reciprocal b/a.  Reciprocal
+ * classes are therefore processed in adjacent pairs.  The product of their
+ * two transition operators commutes with transposition (the two class
+ * polynomials commute), so after each complete pair the states (R,C) and
+ * (C,R) are folded together.  The stored coefficient is their orbit sum.
+ * Equation (2) is symmetric in R and C, so this exact quotient is also valid
+ * at the final evaluation.  No quotient is taken between the two members of
+ * a reciprocal pair.
  *
  * The diagonal class j/i=1 contains n cells and would have exponentially
  * many explicit choices.  It is left until the final evaluation.  For a DP
@@ -424,24 +431,28 @@ static void table_add(StateTable *table, uint64_t key, uint64_t addend,
     if (addend == 0) {
         return;
     }
-    if (table->size + 1 >
-        table->capacity * LOAD_NUMERATOR / LOAD_DENOMINATOR) {
-        table_grow(table, budget);
-    }
     uint64_t stored_key = key + 1;
     if (stored_key == 0) {
         die("packed state key overflow");
     }
     size_t slot = table_slot(table, stored_key);
-    if (table->keys[slot] == 0) {
-        table->keys[slot] = stored_key;
-        table->values[slot] = addend;
-        ++table->size;
-        ++stats->insertions;
-    } else {
+    if (table->keys[slot] != 0) {
         table->values[slot] =
             add_mod(table->values[slot], addend, modulus);
+        return;
     }
+    if (table->size + 1 >
+        table->capacity * LOAD_NUMERATOR / LOAD_DENOMINATOR) {
+        table_grow(table, budget);
+        slot = table_slot(table, stored_key);
+        if (table->keys[slot] != 0) {
+            die("state appeared during hash growth");
+        }
+    }
+    table->keys[slot] = stored_key;
+    table->values[slot] = addend;
+    ++table->size;
+    ++stats->insertions;
 }
 
 static int compare_groups(const void *left_pointer, const void *right_pointer)
@@ -450,6 +461,20 @@ static int compare_groups(const void *left_pointer, const void *right_pointer)
     const RatioGroup *right = right_pointer;
     if (left->cell_count != right->cell_count) {
         return left->cell_count < right->cell_count ? -1 : 1;
+    }
+    int left_low = left->numerator < left->denominator
+                       ? left->numerator : left->denominator;
+    int right_low = right->numerator < right->denominator
+                        ? right->numerator : right->denominator;
+    if (left_low != right_low) {
+        return left_low < right_low ? -1 : 1;
+    }
+    int left_high = left->numerator > left->denominator
+                        ? left->numerator : left->denominator;
+    int right_high = right->numerator > right->denominator
+                         ? right->numerator : right->denominator;
+    if (left_high != right_high) {
+        return left_high < right_high ? -1 : 1;
     }
     if (left->numerator != right->numerator) {
         return left->numerator < right->numerator ? -1 : 1;
@@ -569,6 +594,85 @@ static void make_completion_weights(uint64_t weights[MAX_N + 1][MAX_N + 1],
     }
 }
 
+static uint64_t pack_state(uint32_t rows, uint32_t columns, int n)
+{
+    return (uint64_t)rows | ((uint64_t)columns << n);
+}
+
+static uint64_t pack_canonical_state(uint32_t rows, uint32_t columns, int n)
+{
+    if (rows > columns) {
+        uint32_t temporary = rows;
+        rows = columns;
+        columns = temporary;
+    }
+    return pack_state(rows, columns, n);
+}
+
+static void apply_group(StateTable *destination, const StateTable *source,
+                        const RatioGroup *group, int n,
+                        uint64_t row_mask_limit, uint64_t modulus,
+                        MemoryBudget *budget, PassStats *stats)
+{
+    table_init(destination, source->capacity, budget);
+    for (size_t bucket = 0; bucket < source->capacity; ++bucket) {
+        if (source->keys[bucket] == 0 || source->values[bucket] == 0) {
+            continue;
+        }
+        uint64_t key = source->keys[bucket] - 1;
+        uint64_t value = source->values[bucket];
+        uint32_t rows = (uint32_t)(key & row_mask_limit);
+        uint32_t columns = (uint32_t)(key >> n);
+        ++stats->source_states;
+        table_add(destination, key, value, modulus, budget, stats);
+        for (size_t c = 0; c < group->choice_count; ++c) {
+            const Choice *choice = &group->choices[c];
+            if ((rows & choice->rows) != 0 ||
+                (columns & choice->columns) != 0) {
+                continue;
+            }
+            ++stats->compatible_choices;
+            unsigned magnitude = choice->coefficient < 0
+                                     ? (unsigned)(-choice->coefficient)
+                                     : (unsigned)choice->coefficient;
+            uint64_t weighted = multiply_mod(value, magnitude, modulus);
+            if (choice->coefficient < 0 && weighted != 0) {
+                weighted = modulus - weighted;
+            }
+            uint32_t next_rows = rows | choice->rows;
+            uint32_t next_columns = columns | choice->columns;
+            uint64_t next_key = pack_state(next_rows, next_columns, n);
+            table_add(destination, next_key, weighted, modulus,
+                      budget, stats);
+        }
+    }
+}
+
+static void fold_transpose(StateTable *table, int n,
+                           uint64_t row_mask_limit, uint64_t modulus,
+                           MemoryBudget *budget, PassStats *stats)
+{
+    StateTable folded = {0};
+    size_t initial_capacity = table->capacity / 2;
+    if (initial_capacity < INITIAL_CAPACITY) {
+        initial_capacity = INITIAL_CAPACITY;
+    }
+    table_init(&folded, initial_capacity, budget);
+    for (size_t bucket = 0; bucket < table->capacity; ++bucket) {
+        if (table->keys[bucket] == 0 || table->values[bucket] == 0) {
+            continue;
+        }
+        uint64_t key = table->keys[bucket] - 1;
+        uint32_t rows = (uint32_t)(key & row_mask_limit);
+        uint32_t columns = (uint32_t)(key >> n);
+        uint64_t canonical = pack_canonical_state(rows, columns, n);
+        table_add(&folded, canonical, table->values[bucket], modulus,
+                  budget, stats);
+    }
+    table_clear(table, budget);
+    *table = folded;
+}
+
 static uint64_t dp_residue(int n, const RatioGroup *groups,
                            size_t group_count, uint64_t modulus,
                            uint64_t memory_limit, PassStats *stats)
@@ -581,52 +685,38 @@ static uint64_t dp_residue(int n, const RatioGroup *groups,
     table_add(&current, 0, 1, modulus, &budget, stats);
     uint64_t row_mask_limit = (UINT64_C(1) << n) - 1;
 
-    for (size_t group_index = 0; group_index < group_count; ++group_index) {
-        const RatioGroup *group = &groups[group_index];
-        StateTable next = {0};
-        table_init(&next, current.capacity, &budget);
-        for (size_t bucket = 0; bucket < current.capacity; ++bucket) {
-            if (current.keys[bucket] == 0 || current.values[bucket] == 0) {
-                continue;
-            }
-            uint64_t key = current.keys[bucket] - 1;
-            uint64_t value = current.values[bucket];
-            uint32_t rows = (uint32_t)(key & row_mask_limit);
-            uint32_t columns = (uint32_t)(key >> n);
-            ++stats->source_states;
-            table_add(&next, key, value, modulus, &budget, stats);
-            for (size_t c = 0; c < group->choice_count; ++c) {
-                const Choice *choice = &group->choices[c];
-                if ((rows & choice->rows) != 0 ||
-                    (columns & choice->columns) != 0) {
-                    continue;
-                }
-                ++stats->compatible_choices;
-                unsigned magnitude = choice->coefficient < 0
-                                         ? (unsigned)(-choice->coefficient)
-                                         : (unsigned)choice->coefficient;
-                uint64_t weighted = multiply_mod(value, magnitude, modulus);
-                if (choice->coefficient < 0 && weighted != 0) {
-                    weighted = modulus - weighted;
-                }
-                uint32_t next_rows = rows | choice->rows;
-                uint32_t next_columns = columns | choice->columns;
-                uint64_t next_key = (uint64_t)next_rows |
-                    ((uint64_t)next_columns << n);
-                table_add(&next, next_key, weighted, modulus,
-                          &budget, stats);
-            }
+    if ((group_count & 1U) != 0) {
+        die("non-diagonal ratio groups do not form reciprocal pairs");
+    }
+    for (size_t group_index = 0; group_index < group_count;
+         group_index += 2) {
+        const RatioGroup *first = &groups[group_index];
+        const RatioGroup *second = &groups[group_index + 1];
+        if (first->numerator != second->denominator ||
+            first->denominator != second->numerator) {
+            die("ratio groups are not adjacent reciprocal pairs");
         }
+        StateTable next = {0};
+        apply_group(&next, &current, first, n, row_mask_limit,
+                    modulus, &budget, stats);
         table_clear(&current, &budget);
         current = next;
 
+        memset(&next, 0, sizeof(next));
+        apply_group(&next, &current, second, n, row_mask_limit,
+                    modulus, &budget, stats);
+        table_clear(&current, &budget);
+        current = next;
+        fold_transpose(&current, n, row_mask_limit, modulus,
+                       &budget, stats);
+
         double now = monotonic_seconds();
-        if (group_index + 1 < group_count &&
+        if (group_index + 2 < group_count &&
             now - last_progress >= PROGRESS_INTERVAL_SECONDS) {
             fprintf(stderr,
                     "A333082 n=%d progress group=%zu/%zu states=%zu "
                     "elapsed=%.0fs peak=%.1f MiB\n",
-                    n, group_index + 1, group_count, current.size,
+                    n, group_index + 2, group_count, current.size,
                     now - started,
                     (double)budget.peak / (1024.0 * 1024.0));
             fflush(stderr);
