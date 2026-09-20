@@ -26,6 +26,14 @@
  *
  *   a(n) = sum_state weight(state) * (n-popcount(rows(state)))!.      (2)
  *
+ * Transposing every marked cell swaps the row and column masks and preserves
+ * every product class.  The class transition operator commutes with this
+ * involution.  The DP therefore stores one orbit sum under (R,C)<->(C,R),
+ * represented by min(R,C),max(R,C).  Applying all choices to that one
+ * representative gives exactly the next orbit sums because the choice list
+ * is itself closed under transposition.  This exact symmetry reduction
+ * nearly halves the large layers; it does not divide the final answer.
+ *
  * Coefficients in this inclusion-exclusion sum can be much larger than the
  * answer.  Each sparse DP pass is therefore performed modulo a distinct
  * 61-bit prime.  CRT passes continue until their product is strictly larger
@@ -53,8 +61,9 @@
  * below FROM is copied without running the DP; hence both outputs still cover
  * 0..N.  N is limited to 31 by the packed pair of 31-bit masks.  The
  * exponential state count normally makes the practical limit much smaller.
- * The environment variable bounds the two sparse hash tables (64..65536 MiB);
- * every size and allocation is checked before use.
+ * The environment variable bounds the sparse hash table and its per-class
+ * source snapshot (64..65536 MiB); every size and allocation is checked
+ * before use.
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -97,6 +106,7 @@ __extension__ typedef unsigned __int128 U128;
 #define DEFAULT_MEMORY_MIB UINT64_C(4096)
 #define MIN_MEMORY_MIB UINT64_C(64)
 #define MAX_MEMORY_MIB UINT64_C(65536)
+#define PROGRESS_INTERVAL_SECONDS 60.0
 
 static const char *const verified_terms[VERIFIED_MAX_N + 1] = {
     "1", "1", "1", "3", "13", "67", "305", "2359",
@@ -139,6 +149,11 @@ typedef struct {
     uint64_t peak_bytes;
     double seconds;
 } PassStats;
+
+typedef struct {
+    uint64_t key;
+    uint64_t value;
+} SourceState;
 
 static _Noreturn void die(const char *message)
 {
@@ -301,6 +316,16 @@ static uint64_t mix64(uint64_t x)
     x ^= x >> 27;
     x *= UINT64_C(0x94d049bb133111eb);
     return x ^ (x >> 31);
+}
+
+static uint64_t pack_state(uint32_t rows, uint32_t columns, int n)
+{
+    if (rows > columns) {
+        uint32_t temporary = rows;
+        rows = columns;
+        columns = temporary;
+    }
+    return (uint64_t)rows | ((uint64_t)columns << n);
 }
 
 static void table_init(StateTable *table, size_t capacity,
@@ -520,47 +545,105 @@ static uint64_t dp_residue(int n, const ProductGroup *groups,
     table_add(&current, 0, 1, modulus, &budget, stats);
 
     uint64_t row_mask_limit = (UINT64_C(1) << n) - 1;
+    double last_progress = started;
     for (size_t group_index = 0; group_index < group_count; ++group_index) {
         const ProductGroup *group = &groups[group_index];
-        StateTable next = {0};
-        table_init(&next, current.capacity, &budget);
-
+        size_t cardinality_count[MAX_N + 1] = {0};
+        size_t source_count = 0;
         for (size_t bucket = 0; bucket < current.capacity; ++bucket) {
             if (current.keys[bucket] == 0 || current.values[bucket] == 0) {
                 continue;
             }
             uint64_t key = current.keys[bucket] - 1;
-            uint64_t value = current.values[bucket];
             uint32_t rows = (uint32_t)(key & row_mask_limit);
-            uint32_t columns = (uint32_t)(key >> n);
-            ++stats->source_states;
+            int occupied = __builtin_popcount(rows);
+            ++cardinality_count[occupied];
+            ++source_count;
+        }
+        if (source_count > UINT64_MAX / sizeof(SourceState)) {
+            die("source-snapshot size overflow");
+        }
+        uint64_t snapshot_bytes =
+            (uint64_t)source_count * sizeof(SourceState);
+        budget_acquire(&budget, snapshot_bytes);
+        SourceState *sources =
+            checked_malloc(source_count, sizeof(*sources));
 
-            table_add(&next, key, value, modulus, &budget, stats);
-            for (size_t c = 0; c < group->choice_count; ++c) {
-                const Choice *choice = &group->choices[c];
-                if ((rows & choice->rows) != 0 ||
-                    (columns & choice->columns) != 0) {
-                    continue;
+        size_t start[MAX_N + 2] = {0};
+        size_t next_position[MAX_N + 1] = {0};
+        for (int occupied = 0; occupied <= n; ++occupied) {
+            start[occupied + 1] =
+                start[occupied] + cardinality_count[occupied];
+            next_position[occupied] = start[occupied];
+        }
+        if (start[n + 1] != source_count) {
+            die("source-snapshot count mismatch");
+        }
+        for (size_t bucket = 0; bucket < current.capacity; ++bucket) {
+            if (current.keys[bucket] == 0 || current.values[bucket] == 0) {
+                continue;
+            }
+            uint64_t key = current.keys[bucket] - 1;
+            uint32_t rows = (uint32_t)(key & row_mask_limit);
+            int occupied = __builtin_popcount(rows);
+            size_t position = next_position[occupied]++;
+            sources[position].key = key;
+            sources[position].value = current.values[bucket];
+        }
+
+        /*
+         * A compatible choice adds at least two occupied rows.  Processing
+         * the snapshot by decreasing cardinality makes an in-place update
+         * exact: every possible target cardinality has already had its turn,
+         * so no newly created state is processed again for this group.
+         */
+        for (int occupied = n; occupied >= 0; --occupied) {
+            for (size_t source = start[occupied];
+                 source < start[occupied + 1]; ++source) {
+                uint64_t key = sources[source].key;
+                uint64_t value = sources[source].value;
+                uint32_t rows = (uint32_t)(key & row_mask_limit);
+                uint32_t columns = (uint32_t)(key >> n);
+                ++stats->source_states;
+                for (size_t c = 0; c < group->choice_count; ++c) {
+                    const Choice *choice = &group->choices[c];
+                    if ((rows & choice->rows) != 0 ||
+                        (columns & choice->columns) != 0) {
+                        continue;
+                    }
+                    ++stats->compatible_choices;
+                    unsigned magnitude = choice->coefficient < 0
+                                             ? (unsigned)(-choice->coefficient)
+                                             : (unsigned)choice->coefficient;
+                    uint64_t weighted =
+                        multiply_small_mod(value, magnitude, modulus);
+                    if (choice->coefficient < 0 && weighted != 0) {
+                        weighted = modulus - weighted;
+                    }
+                    uint32_t next_rows = rows | choice->rows;
+                    uint32_t next_columns = columns | choice->columns;
+                    uint64_t next_key =
+                        pack_state(next_rows, next_columns, n);
+                    table_add(&current, next_key, weighted, modulus,
+                              &budget, stats);
                 }
-                ++stats->compatible_choices;
-                unsigned magnitude = choice->coefficient < 0
-                                         ? (unsigned)(-choice->coefficient)
-                                         : (unsigned)choice->coefficient;
-                uint64_t weighted =
-                    multiply_small_mod(value, magnitude, modulus);
-                if (choice->coefficient < 0 && weighted != 0) {
-                    weighted = modulus - weighted;
-                }
-                uint32_t next_rows = rows | choice->rows;
-                uint32_t next_columns = columns | choice->columns;
-                uint64_t next_key = (uint64_t)next_rows |
-                    ((uint64_t)next_columns << n);
-                table_add(&next, next_key, weighted, modulus,
-                          &budget, stats);
             }
         }
-        table_clear(&current, &budget);
-        current = next;
+        free(sources);
+        budget_release(&budget, snapshot_bytes);
+
+        double now = monotonic_seconds();
+        if (group_index + 1 < group_count &&
+            now - last_progress >= PROGRESS_INTERVAL_SECONDS) {
+            fprintf(stderr,
+                    "A333083 n=%d progress group=%zu/%zu states=%zu "
+                    "elapsed=%.1fs peak=%.1f MiB\n",
+                    n, group_index + 1, group_count, current.size,
+                    now - started,
+                    (double)budget.peak / (1024.0 * 1024.0));
+            fflush(stderr);
+            last_progress = now;
+        }
     }
 
     uint64_t factorial[MAX_N + 1];
