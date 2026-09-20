@@ -52,7 +52,7 @@
  *
  * Usage:
  *
- *   A333083_MEMORY_MIB=4096 ./333083_01 N [FROM]
+ *   A333083_MEMORY_MIB=8192 ./333083_01 N [FROM]
  *
  * Every completed term is written to b333083_01_part.txt beside the executable
  * and made durable with fflush+fsync.  After all terms through N succeed, the
@@ -103,7 +103,7 @@ __extension__ typedef unsigned __int128 U128;
 #define INITIAL_CAPACITY ((size_t)16)
 #define LOAD_NUMERATOR ((size_t)7)
 #define LOAD_DENOMINATOR ((size_t)10)
-#define DEFAULT_MEMORY_MIB UINT64_C(4096)
+#define DEFAULT_MEMORY_MIB UINT64_C(8192)
 #define MIN_MEMORY_MIB UINT64_C(64)
 #define MAX_MEMORY_MIB UINT64_C(65536)
 #define PROGRESS_INTERVAL_SECONDS 60.0
