@@ -5,11 +5,15 @@
  * 出力: b386581_02.txt（OEIS の b-file 形式 "n a(n)"）
  *
  * コンパイルと実行
- *   gcc -O2 -o 386581_02 386581_02.c
+ *   cc -O3 -std=c11 -Wall -Wextra -Wpedantic \
+ *      386581_02.c -o 386581_02
  *   ./386581_02 [N]        # n = 0..N（既定 N = 100, 最大 127）
+ *   ./386581_02 N --output FILE
+ *   ./386581_02 N --no-bfile
  *
- *   目安: N = 100 で約 15 秒・350 MB、N = 110 で約 50 秒・850 MB。
- *   N を 10 増やすごとに時間・メモリともおよそ 2.5〜3.5 倍になる。
+ *   目安: N = 100 は環境により数十秒・数百 MB を要する。N を 10 増やすごとに
+ *   時間・メモリともおよそ 2.5〜3.5 倍になる。最大値 127 は表現上の上限であり、
+ *   実用的な実行時間やメモリ量を保証するものではない。
  *
  * 補数列 A386580 との関係
  *   大きさ n >= 1 の正規多重集合は n の組成と一対一に対応し、全部で 2^(n-1) 個ある。
@@ -59,14 +63,30 @@
  *   調べる必要がない。
  *
  * 値は 128 ビット整数で保持する（2^(n-1) <= 2^126 なので n <= 127 まで安全）。
+ * 完了した各項は b-file の既存の連続 prefix と照合し、排他ロックの下で
+ * 一時ファイルを fsync してから rename する。既存項は削除せず、計算途中の項も
+ * 記録しない。複数プロセスが同じ b-file を更新しても重複や欠番を作らない。
  */
 
+#define _POSIX_C_SOURCE 200809L
+
+#include <errno.h>
+#include <fcntl.h>
+#include <inttypes.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
-typedef unsigned __int128 u128;
+#if !defined(__SIZEOF_INT128__)
+#error "386581_02.c requires unsigned __int128"
+#endif
+
+__extension__ typedef unsigned __int128 u128;
 
 #define MAXN 127
 #define MAXL 15 /* 相異なる正整数 15 個の和は 120、16 個なら 136 > 127 */
@@ -80,6 +100,23 @@ typedef unsigned __int128 u128;
 #define MARK (((u128)1) << 127)
 #define MU_SHIFT 112
 #define PARTS_MASK ((((u128)1) << 105) - 1)
+#define U128_MAX_VALUE (~(u128)0)
+
+_Static_assert(MAXL * (MAXL + 1) / 2 <= MAXN,
+               "MAXL cannot represent every possible witness");
+_Static_assert((MAXL + 1) * (MAXL + 2) / 2 > MAXN,
+               "MAXL is larger than necessary");
+_Static_assert(7 * MAXL <= MU_SHIFT, "parts overlap the mu field");
+_Static_assert(MU_SHIFT + 7 < 127, "mu overlaps the hash marker");
+
+static const char *output_path = "b386581_02.txt";
+static bool write_bfile = true;
+
+static _Noreturn void die(const char *message)
+{
+    fprintf(stderr, "error: %s\n", message);
+    exit(EXIT_FAILURE);
+}
 
 static u128 encode(const int *p, int t)
 {
@@ -119,11 +156,21 @@ static size_t hash_u128(u128 k)
 
 static void *xcalloc(size_t n, size_t sz)
 {
+    if (sz != 0U && n > SIZE_MAX / sz)
+        die("allocation size overflow");
     void *p = calloc(n, sz);
-    if (!p) {
-        fprintf(stderr, "out of memory\n");
-        exit(1);
-    }
+    if (!p)
+        die("out of memory");
+    return p;
+}
+
+static void *xrealloc(void *old, size_t n, size_t sz)
+{
+    if (sz != 0U && n > SIZE_MAX / sz)
+        die("allocation size overflow");
+    void *p = realloc(old, n * sz);
+    if (!p)
+        die("out of memory");
     return p;
 }
 
@@ -143,10 +190,14 @@ static int hset_insert_raw(u128 k)
 /* 新しく入れたら 1、既にあれば 0 */
 static int hset_insert(u128 k)
 {
-    if (2 * (hused + 1) > hcap) {
+    if (hused == SIZE_MAX)
+        die("hash-set size overflow");
+    if (hused + 1U > hcap / 2U) {
         u128 *old = hkey;
         size_t oc = hcap;
-        hcap *= 2;
+        if (hcap > SIZE_MAX / 2U)
+            die("hash-set capacity overflow");
+        hcap *= 2U;
         hkey = xcalloc(hcap, sizeof(u128));
         hused = 0;
         for (size_t i = 0; i < oc; i++)
@@ -171,12 +222,11 @@ static size_t layer_len[MAXN + 1], layer_cap[MAXN + 1];
 static void layer_push(int n, u128 v)
 {
     if (layer_len[n] == layer_cap[n]) {
-        layer_cap[n] = layer_cap[n] ? layer_cap[n] * 2 : 16;
-        layer[n] = realloc(layer[n], layer_cap[n] * sizeof(u128));
-        if (!layer[n]) {
-            fprintf(stderr, "out of memory\n");
-            exit(1);
-        }
+        if (layer_cap[n] > SIZE_MAX / 2U)
+            die("layer capacity overflow");
+        const size_t next = layer_cap[n] ? 2U * layer_cap[n] : 16U;
+        layer[n] = xrealloc(layer[n], next, sizeof(u128));
+        layer_cap[n] = next;
     }
     layer[n][layer_len[n]++] = v;
 }
@@ -184,7 +234,7 @@ static void layer_push(int n, u128 v)
 static void layer_shrink(int n)
 {
     if (layer_len[n] > 0 && layer_len[n] < layer_cap[n]) {
-        layer[n] = realloc(layer[n], layer_len[n] * sizeof(u128));
+        layer[n] = xrealloc(layer[n], layer_len[n], sizeof(u128));
         layer_cap[n] = layer_len[n];
     }
 }
@@ -216,7 +266,10 @@ static void offer(int n, const int *p, int t, int x)
     u128 k = encode(p, t);
     if (hset_insert(k)) {
         layer_push(n, k | ((u128)x << MU_SHIFT));
-        layer_total += compositions_count(p, t);
+        const u128 addend = compositions_count(p, t);
+        if (layer_total > U128_MAX_VALUE - addend)
+            die("sequence-value overflow");
+        layer_total += addend;
     }
 }
 
@@ -282,61 +335,327 @@ static u128 build_layer(int n)
     return layer_total;
 }
 
-/* ---------------- 出力 ---------------- */
+/* ---------------- 安全な b-file 入出力 ---------------- */
 
-static void print_u128(FILE *fp, u128 x)
+static void u128_text(u128 value, char text[40])
 {
-    char buf[64];
-    int k = 0;
+    char reverse[40];
+    size_t length = 0U;
     do {
-        buf[k++] = (char)('0' + (int)(x % 10));
-        x /= 10;
-    } while (x > 0);
-    while (k > 0)
-        fputc(buf[--k], fp);
+        reverse[length++] = (char)('0' + (unsigned)(value % 10U));
+        value /= 10U;
+    } while (value != 0U);
+    for (size_t i = 0U; i < length; ++i)
+        text[i] = reverse[length - 1U - i];
+    text[length] = '\0';
+}
+
+static bool parse_u128_token(const char *text, const char **end, u128 *value)
+{
+    if (*text < '0' || *text > '9')
+        return false;
+    u128 result = 0U;
+    do {
+        const unsigned digit = (unsigned)(*text - '0');
+        if (result > (U128_MAX_VALUE - digit) / 10U)
+            return false;
+        result = 10U * result + digit;
+        ++text;
+    } while (*text >= '0' && *text <= '9');
+    *end = text;
+    *value = result;
+    return true;
+}
+
+static char *path_with_suffix(const char *suffix)
+{
+    const size_t path_length = strlen(output_path);
+    const size_t suffix_length = strlen(suffix);
+    if (path_length > SIZE_MAX - suffix_length - 1U)
+        die("output path is too long");
+    char *path = malloc(path_length + suffix_length + 1U);
+    if (!path)
+        die("cannot allocate derived output path");
+    memcpy(path, output_path, path_length);
+    memcpy(path + path_length, suffix, suffix_length + 1U);
+    return path;
+}
+
+static int lock_bfile(void)
+{
+    char *path = path_with_suffix(".lock");
+    const int descriptor = open(path, O_RDWR | O_CREAT, 0666);
+    free(path);
+    if (descriptor < 0)
+        die("cannot open b-file lock");
+    struct flock lock = {
+        .l_type = F_WRLCK,
+        .l_whence = SEEK_SET
+    };
+    while (fcntl(descriptor, F_SETLKW, &lock) != 0) {
+        if (errno != EINTR) {
+            close(descriptor);
+            die("cannot lock b-file");
+        }
+    }
+    return descriptor;
+}
+
+static void unlock_bfile(int descriptor)
+{
+    struct flock lock = {
+        .l_type = F_UNLCK,
+        .l_whence = SEEK_SET
+    };
+    if (fcntl(descriptor, F_SETLK, &lock) != 0 || close(descriptor) != 0)
+        die("cannot unlock b-file");
+}
+
+/* コメントと空行を除き、0 から始まる厳密な連続 prefix だけを受理する。 */
+static unsigned read_bfile(u128 values[MAXN + 1])
+{
+    FILE *input = fopen(output_path, "r");
+    if (!input) {
+        if (errno == ENOENT)
+            return 0U;
+        die("cannot read b-file");
+    }
+
+    char line[256];
+    unsigned next = 0U;
+    while (fgets(line, sizeof(line), input)) {
+        const size_t length = strlen(line);
+        if (length == sizeof(line) - 1U && line[length - 1U] != '\n') {
+            fclose(input);
+            die("b-file contains an overlong line");
+        }
+        char *cursor = line;
+        while (*cursor == ' ' || *cursor == '\t')
+            ++cursor;
+        if (*cursor == '\0' || *cursor == '\n' || *cursor == '#')
+            continue;
+        if (*cursor < '0' || *cursor > '9') {
+            fclose(input);
+            die("b-file contains an invalid index");
+        }
+
+        errno = 0;
+        char *index_end = NULL;
+        const uintmax_t parsed_index = strtoumax(cursor, &index_end, 10);
+        if (errno == ERANGE || index_end == cursor || parsed_index > MAXN ||
+            parsed_index != next) {
+            fclose(input);
+            die("b-file is malformed or has a gap");
+        }
+        cursor = index_end;
+        if (*cursor != ' ' && *cursor != '\t') {
+            fclose(input);
+            die("b-file is malformed or has a gap");
+        }
+        while (*cursor == ' ' || *cursor == '\t')
+            ++cursor;
+
+        const char *value_end = NULL;
+        u128 value;
+        if (!parse_u128_token(cursor, &value_end, &value)) {
+            fclose(input);
+            die("b-file contains an invalid value");
+        }
+        cursor = (char *)value_end;
+        while (*cursor == ' ' || *cursor == '\t')
+            ++cursor;
+        if (*cursor == '\r')
+            ++cursor;
+        if (*cursor == '\n')
+            ++cursor;
+        if (*cursor != '\0') {
+            fclose(input);
+            die("b-file contains trailing data");
+        }
+        values[next++] = value;
+    }
+    if (ferror(input) || fclose(input) != 0)
+        die("cannot finish reading b-file");
+    return next;
+}
+
+static void validate_bfile(void)
+{
+    if (!write_bfile)
+        return;
+    u128 values[MAXN + 1];
+    const int descriptor = lock_bfile();
+    (void)read_bfile(values);
+    unlock_bfile(descriptor);
+}
+
+static void record_term(unsigned n, u128 value)
+{
+    if (!write_bfile)
+        return;
+
+    u128 values[MAXN + 1];
+    const int lock_descriptor = lock_bfile();
+    unsigned prefix = read_bfile(values);
+    if (n < prefix) {
+        if (values[n] != value) {
+            unlock_bfile(lock_descriptor);
+            die("computed term disagrees with the b-file");
+        }
+        unlock_bfile(lock_descriptor);
+        return;
+    }
+    if (n != prefix) {
+        unlock_bfile(lock_descriptor);
+        die("b-file gap detected while recording");
+    }
+    values[prefix++] = value;
+
+    char *temporary = path_with_suffix(".tmp.XXXXXX");
+    const int temporary_descriptor = mkstemp(temporary);
+    if (temporary_descriptor < 0) {
+        unlock_bfile(lock_descriptor);
+        free(temporary);
+        die("cannot create temporary b-file");
+    }
+    FILE *output = fdopen(temporary_descriptor, "w");
+    if (!output) {
+        close(temporary_descriptor);
+        unlink(temporary);
+        unlock_bfile(lock_descriptor);
+        free(temporary);
+        die("cannot open temporary b-file stream");
+    }
+
+    bool failed = false;
+    for (unsigned index = 0U; index < prefix; ++index) {
+        char number[40];
+        u128_text(values[index], number);
+        if (fprintf(output, "%u %s\n", index, number) < 0)
+            failed = true;
+    }
+    if (!failed && fflush(output) != 0)
+        failed = true;
+    if (!failed && fsync(fileno(output)) != 0)
+        failed = true;
+    if (fclose(output) != 0)
+        failed = true;
+    if (failed || rename(temporary, output_path) != 0) {
+        unlink(temporary);
+        unlock_bfile(lock_descriptor);
+        free(temporary);
+        die("cannot atomically update b-file");
+    }
+    free(temporary);
+    unlock_bfile(lock_descriptor);
+}
+
+static int parse_n(const char *text)
+{
+    if (!text || *text == '\0')
+        die("N is empty");
+    errno = 0;
+    char *end = NULL;
+    const long value = strtol(text, &end, 10);
+    if (errno == ERANGE || end == text || *end != '\0' ||
+        value < 0 || value > MAXN) {
+        fprintf(stderr, "error: N must be an integer in 0..%d: %s\n",
+                MAXN, text);
+        exit(EXIT_FAILURE);
+    }
+    return (int)value;
+}
+
+static double monotonic_seconds(void)
+{
+    struct timespec value;
+    if (clock_gettime(CLOCK_MONOTONIC, &value) != 0)
+        die("clock_gettime failed");
+    return (double)value.tv_sec + 1.0e-9 * (double)value.tv_nsec;
+}
+
+static void usage(const char *program)
+{
+    fprintf(stderr,
+            "usage: %s [N] [--output FILE|--no-bfile]\n"
+            "N defaults to 100 and must be in 0..%d.\n"
+            "Completed terms are atomically recorded in %s.\n",
+            program, MAXN, output_path);
 }
 
 int main(int argc, char **argv)
 {
     int nmax = 100;
-    if (argc > 1)
-        nmax = atoi(argv[1]);
-    if (nmax < 0 || nmax > MAXN) {
-        fprintf(stderr, "N must be in 0..%d\n", MAXN);
-        return 1;
+    bool have_n = false;
+    bool output_option = false;
+    bool no_bfile_option = false;
+    for (int argument = 1; argument < argc; ++argument) {
+        const char *text = argv[argument];
+        if (strcmp(text, "--help") == 0 || strcmp(text, "-h") == 0) {
+            usage(argv[0]);
+            return EXIT_SUCCESS;
+        }
+        if (strcmp(text, "--output") == 0) {
+            if (output_option || argument + 1 >= argc ||
+                argv[argument + 1][0] == '\0')
+                die("invalid --output");
+            output_option = true;
+            output_path = argv[++argument];
+        } else if (strcmp(text, "--no-bfile") == 0) {
+            if (no_bfile_option)
+                die("duplicate --no-bfile");
+            no_bfile_option = true;
+        } else {
+            if (text[0] == '-' || have_n) {
+                usage(argv[0]);
+                return EXIT_FAILURE;
+            }
+            nmax = parse_n(text);
+            have_n = true;
+        }
     }
+    if (output_option && no_bfile_option)
+        die("--output and --no-bfile are mutually exclusive");
+    write_bfile = !no_bfile_option;
+    validate_bfile();
 
-    fact[0] = 1;
-    for (int k = 1; k <= MAXL; k++)
+    fact[0] = 1U;
+    for (int k = 1; k <= MAXL; ++k) {
+        if (fact[k - 1] > ULLONG_MAX / (unsigned long long)k)
+            die("factorial overflow");
         fact[k] = fact[k - 1] * (unsigned long long)k;
-    hcap = (size_t)1 << 16;
+    }
+    hcap = (size_t)1U << 16;
     hkey = xcalloc(hcap, sizeof(u128));
 
-    const char *fname = "b386581_02.txt";
-    FILE *fp = fopen(fname, "w");
-    if (!fp) {
-        perror(fname);
-        return 1;
-    }
-
-    clock_t t0 = clock();
-    size_t stored = 0;
-    for (int n = 0; n <= nmax; n++) {
-        u128 good = build_layer(n); /* A386580(n) */
+    const double started = monotonic_seconds();
+    size_t stored = 0U;
+    for (int n = 0; n <= nmax; ++n) {
+        const u128 good = build_layer(n); /* A386580(n) */
+        const u128 total = n == 0 ? 1U : (u128)1U << (n - 1);
+        if (good > total)
+            die("A386580 value exceeds the number of compositions");
+        const u128 value = total - good;
+        if (stored > SIZE_MAX - layer_len[n])
+            die("stored-partition count overflow");
         stored += layer_len[n];
-        u128 v = (n == 0) ? 0 : ((((u128)1) << (n - 1)) - good);
+        record_term((unsigned)n, value);
 
-        fprintf(fp, "%d ", n);
-        print_u128(fp, v);
-        fputc('\n', fp);
-        fflush(fp);
-
-        fprintf(stderr, "%d ", n);
-        print_u128(stderr, v);
-        fprintf(stderr, "  (%.2f s, partitions %zu, stored %zu)\n",
-                (double)(clock() - t0) / CLOCKS_PER_SEC, layer_len[n], stored);
+        char number[40];
+        u128_text(value, number);
+        if (fprintf(stderr,
+                    "%d %s  (%.2f s, partitions %zu, stored %zu)\n",
+                    n, number, monotonic_seconds() - started,
+                    layer_len[n], stored) < 0)
+            die("cannot write progress");
     }
-    fclose(fp);
-    fprintf(stderr, "wrote %s\n", fname);
-    return 0;
+
+    for (int n = 0; n <= nmax; ++n)
+        free(layer[n]);
+    free(hkey);
+    if (write_bfile) {
+        if (fprintf(stderr, "updated %s\n", output_path) < 0)
+            die("cannot write completion message");
+    }
+    return EXIT_SUCCESS;
 }
