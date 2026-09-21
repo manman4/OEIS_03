@@ -651,7 +651,7 @@ static U128 calculate_term(int n, uint64_t memory_limit,
     parallel.config.full_values = n == 32
                                       ? UINT32_MAX
                                       : (UINT32_C(1) << n) - 1;
-    parallel.prefix_length = n < 4 ? n :
+    parallel.prefix_length = n < MAX_PREFIX_LENGTH ? n :
                              (n <= 20 ? MAX_PREFIX_LENGTH : 4);
     parallel.checkpoint_path = checkpoint_path;
 
