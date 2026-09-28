@@ -11,15 +11,19 @@
  * over primes p == 1 or 4 (mod 5), where e_p is the exponent of p in k.
  * Primes q == 2 or 3 (mod 5) must have even exponent, while the ramified
  * prime 5 does not affect D(k).  In Z[(1+sqrt(5))/2], the totally positive
- * norm-one units identify generators in a fundamental cone.  Its two
- * boundary rays are x=0 and x=y.  There is one boundary solution exactly
- * when k is a square or five times a square, respectively; these alternatives
- * cannot occur together for positive k.  Hence
+ * norm-one units identify generators in the fundamental cone x,y >= 0,
+ * whose two axis rays are identified.  If S(k)=1 when k is a square and 0
+ * otherwise, removing the axis orbit leaves D(k)-S(k) ordered positive
+ * solutions.  Symmetry pairs the off-diagonal solutions, while x=y occurs
+ * exactly when k is five times a square; write F(k)=1 in that case and 0
+ * otherwise.  Thus the strict wedge 0<x<y contains
+ * (D(k)-S(k)-F(k))/2 solutions.  Restoring its boundary solutions x=0 and
+ * x=y gives
  *
  *     R(k) = (D(k) + A(k))/2,
  *
- * where A(k)=1 when k is a square or five times a square, and A(k)=0
- * otherwise.  The two alternatives in A cannot occur simultaneously.
+ * where A(k)=S(k)+F(k).  A positive k cannot be both a square and five times
+ * a square, so A(k) is always 0 or 1.
  * Therefore R(k)=n permits only D=2*n with A=0, or D=2*n-1 with A=1.
  *
  * A multiplicative partition D=product(e_i+1) lists every exponent
