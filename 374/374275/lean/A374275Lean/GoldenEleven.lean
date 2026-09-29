@@ -120,7 +120,6 @@ lemma tauClass_mem_factors_natCast_iff {k : ℕ} (hk : 0 < k) :
 /-- Up to conjugation, `τ` is the only non-self-conjugate reduced class of
 positive norm at most 11. -/
 lemma small_reduced_class {z : R} (hzRed : IsReduced z)
-    (hzPos : 0 < QuadraticAlgebra.norm z)
     (hzLe : QuadraticAlgebra.norm z ≤ 11) :
     Associates.mk z = (tauClass : Associates R) ∨
       Associates.mk z = (conjIrred tauClass : IrredClass).1 ∨

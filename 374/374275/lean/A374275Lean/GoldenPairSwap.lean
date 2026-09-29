@@ -20,31 +20,27 @@ noncomputable def conjugatePairSwap (p q : IrredClass)
     else if x = conjIrred p then conjIrred q
     else if x = conjIrred q then conjIrred p
     else x
-  have hcpq : conjIrred p ≠ conjIrred q := by
-    intro h
-    exact hpq (conjIrred.injective h)
   have hcp_q : conjIrred p ≠ q := by
     intro h
     apply hpcq
     apply conjIrred.injective
     simpa using h
   have hcq_p : conjIrred q ≠ p := Ne.symm hpcq
-  have hq_cp : q ≠ conjIrred p := Ne.symm hcp_q
   have hf : ∀ x, f (f x) = x := by
     intro x
     simp only [f]
     by_cases hxp : x = p
     · subst x
-      simp [hpq, Ne.symm hpq, hp, hpcq, hcp_q, hcq_p, hq_cp, hq]
+      simp [Ne.symm hpq]
     by_cases hxq : x = q
     · subst x
-      simp [hpq, Ne.symm hpq, hp, hpcq, hcp_q, hcq_p, hq_cp, hq]
+      simp [Ne.symm hpq]
     by_cases hxcp : x = conjIrred p
     · subst x
-      simp [hpq, Ne.symm hpq, hp, hpcq, hcp_q, hcq_p, hq_cp, hcpq, hq]
+      simp [Ne.symm hpq, hp, hcp_q, hcq_p, hq]
     by_cases hxcq : x = conjIrred q
     · subst x
-      simp [hpq, Ne.symm hpq, hp, hpcq, hcp_q, hcq_p, hq_cp, hcpq, hq]
+      simp [Ne.symm hpq, hp, hcp_q, hcq_p, hq]
     simp [hxp, hxq, hxcp, hxcq]
   exact
     { toFun := f
@@ -62,36 +58,32 @@ noncomputable def conjugatePairSwap (p q : IrredClass)
     (hp : conjIrred p ≠ p) (hq : conjIrred q ≠ q)
     (hpq : p ≠ q) (hpcq : p ≠ conjIrred q) :
     conjugatePairSwap p q hp hq hpq hpcq q = p := by
-  simp [conjugatePairSwap, hpq, Ne.symm hpq]
+  simp [conjugatePairSwap, Ne.symm hpq]
 
 lemma conjugatePairSwap_commutes (p q : IrredClass)
     (hp : conjIrred p ≠ p) (hq : conjIrred q ≠ q)
     (hpq : p ≠ q) (hpcq : p ≠ conjIrred q) :
     CommutesConj (conjugatePairSwap p q hp hq hpq hpcq) := by
   intro x
-  have hcpq : conjIrred p ≠ conjIrred q := by
-    intro h
-    exact hpq (conjIrred.injective h)
   have hcp_q : conjIrred p ≠ q := by
     intro h
     apply hpcq
     apply conjIrred.injective
     simpa using h
   have hcq_p : conjIrred q ≠ p := Ne.symm hpcq
-  have hq_cp : q ≠ conjIrred p := Ne.symm hcp_q
   simp only [conjugatePairSwap]
   by_cases hxp : x = p
   · subst x
-    simp [hpq, Ne.symm hpq, hp, hq, hpcq, hcp_q, hcq_p, hq_cp, hcpq]
+    simp [hp, hcp_q]
   by_cases hxq : x = q
   · subst x
-    simp [hpq, Ne.symm hpq, hp, hq, hpcq, hcp_q, hcq_p, hq_cp, hcpq]
+    simp [Ne.symm hpq, hq, hcq_p]
   by_cases hxcp : x = conjIrred p
   · subst x
-    simp [hpq, Ne.symm hpq, hp, hq, hpcq, hcp_q, hcq_p, hq_cp, hcpq]
+    simp [hp, hcp_q]
   by_cases hxcq : x = conjIrred q
   · subst x
-    simp [hpq, Ne.symm hpq, hp, hq, hpcq, hcp_q, hcq_p, hq_cp, hcpq]
+    simp [Ne.symm hpq, hq, hcq_p]
   have hcxp : conjIrred x ≠ p := by
     intro h
     apply hxcp

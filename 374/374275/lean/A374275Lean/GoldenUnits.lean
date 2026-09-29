@@ -203,7 +203,8 @@ lemma unit_cube_injective : Function.Injective (fun u : Rˣ ↦ u ^ 3) := by
       have hz : w.re = 0 ∧ w.im = 0 := ⟨ha, hb⟩
       have hwzero : w = 0 := QuadraticAlgebra.ext hz.1 hz.2
       have hunit : IsUnit w := by
-        simpa [w] using (Units.isUnit (u * v⁻¹))
+        rw [hw]
+        exact Units.isUnit (u * v⁻¹)
       exact hunit.ne_zero hwzero
     exact himne ((mul_eq_zero.mp hi').resolve_right (ne_of_gt hpos))
   have hre : w.re = 1 := by
@@ -308,7 +309,7 @@ theorem unit_eq_signed_phi_zpow (u : Rˣ) :
             phiUnit ^ ((2 : ℤ) * m) * phiUnit ^ (-1 : ℤ) := by
               rw [htwo, zpow_neg_one]
         _ = phiUnit ^ ((2 : ℤ) * m + (-1 : ℤ)) := (zpow_add phiUnit _ _).symm
-        _ = phiUnit ^ (2 * m - 1) := by congr 1 <;> omega
+        _ = phiUnit ^ (2 * m - 1) := by congr 1
     · refine ⟨2 * m - 1, Or.inr ?_⟩
       have hu_eq : u = -(alphaUnit ^ m) * phiUnit⁻¹ := by
         calc
@@ -325,7 +326,7 @@ theorem unit_eq_signed_phi_zpow (u : Rˣ) :
               phiUnit ^ ((2 : ℤ) * m) * phiUnit ^ (-1 : ℤ) := by
                 rw [htwo, zpow_neg_one]
           _ = phiUnit ^ ((2 : ℤ) * m + (-1 : ℤ)) := (zpow_add phiUnit _ _).symm
-          _ = phiUnit ^ (2 * m - 1) := by congr 1 <;> omega
+          _ = phiUnit ^ (2 * m - 1) := by congr 1
       calc
         -(phiUnit ^ (2 : ℕ)) ^ m * phiUnit⁻¹ =
             -((phiUnit ^ (2 : ℕ)) ^ m * phiUnit⁻¹) := neg_mul _ _

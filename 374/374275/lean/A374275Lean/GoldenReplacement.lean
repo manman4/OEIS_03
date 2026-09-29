@@ -128,7 +128,7 @@ lemma exists_large_norm_of_nonfixed_factor {k : ℕ} (hk : 0 < k)
     have hzLe : QuadraticAlgebra.norm z ≤ 11 := by
       rw [hzNorm]
       exact_mod_cast hrLe
-    rcases small_reduced_class hzRed (by rw [hzNorm]; exact_mod_cast hr) hzLe with
+    rcases small_reduced_class hzRed hzLe with
       htau | hctau | hfixed
     · apply hpTau
       apply Subtype.ext
@@ -148,8 +148,7 @@ lemma nat_dvd_of_golden_natCast_dvd {d k : ℕ} (hd : 0 < d)
   have him := congrArg QuadraticAlgebra.im hz
   have hre := congrArg QuadraticAlgebra.re hz
   simp only [QuadraticAlgebra.im_natCast, QuadraticAlgebra.im_mul,
-    QuadraticAlgebra.re_natCast, QuadraticAlgebra.re_mul, zero_mul,
-    zero_add] at him hre
+    QuadraticAlgebra.re_natCast, QuadraticAlgebra.re_mul, zero_mul] at him hre
   have hdim : (d : ℤ) ≠ 0 := by exact_mod_cast (ne_of_gt hd)
   have hzim : z.im = 0 := by
     have him' : (d : ℤ) * z.im = 0 := by nlinarith [him]
@@ -282,7 +281,7 @@ lemma pair_swap_transport_nat {k r s : ℕ} (hk : 0 < k) (hr : 0 < r)
     exact hdivAssoc
   have hdivNat : r ^ e ∣ k := by
     apply nat_dvd_of_golden_natCast_dvd (pow_pos hr e)
-    convert hdivR using 1 <;> norm_num
+    simpa only [Nat.cast_pow] using hdivR
   obtain ⟨c, hkc⟩ := hdivNat
   have hcPos : 0 < c := by
     by_contra hc

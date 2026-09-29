@@ -83,7 +83,7 @@ lemma mapFactorSet_add (σ : IrredClass ≃ IrredClass)
         (s : Associates.FactorSet R)) = (s : Associates.FactorSet R)
       rw [mapFactorSet_coe, mapFactorSet_coe, WithTop.coe_eq_coe]
       rw [Multiset.map_map]
-      simpa using Multiset.map_id s
+      simp
 
 @[simp] lemma mapFactorSet_mapFactorSet_symm (σ : IrredClass ≃ IrredClass)
     (s : Associates.FactorSet R) :
@@ -95,7 +95,7 @@ lemma mapFactorSet_add (σ : IrredClass ≃ IrredClass)
         (s : Associates.FactorSet R)) = (s : Associates.FactorSet R)
       rw [mapFactorSet_coe, mapFactorSet_coe, WithTop.coe_eq_coe]
       rw [Multiset.map_map]
-      simpa using Multiset.map_id s
+      simp
 
 /-- The associate class obtained by applying `σ` to every irreducible factor. -/
 noncomputable def transportAssoc (σ : IrredClass ≃ IrredClass)

@@ -62,7 +62,7 @@ theorem exists_reduced_associate {z : R} (hnorm : 0 < QuadraticAlgebra.norm z) :
       exact h.symm
     · simp only [w, map_mul, norm_alphaUnit_zpow, mul_one]
     · apply (embeddingRatio_mem_Ico_iff_isReduced ?_).mp hm
-      simp only [w, map_mul, negEmbedding_alphaUnit_zpow]
+      simp only [map_mul, negEmbedding_alphaUnit_zpow]
       exact mul_pos hpos.2 (zpow_pos (inv_pos.mpr alphaReal_pos) m)
   · have hpneg : 0 < posEmbedding (-z) := by
       rw [map_neg]
@@ -79,7 +79,7 @@ theorem exists_reduced_associate {z : R} (hnorm : 0 < QuadraticAlgebra.norm z) :
       exact h.symm
     · simp only [w, map_mul, QuadraticAlgebra.norm_neg, norm_alphaUnit_zpow, mul_one]
     · apply (embeddingRatio_mem_Ico_iff_isReduced ?_).mp hm
-      simp only [w, map_mul, negEmbedding_alphaUnit_zpow]
+      simp only [map_mul, negEmbedding_alphaUnit_zpow]
       exact mul_pos hnneg (zpow_pos (inv_pos.mpr alphaReal_pos) m)
 
 /-- Two associated reduced elements of the same positive norm are equal. -/

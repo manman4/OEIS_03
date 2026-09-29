@@ -29,7 +29,7 @@ lemma associated_intCast_natCast_eq_or_neg {a : ℤ} {k : ℕ} (hk : 0 < k)
   have him := congrArg QuadraticAlgebra.im hu
   simp only [QuadraticAlgebra.im_mul, QuadraticAlgebra.re_intCast,
     QuadraticAlgebra.im_intCast, QuadraticAlgebra.im_natCast, zero_mul,
-    zero_add, mul_zero, add_zero] at him
+    mul_zero, add_zero] at him
   have huIm : (u : R).im = 0 := (mul_eq_zero.mp him).resolve_left ha0
   have huNorm := norm_unit_eq_one_or_neg_one u
   have huRe : (u : R).re = 1 ∨ (u : R).re = -1 := by

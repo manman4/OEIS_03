@@ -53,7 +53,9 @@ def conjSetoid {k : ℕ} (hk : 0 < k) : Setoid (NormClass k) where
 abbrev NormClassOrbit {k : ℕ} (hk : 0 < k) := Quotient (conjSetoid hk)
 
 lemma alpha_mul_star_beta (x y : ℕ) : alpha * star (beta x y) = beta y x := by
-  apply QuadraticAlgebra.ext <;> simp [alpha, beta] <;> ring
+  apply QuadraticAlgebra.ext
+  all_goals simp [alpha, beta]
+  ring
 
 lemma conjAssoc_mk_beta (x y : ℕ) :
     conjAssoc (Associates.mk (beta x y)) = Associates.mk (beta y x) := by
@@ -98,7 +100,7 @@ noncomputable def solutionToOrbit {k : ℕ} (hk : 0 < k) :
     SolutionType k → NormClassOrbit hk := fun s ↦
   Quotient.mk (conjSetoid hk) (solutionClass hk s)
 
-lemma beta_eq_of_class_eq_of_pos {k u v u' v' : ℕ} (hk : 0 < k)
+lemma beta_eq_of_class_eq_of_pos {k u v u' v' : ℕ}
     (huv : (u, v) ∈ positiveSolutions k)
     (huv' : (u', v') ∈ positiveSolutions k)
     (hclass : Associates.mk (beta u v) = Associates.mk (beta u' v')) :
@@ -117,7 +119,7 @@ theorem solutionToOrbit_injective {k : ℕ} (hk : 0 < k) :
   · have hc : Associates.mk (beta s.1.2 s.1.1) =
         Associates.mk (beta t.1.2 t.1.1) := by
       simpa [solutionClass] using congrArg Subtype.val hsame.symm
-    have hpairs := beta_eq_of_class_eq_of_pos hk
+    have hpairs := beta_eq_of_class_eq_of_pos
       (swapped_mem_positiveSolutions hk s.2)
       (swapped_mem_positiveSolutions hk t.2) hc
     have hfst := congrArg Prod.fst hpairs
@@ -142,7 +144,7 @@ theorem solutionToOrbit_injective {k : ℕ} (hk : 0 < k) :
           _ = Associates.mk (beta s.1.2 s.1.1) := by rw [hsx]
       have hc' : Associates.mk (beta t.1.2 t.1.1) =
           Associates.mk (beta s.1.2 s.1.1) := hc.trans hsClass
-      have hpairs := beta_eq_of_class_eq_of_pos hk
+      have hpairs := beta_eq_of_class_eq_of_pos
         (swapped_mem_positiveSolutions hk t.2)
         (swapped_mem_positiveSolutions hk s.2) hc'
       have hfst := congrArg Prod.fst hpairs.symm
@@ -153,7 +155,7 @@ theorem solutionToOrbit_injective {k : ℕ} (hk : 0 < k) :
       have hsPositive : (s.1.1, s.1.2) ∈ positiveSolutions k := by
         apply mem_positiveSolutions_iff.mpr
         exact ⟨hsxPos, (mem_solutions_iff.mp s.2).2⟩
-      have hpairs := beta_eq_of_class_eq_of_pos hk
+      have hpairs := beta_eq_of_class_eq_of_pos
         (swapped_mem_positiveSolutions hk t.2) hsPositive hc
       have hfst := congrArg Prod.fst hpairs
       have hsnd := congrArg Prod.snd hpairs

@@ -263,7 +263,6 @@ def IsReduced (z : R) : Prop := 0 ≤ z.im ∧ z.im < z.re
 lemma posEmbedding_sub_negEmbedding (z : R) :
     posEmbedding z - negEmbedding z = (z.im : ℝ) * sqrtFive := by
   rw [posEmbedding_apply, negEmbedding_apply, phiReal, phiConjReal]
-  push_cast
   ring
 
 lemma alpha_sq_mul_negEmbedding_sub_posEmbedding (z : R) :
@@ -280,7 +279,6 @@ lemma alpha_sq_mul_negEmbedding_sub_posEmbedding (z : R) :
     ring
   have hprod := phiReal_mul_phiConjReal
   rw [posEmbedding_apply, negEmbedding_apply, alphaReal]
-  push_cast
   rw [show (phiReal ^ 2) ^ 2 = phiReal ^ 4 by ring, hp4]
   linear_combination (z.im : ℝ) * (3 * hprod + 2 * hsum)
 

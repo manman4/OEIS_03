@@ -204,7 +204,7 @@ private lemma four_abs_norm_residual_lt (a b : R) (hb : b ≠ 0) :
     calc
       |u ^ 2 + u * v - v ^ 2| ≤ |u ^ 2| + |u * v| + |v ^ 2| := by
         calc
-          |u ^ 2 + u * v - v ^ 2| = |(u ^ 2 + u * v) + -(v ^ 2)| := by ring
+          |u ^ 2 + u * v - v ^ 2| = |(u ^ 2 + u * v) + -(v ^ 2)| := by ring_nf
           _ ≤ |u ^ 2 + u * v| + |-(v ^ 2)| := abs_add_le _ _
           _ = |u ^ 2 + u * v| + |v ^ 2| := by rw [abs_neg]
           _ ≤ |u ^ 2| + |u * v| + |v ^ 2| := by
