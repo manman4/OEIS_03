@@ -1,0 +1,19 @@
+# Generated binaries and debug data
+ulam02*
+ulam_probe*
+*.o
+*.plist
+*.dSYM/
+# Generated b-files and other text output are not distributed
+*.txt
+# Working tables, locks and temporary reports
+*.bin
+*.raw
+*.address-test
+*.lock
+*.tmp.*
+346216_02_summary.json
+/a10_01.csv
+# Local metadata
+.DS_Store
+__pycache__/
