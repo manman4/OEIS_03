@@ -8,6 +8,8 @@
 #include <chrono>
 #include <csignal>
 #include <cstdint>
+#include <cstdlib>
+#include <filesystem>
 #include <fcntl.h>
 #include <iostream>
 #include <limits>
@@ -28,6 +30,7 @@ constexpr U MiB = 1024 * 1024, PageSize = 65536, Prefix = 18000, Width = 18;
 constexpr U MaxValue = 2000000000000ULL;
 constexpr I Mask = (1U << Width) - 1;
 static volatile std::sig_atomic_t interrupted = 0;
+static bool stderr_safe = true;
 static void on_signal(int signal) { interrupted = signal; }
 
 static U number(const std::string& s) {
@@ -51,13 +54,118 @@ static void write_all(int fd, const void* buffer, std::size_t size) {
         bytes += count; size -= count;
     }
 }
+static std::string json_string(const std::string& value) {
+    const char* hex = "0123456789abcdef";
+    std::string result = "\"";
+    for (char byte : value) {
+        auto c = static_cast<unsigned char>(byte);
+        if (c == '"' || c == '\\') { result += '\\'; result += byte; }
+        else if (c < 32) {
+            result += "\\u00"; result += hex[c >> 4]; result += hex[c & 15];
+        } else result += byte;
+    }
+    return result + '"';
+}
+static void separate_streams(const struct stat& file, const char* label) {
+    for (int fd : {STDOUT_FILENO, STDERR_FILENO}) {
+        struct stat stream{};
+        if (!fstat(fd, &stream) && stream.st_dev == file.st_dev && stream.st_ino == file.st_ino)
+        {
+            if (fd == STDERR_FILENO) stderr_safe = false;
+            throw std::runtime_error(std::string(fd == STDOUT_FILENO ? "stdout" : "stderr") +
+                                     " is the " + label + "; omit shell redirection to that file");
+        }
+    }
+}
 struct Options {
     U terms = 10000000000ULL, max_value = MaxValue, memory_mib = 256, cache_mib = 8;
     U seconds = 0, window = 100000, threshold = 100, report = 10000000;
     U verify_until = 0, anchor_limit = 500000, dictionary_limit = 255;
     U p = 856371966, q = 350477575;
     std::string disk = "cache_346216_02.bin", bfile = "b346216.txt";
+    std::string summary = "346216_02_summary.json";
     bool self_test = false;
+};
+
+// A locked, separate summary file; publish a fully written JSON by atomic rename.
+// Canonical parent names and inode checks also reject hard-link aliases.
+class Summary {
+    std::string path;
+    std::vector<std::string> protected_paths;
+    int directory = -1, lock = -1;
+    static std::string full_name(const std::string& name) {
+        namespace fs = std::filesystem;
+        fs::path p(name), parent = p.parent_path();
+        if (p.filename().empty() || p.filename() == "." || p.filename() == "..")
+            throw std::runtime_error("invalid summary/protected filename");
+        return (fs::canonical(parent.empty() ? fs::path(".") : parent) / p.filename()).string();
+    }
+    static bool same_file(const std::string& a, const std::string& b) {
+        if (full_name(a) == full_name(b)) return true;
+        struct stat x{}, y{};
+        return !stat(a.c_str(), &x) && !stat(b.c_str(), &y) &&
+               x.st_dev == y.st_dev && x.st_ino == y.st_ino;
+    }
+    void check(const std::string& name, const char* label) const {
+        for (const auto& protected_path : protected_paths)
+            if (same_file(name, protected_path))
+                throw std::runtime_error("summary or its lock overlaps b-file/working table");
+        struct stat st{};
+        if (!lstat(name.c_str(), &st)) {
+            if (!S_ISREG(st.st_mode)) throw std::runtime_error("summary/lock must be a regular file, not a symlink");
+            separate_streams(st, label);
+        } else if (errno != ENOENT) io_error("stat summary/lock");
+    }
+public:
+    explicit Summary(const Options& o) {
+        if (o.summary.empty()) return;
+        if (!o.bfile.empty()) protected_paths.push_back(o.bfile);
+        if (!o.disk.empty()) { protected_paths.push_back(o.disk); protected_paths.push_back(o.disk + ".raw"); }
+        path = full_name(o.summary);
+        const std::string lock_path = path + ".lock";
+        check(path, "summary"); check(lock_path, "summary lock");
+        try {
+            directory = open(std::filesystem::path(path).parent_path().c_str(), O_RDONLY | O_DIRECTORY);
+            if (directory < 0) io_error("open summary directory");
+            lock = open(lock_path.c_str(), O_CREAT | O_RDWR | O_NOFOLLOW, 0600);
+            if (lock < 0) io_error("open summary lock");
+            struct stat st{};
+            if (fstat(lock, &st)) io_error("stat summary lock");
+            if (!S_ISREG(st.st_mode)) throw std::runtime_error("invalid summary lock type");
+            check(lock_path, "summary lock");
+            if (flock(lock, LOCK_EX | LOCK_NB)) throw std::runtime_error("summary locked by another process");
+        } catch (...) {
+            if (lock >= 0) close(lock);
+            if (directory >= 0) close(directory);
+            lock = directory = -1; throw;
+        }
+    }
+    Summary(const Summary&) = delete;
+    Summary& operator=(const Summary&) = delete;
+    ~Summary() { if (lock >= 0) close(lock); if (directory >= 0) close(directory); }
+    void save(const std::string& report) const {
+        if (path.empty()) return;
+        check(path, "summary");
+        std::string pattern = path + ".tmp.XXXXXX";
+        std::vector<char> temporary(pattern.begin(), pattern.end()); temporary.push_back('\0');
+        int fd = mkstemp(temporary.data());
+        if (fd < 0) io_error("create summary temporary file");
+        bool published = false;
+        try {
+            write_all(fd, report.data(), report.size());
+            if (fsync(fd)) io_error("fsync summary");
+            int result = close(fd); fd = -1;
+            if (result) io_error("close summary");
+            check(path, "summary");
+            if (rename(temporary.data(), path.c_str())) io_error("rename summary");
+            published = true;
+            if (fsync(directory)) io_error("fsync summary directory");
+        } catch (...) {
+            if (fd >= 0) close(fd);
+            if (!published) unlink(temporary.data());
+            throw;
+        }
+    }
 };
 struct Budget {
     U used = 0, limit;
@@ -408,6 +516,8 @@ class BFile {
 public:
     explicit BFile(const std::string& path, U target) {
         if (path.empty()) return;
+        struct stat existing_status{};
+        if (!stat(path.c_str(), &existing_status)) separate_streams(existing_status, "b-file");
         fd = open(path.c_str(), O_CREAT | O_RDWR | O_NOFOLLOW, 0644);
         if (fd < 0) io_error("open b-file");
         try {
@@ -416,9 +526,7 @@ public:
             if (fstat(fd, &st)) io_error("fstat b-file");
             if (!S_ISREG(st.st_mode) || st.st_size < 0 || st.st_size > 65536)
                 throw std::runtime_error("invalid b-file type or size");
-            struct stat output{};
-            if (!fstat(STDOUT_FILENO, &output) && output.st_dev == st.st_dev && output.st_ino == st.st_ino)
-                throw std::runtime_error("stdout is the b-file; omit shell redirection to that file");
+            separate_streams(st, "b-file");
             std::string text(static_cast<std::size_t>(st.st_size), '\0');
             std::size_t done = 0;
             while (done < text.size()) {
@@ -550,9 +658,11 @@ static Options parse(int argc, char** argv) {
         std::string arg = argv[i];
         if (arg == "--self-test") { o.self_test = true; continue; }
         if (arg == "--no-bfile") { o.bfile.clear(); continue; }
+        if (arg == "--no-summary") { o.summary.clear(); continue; }
         if (arg == "--ram") { o.disk.clear(); continue; }
         if (arg == "--help") {
             std::cout << "Usage: ulam02 [--terms N] [--disk NEW_FILE | --ram] [--bfile FILE | --no-bfile]\n"
+                         "  --summary 346216_02_summary.json | --no-summary\n"
                          "  --cache-mib 8 --memory-mib 256 --report 10000000 --seconds 0\n"
                          "  --seconds 0: no time limit. Existing b-file rows are recomputed and checked.\n"
                          "  --max-value 2000000000000 --window 100000 --threshold 100\n"
@@ -564,6 +674,7 @@ static Options parse(int argc, char** argv) {
         std::string s = argv[++i];
         if (arg == "--disk") { if (s.empty()) throw std::runtime_error("empty disk filename"); o.disk = s; continue; }
         if (arg == "--bfile") { if (s.empty()) throw std::runtime_error("empty b-file filename"); o.bfile = s; continue; }
+        if (arg == "--summary") { if (s.empty()) throw std::runtime_error("empty summary filename"); o.summary = s; continue; }
         U value = number(s);
         if (arg == "--terms") o.terms = value;
         else if (arg == "--max-value") o.max_value = value;
@@ -592,12 +703,21 @@ static Options parse(int argc, char** argv) {
 
 int main(int argc, char** argv) {
     U n = 0, last = 0, completed = 0;
+    Options o;
+    std::unique_ptr<Summary> summary;
     try {
-        Options o = parse(argc, argv);
+        o = parse(argc, argv);
         struct sigaction action{};
         action.sa_handler = on_signal; sigemptyset(&action.sa_mask);
         if (sigaction(SIGINT, &action, nullptr) || sigaction(SIGTERM, &action, nullptr)) io_error("sigaction");
         if (o.self_test) { self_test(o); return 0; }
+        // Do not let an error diagnostic itself overwrite an aliased data file.
+        for (const auto& path : {o.bfile, o.disk, o.disk.empty() ? "" : o.disk + ".raw"}) {
+            struct stat data{}, stream{};
+            if (!path.empty() && !stat(path.c_str(), &data) && !fstat(STDERR_FILENO, &stream) &&
+                data.st_dev == stream.st_dev && data.st_ino == stream.st_ino) stderr_safe = false;
+        }
+        summary = std::make_unique<Summary>(o);
         BFile bfile(o.bfile, o.terms);
         Budget budget(o.memory_mib * MiB);
         Membership members(o, budget);
@@ -607,83 +727,126 @@ int main(int argc, char** argv) {
         Control control(o);
         U cursor = 0, r = 0, hash = 14695981039346656037ULL, next_power = 1, index = 0;
         U brute_tests = 0, brute_max = 0, fallback_calls = 0, fallback_tests = 0;
+        U outliers_low = 0, outliers_high = 0;
         auto remember = [&](U x) {
             ++n; last = x;
+            if (3 * r < o.p) ++outliers_low;
+            if (3 * r > 2 * o.p) ++outliers_high;
             window[cursor] = x; cursor = (cursor + 1) % o.window;
             if (r <= o.p / 2) lo.add(r, x); else hi.add(o.p - r, x);
             oracle.add(x); hash = (hash ^ x) * 1099511628211ULL;
             if (n == next_power) { bfile.record(index++, x); next_power *= 10; }
         };
-        for (U x = 1; x <= std::min(U{2}, o.terms); ++x) {
-            r += o.q; if (r >= o.p) r -= o.p;
-            members.put(x, true); completed = x; remember(x);
-        }
-        for (U u = 3; n < o.terms; ++u) {
-            if (interrupted || (u & 65535U) == 0) control.check();
-            if (u > o.max_value) throw std::runtime_error("max-value reached before requested term");
-            r += o.q; if (r >= o.p) r -= o.p;
-            int hits = 0;
-            if (r <= o.p / 4 || o.p - r <= o.p / 4) {
-                U count = 0, available = std::min(n, o.window), pos = cursor, oldest = u;
-                bool covered = false;
-                while (count < available) {
-                    pos = pos ? pos - 1 : o.window - 1;
-                    U a = window[pos];
-                    if (a <= u / 2) { covered = true; break; }
-                    oldest = a; ++count; ++brute_tests;
-                    if (members.get(u - a) && ++hits == 2) break;
+        bool complete = false;
+        std::string reason;
+        try {
+            for (U x = 1; x <= std::min(U{2}, o.terms); ++x) {
+                r += o.q; if (r >= o.p) r -= o.p;
+                members.put(x, true); completed = x; remember(x);
+            }
+            for (U u = 3; n < o.terms; ++u) {
+                if (interrupted || (u & 65535U) == 0) control.check();
+                if (u > o.max_value) throw std::runtime_error("max-value reached before requested term");
+                r += o.q; if (r >= o.p) r -= o.p;
+                int hits = 0;
+                if (r <= o.p / 4 || o.p - r <= o.p / 4) {
+                    U count = 0, available = std::min(n, o.window), pos = cursor, oldest = u;
+                    bool covered = false;
+                    while (count < available) {
+                        pos = pos ? pos - 1 : o.window - 1;
+                        U a = window[pos];
+                        if (a <= u / 2) { covered = true; break; }
+                        oldest = a; ++count; ++brute_tests;
+                        if (members.get(u - a) && ++hits == 2) break;
+                    }
+                    brute_max = std::max(brute_max, count);
+                    if (hits < 2 && !covered && n > available) {
+                        ++fallback_calls;
+                        hits = exhaustive(u, oldest - 1, hits, members, control, fallback_tests);
+                    }
+                } else {
+                    hits = lo.search(r, u, members, hits);
+                    if (hits < 2) hits = hi.search(o.p - r, u, members, hits);
+                    if (hits < 2 && (r / 2 >= lo.cutoff || (o.p - r) / 2 >= hi.cutoff)) {
+                        ++fallback_calls;
+                        hits = exhaustive(u, u - 1, 0, members, control, fallback_tests);
+                    }
                 }
-                brute_max = std::max(brute_max, count);
-                if (hits < 2 && !covered && n > available) {
-                    ++fallback_calls;
-                    hits = exhaustive(u, oldest - 1, hits, members, control, fallback_tests);
-                }
-            } else {
-                hits = lo.search(r, u, members, hits);
-                if (hits < 2) hits = hi.search(o.p - r, u, members, hits);
-                if (hits < 2 && (r / 2 >= lo.cutoff || (o.p - r) / 2 >= hi.cutoff)) {
-                    ++fallback_calls;
-                    hits = exhaustive(u, u - 1, 0, members, control, fallback_tests);
+                oracle.check(u, hits);
+                members.put(u, hits == 1); completed = u;
+                if (hits == 1) {
+                    remember(u);
+                    if (o.report && n % o.report == 0) {
+                        double elapsed = control.seconds();
+                        U percent = static_cast<U>(static_cast<W>(n) * 10000 / o.terms);
+                        double eta = elapsed * static_cast<double>(o.terms - n) / static_cast<double>(n - 2);
+                        std::cerr << "progress terms=" << n << " value=" << u << " seconds=" << elapsed
+                                  << " target=" << o.terms << " percent=" << percent / 100 << '.'
+                                  << (percent % 100 < 10 ? "0" : "") << percent % 100 << " eta_seconds=" << eta
+                                  << " fallback_calls=" << fallback_calls << " escaped_blocks=" << members.escaped_blocks << '\n';
+                    }
                 }
             }
-            oracle.check(u, hits);
-            members.put(u, hits == 1); completed = u;
-            if (hits == 1) {
-                remember(u);
-                if (o.report && n % o.report == 0) {
-                    double elapsed = control.seconds();
-                    U percent = static_cast<U>(static_cast<W>(n) * 10000 / o.terms);
-                    double eta = elapsed * static_cast<double>(o.terms - n) / static_cast<double>(n - 2);
-                    std::cerr << "progress terms=" << n << " value=" << u << " seconds=" << elapsed
-                              << " target=" << o.terms << " percent=" << percent / 100 << '.'
-                              << (percent % 100 < 10 ? "0" : "") << percent % 100 << " eta_seconds=" << eta
-                              << " fallback_calls=" << fallback_calls << " escaped_blocks=" << members.escaped_blocks << '\n';
-                }
-            }
-        }
-        members.flush();
-        if (o.verify_until) { lo.audit(); hi.audit(); }
+            members.flush();
+            if (o.verify_until) { lo.audit(); hi.audit(); }
+            complete = true;
+        } catch (const std::exception& e) { reason = e.what(); }
         struct rusage usage{};
-        if (getrusage(RUSAGE_SELF, &usage)) io_error("getrusage");
+        bool have_rss = !getrusage(RUSAGE_SELF, &usage);
         U rss = static_cast<U>(usage.ru_maxrss);
 #ifndef __APPLE__
         rss *= 1024;
 #endif
-        std::cerr << "{\"status\":\"complete\",\"terms\":" << n << ",\"value\":" << last
+        auto report = [&]() {
+            std::ostringstream text;
+            text << "{\"status\":" << json_string(complete ? "complete" : "incomplete")
+                  << ",\"target_terms\":" << o.terms << ",\"p\":" << o.p << ",\"q\":" << o.q
+                  << ",\"terms\":" << n << ",\"value\":" << last
                   << ",\"completed_candidate\":" << completed << ",\"seconds\":" << control.seconds()
-                  << ",\"rss_bytes\":" << rss << ",\"patterns\":" << members.patterns()
+                  << ",\"rss_bytes\":" << (have_rss ? std::to_string(rss) : "null")
+                  << ",\"patterns\":" << members.patterns()
                   << ",\"escaped_blocks\":" << members.escaped_blocks << ",\"digest64\":" << hash
+                  << ",\"residue_outliers\":" << outliers_low + outliers_high
+                  << ",\"residue_outliers_low\":" << outliers_low << ",\"residue_outliers_high\":" << outliers_high
                   << ",\"anchor_tests\":" << lo.examined + hi.examined << ",\"brute_tests\":" << brute_tests
                   << ",\"brute_max\":" << brute_max << ",\"fallback_calls\":" << fallback_calls
                   << ",\"fallback_tests\":" << fallback_tests << ",\"lo_size\":" << lo.size()
                   << ",\"hi_size\":" << hi.size() << ",\"lo_peak\":" << lo.peak << ",\"hi_peak\":" << hi.peak
                   << ",\"lo_cutoff\":" << lo.cutoff << ",\"hi_cutoff\":" << hi.cutoff
                   << ",\"disk_reads\":" << members.reads() << ",\"disk_writes\":" << members.writes()
-                  << ",\"verified_candidates_through\":" << std::min(o.verify_until, completed) << "}\n";
-        return 0;
+                  << ",\"verified_candidates_through\":" << std::min(o.verify_until, completed);
+            if (!complete) text << ",\"reason\":" << json_string(reason);
+            text << "}\n";
+            return text.str();
+        };
+        std::string final = report();
+        try { summary->save(final); }
+        catch (const std::exception& e) {
+            complete = false; reason = std::string("summary save failed: ") + e.what(); final = report();
+            // If publication succeeded but the directory sync failed, try once
+            // to replace that report with the same incomplete JSON we display.
+            try { summary->save(final); } catch (const std::exception&) {}
+        }
+        if (!complete && stderr_safe)
+            std::cerr << "status=incomplete terms=" << n << " last=" << last << " completed_candidate=" << completed
+                      << " reason=" << reason << '\n';
+        if (stderr_safe) std::cerr << final;
+        return complete ? 0 : 1;
     } catch (const std::exception& e) {
-        std::cerr << "status=incomplete terms=" << n << " last=" << last << " completed_candidate=" << completed
-                  << " reason=" << e.what() << '\n';
+        if (stderr_safe)
+            std::cerr << "status=incomplete terms=" << n << " last=" << last << " completed_candidate=" << completed
+                      << " reason=" << e.what() << '\n';
+        if (summary) {
+            std::ostringstream text;
+            text << "{\"status\":\"incomplete\",\"setup_complete\":false,\"target_terms\":" << o.terms
+                 << ",\"p\":" << o.p << ",\"q\":" << o.q << ",\"terms\":" << n << ",\"value\":" << last
+                 << ",\"completed_candidate\":" << completed << ",\"reason\":" << json_string(e.what()) << "}\n";
+            try { summary->save(text.str()); }
+            catch (const std::exception& error) {
+                if (stderr_safe) std::cerr << "summary save failed: " << error.what() << '\n';
+            }
+            if (stderr_safe) std::cerr << text.str();
+        }
         return 1;
     }
 }
