@@ -1,0 +1,40 @@
+[
+  {
+    "flags": [
+      "--terms",
+      "0"
+    ],
+    "returncode": 1,
+    "before": "0 1\n1 18\n",
+    "after": "status=incomplete terms=0 last=0 completed_candidate=0 reason=option outside supported limits\n",
+    "changed": true
+  },
+  {
+    "flags": [
+      "--window",
+      "0"
+    ],
+    "returncode": 1,
+    "before": "0 1\n1 18\n",
+    "after": "status=incomplete terms=0 last=0 completed_candidate=0 reason=option outside supported limits\n",
+    "changed": true
+  },
+  {
+    "flags": [
+      "--unknown",
+      "1"
+    ],
+    "returncode": 1,
+    "before": "0 1\n1 18\n",
+    "after": "status=incomplete terms=0 last=0 completed_candidate=0 reason=unknown option: --unknown\n",
+    "changed": true
+  },
+  {
+    "flags": [
+      "--terms",
+      "10"
+    ],
+    "returncode": 1,
+    "changed": false
+  }
+]
