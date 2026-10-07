@@ -1,0 +1,11 @@
+COMMAND: ./ulam_probe --terms 10000 --verify-until 120000 --report 0
+EXIT_CODE: 0
+STDOUT:
+index,value
+10,18
+100,690
+1000,12294
+10000,132788
+
+STDERR:
+{"status":"complete","terms":10000,"value":132788,"completed_candidate":132788,"seconds":0.029169,"rss_bytes":3751936,"table_capacity_bytes":7778,"patterns":148,"digest64":7727063101748395568,"anchor_tests":428622,"brute_tests":315250,"brute_max":69,"lo_size":6034,"hi_size":3966,"lo_peak":6034,"hi_peak":3966,"lo_cutoff":428185984,"hi_cutoff":428185984,"disk_reads":0,"disk_writes":0,"verified_candidates_through":120000}

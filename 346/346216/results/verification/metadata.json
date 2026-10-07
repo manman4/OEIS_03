@@ -1,0 +1,99 @@
+{
+  "date": "2026-10-07",
+  "source": "../../346216_02.cpp",
+  "source_sha256": "3001561f0a4d4d7f1694a85cfd4fc9046eee7800ab31a0207ea58f4ace8c50c3",
+  "source_unchanged": true,
+  "production_binary_unchanged": true,
+  "production_binary_sha256": "bb01a5c4152b9c1c0e8bb2c3c44f8ef698d832fd94407a9b51c6af0f66859281",
+  "compiler": "Apple clang 16.0.0 (clang-1600.0.26.6), arm64",
+  "warnings": [
+    "-Wall",
+    "-Wextra",
+    "-Wconversion",
+    "-Wshadow",
+    "-Werror"
+  ],
+  "normal_optimization": "-O3",
+  "checked_optimization": "-O1 -g",
+  "sanitizers": [
+    "undefined",
+    "bounds"
+  ],
+  "no_sanitize_recover": true,
+  "libcpp_hardening": "EXTENSIVE",
+  "checks": [
+    {
+      "build": "normal",
+      "script": "verify_02.py",
+      "exit_code": 0,
+      "log": "normal_verify_02.py.log"
+    },
+    {
+      "build": "normal",
+      "script": "verify_summary_02.py",
+      "exit_code": 0,
+      "log": "normal_verify_summary_02.py.log"
+    },
+    {
+      "build": "ubsan",
+      "script": "verify_02.py",
+      "exit_code": 0,
+      "log": "ubsan_verify_02.py.log"
+    },
+    {
+      "build": "ubsan",
+      "script": "verify_summary_02.py",
+      "exit_code": 0,
+      "log": "ubsan_verify_summary_02.py.log"
+    }
+  ],
+  "kernel": {
+    "source": "kernel_checks.cpp",
+    "included_source_sha256": "3001561f0a4d4d7f1694a85cfd4fc9046eee7800ab31a0207ea58f4ace8c50c3",
+    "exit_code": 0,
+    "log": "kernel.log"
+  },
+  "additional_ratios": {
+    "count": 222,
+    "exit_code": 0,
+    "results": "ratio_results.json",
+    "non_coprime_cases": 101,
+    "forced_fallback_cases": 213,
+    "raw_escape_cases": 10
+  },
+  "io_fault_injection": {
+    "count": 7,
+    "exit_code": 0,
+    "results": "io_results.json"
+  },
+  "static_analysis": {
+    "tool": "Clang analyzer",
+    "exit_code": 0,
+    "diagnostics": []
+  },
+  "asan": {
+    "minimal_smoke_compile_exit": 0,
+    "minimal_smoke_run_exit": -6,
+    "product_tests_run": false,
+    "log": "asan_smoke.log"
+  },
+  "findings": [
+    {
+      "priority": "P2",
+      "kind": "early stderr diagnostic can corrupt aliased b-file",
+      "source_lines": [
+        709,
+        715,
+        837
+      ],
+      "results": "early_error_results.json",
+      "fixed": false
+    }
+  ],
+  "full_a10_independent_verification": false,
+  "formal_verification": false,
+  "agent_started_production_a10": false,
+  "user_a10_run_record": "../a10_summary.json",
+  "default_generated_bfile": "b346216.txt",
+  "bfile_in_distribution": false
+}

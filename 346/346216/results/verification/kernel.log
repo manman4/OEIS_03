@@ -1,0 +1,7 @@
+PASS all 262144 patterns, dictionary=1 disk=0
+PASS all 262144 patterns, dictionary=255 disk=0
+PASS all 262144 patterns, dictionary=1 disk=1
+PASS all 262144 patterns, dictionary=255 disk=1
+PASS fallback splits, diagonal exclusions, compression boundaries: 298597 cases
+PASS treap rotations, trim/reuse, complete prefix and independent partial counts: 12642 cases
+PASS cache growth, slot reuse, dirty eviction, hot pointer and page edges

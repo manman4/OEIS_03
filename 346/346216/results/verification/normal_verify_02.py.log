@@ -1,0 +1,5 @@
+PASS: independent Python pair-sum oracle and all candidate decisions through 120,000;
+five ratios, deliberately insufficient anchors/window/dictionary, >256 synthetic patterns;
+RAM/disk and raw-escape equality, >2^32 addressing, cache eviction, existing-file protection;
+b-file order, replay, duplicate prevention, writer lock, truncated/wrong rows, SIGTERM;
+stdout/stderr separation, default filename, resource/time/argument limits.
