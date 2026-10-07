@@ -1,0 +1,9 @@
+COMMAND: python3 verify_probe.py ./ulam_probe_ubsan
+EXIT_CODE: 0
+STDOUT:
+PASS: all 120,000 candidate decisions match the independent pair-sum oracle;
+three rational moduli, RAM/disk equality, >2^32 disk addressing and eviction,
+existing-file protection, resource limits and exact-stop conditions checked.
+Long time allowance and stderr progress percentages/ETA checked.
+
+STDERR:

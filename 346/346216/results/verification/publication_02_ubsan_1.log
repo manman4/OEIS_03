@@ -1,0 +1,10 @@
+COMMAND: python3 verify_summary_02.py ./ulam02_ubsan
+EXIT_CODE: 0
+STDOUT:
+PASS: final JSON equals saved summary; independent residue-outlier counts and forced exceptions;
+default/custom filenames, latest-file replacement, no-summary, resource stop, setup failure, SIGTERM;
+b-file/cache/lock/stream aliases, hardlinks, symlink refusal, writer lock, combined terminal output;
+partial summary writes and fsync failure preserve the previous file and return incomplete.
+directory fsync failure publishes an incomplete report and returns failure.
+
+STDERR:

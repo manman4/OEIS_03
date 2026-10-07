@@ -1,0 +1,294 @@
+{
+  "date": "2026-10-07",
+  "compiler": "Apple clang 16.0.0 (clang-1600.0.26.6), arm64",
+  "purpose": "Verify builds, README small-run commands and test scripts from the standalone publication directory.",
+  "production_a9_a10_started": false,
+  "checks": [
+    {
+      "version": "01",
+      "build": "normal",
+      "source": "../../346216_01.cpp",
+      "source_sha256": "92a00dc0169bcce9ce9405fe4de7bf2b508cf13f405b410cae1f16158d4d6bdb",
+      "compile_command": [
+        "/usr/bin/xcrun",
+        "--sdk",
+        "macosx",
+        "clang++",
+        "-std=c++17",
+        "-O3",
+        "-Wall",
+        "-Wextra",
+        "-Wconversion",
+        "-Wshadow",
+        "346216_01.cpp",
+        "-o",
+        "ulam_probe"
+      ],
+      "compile_exit_code": 0,
+      "checks": [
+        {
+          "command": [
+            "./ulam_probe",
+            "--terms",
+            "10000",
+            "--verify-until",
+            "120000",
+            "--report",
+            "0"
+          ],
+          "exit_code": 0,
+          "log": "publication_01_normal_0.log"
+        },
+        {
+          "command": [
+            "python3",
+            "verify_probe.py"
+          ],
+          "exit_code": 0,
+          "log": "publication_01_normal_1.log"
+        }
+      ]
+    },
+    {
+      "version": "01",
+      "build": "ubsan",
+      "source": "../../346216_01.cpp",
+      "source_sha256": "92a00dc0169bcce9ce9405fe4de7bf2b508cf13f405b410cae1f16158d4d6bdb",
+      "compile_command": [
+        "/usr/bin/xcrun",
+        "--sdk",
+        "macosx",
+        "clang++",
+        "-std=c++17",
+        "-O1",
+        "-g",
+        "-Wall",
+        "-Wextra",
+        "-Wconversion",
+        "-Wshadow",
+        "-fsanitize=undefined,bounds",
+        "-fno-sanitize-recover=all",
+        "-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_EXTENSIVE",
+        "346216_01.cpp",
+        "-o",
+        "ulam_probe_ubsan"
+      ],
+      "compile_exit_code": 0,
+      "checks": [
+        {
+          "command": [
+            "python3",
+            "verify_probe.py",
+            "./ulam_probe_ubsan"
+          ],
+          "exit_code": 0,
+          "log": "publication_01_ubsan_0.log"
+        }
+      ]
+    },
+    {
+      "version": "02",
+      "build": "normal",
+      "source": "../../346216_02.cpp",
+      "source_sha256": "3001561f0a4d4d7f1694a85cfd4fc9046eee7800ab31a0207ea58f4ace8c50c3",
+      "compile_command": [
+        "/usr/bin/xcrun",
+        "--sdk",
+        "macosx",
+        "clang++",
+        "-std=c++17",
+        "-O3",
+        "-Wall",
+        "-Wextra",
+        "-Wconversion",
+        "-Wshadow",
+        "346216_02.cpp",
+        "-o",
+        "ulam02"
+      ],
+      "compile_exit_code": 0,
+      "checks": [
+        {
+          "command": [
+            "./ulam02",
+            "--ram",
+            "--terms",
+            "10000",
+            "--verify-until",
+            "120000",
+            "--report",
+            "0",
+            "--no-bfile",
+            "--no-summary"
+          ],
+          "exit_code": 0,
+          "log": "publication_02_normal_0.log"
+        },
+        {
+          "command": [
+            "python3",
+            "verify_02.py"
+          ],
+          "exit_code": 0,
+          "log": "publication_02_normal_1.log"
+        },
+        {
+          "command": [
+            "python3",
+            "verify_summary_02.py"
+          ],
+          "exit_code": 0,
+          "log": "publication_02_normal_2.log"
+        }
+      ]
+    },
+    {
+      "version": "02",
+      "build": "ubsan",
+      "source": "../../346216_02.cpp",
+      "source_sha256": "3001561f0a4d4d7f1694a85cfd4fc9046eee7800ab31a0207ea58f4ace8c50c3",
+      "compile_command": [
+        "/usr/bin/xcrun",
+        "--sdk",
+        "macosx",
+        "clang++",
+        "-std=c++17",
+        "-O1",
+        "-g",
+        "-Wall",
+        "-Wextra",
+        "-Wconversion",
+        "-Wshadow",
+        "-fsanitize=undefined,bounds",
+        "-fno-sanitize-recover=all",
+        "-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_EXTENSIVE",
+        "346216_02.cpp",
+        "-o",
+        "ulam02_ubsan"
+      ],
+      "compile_exit_code": 0,
+      "checks": [
+        {
+          "command": [
+            "python3",
+            "verify_02.py",
+            "./ulam02_ubsan"
+          ],
+          "exit_code": 0,
+          "log": "publication_02_ubsan_0.log"
+        },
+        {
+          "command": [
+            "python3",
+            "verify_summary_02.py",
+            "./ulam02_ubsan"
+          ],
+          "exit_code": 0,
+          "log": "publication_02_ubsan_1.log"
+        }
+      ]
+    }
+  ],
+  "distribution_without_bfile": {
+    "date": "2026-10-07",
+    "package_files": 36,
+    "package_txt_files": 0,
+    "build": "normal",
+    "checks": [
+      {
+        "version": "01",
+        "source": "../../346216_01.cpp",
+        "source_sha256": "92a00dc0169bcce9ce9405fe4de7bf2b508cf13f405b410cae1f16158d4d6bdb",
+        "compile_command": [
+          "/usr/bin/xcrun",
+          "--sdk",
+          "macosx",
+          "clang++",
+          "-std=c++17",
+          "-O3",
+          "-Wall",
+          "-Wextra",
+          "-Wconversion",
+          "-Wshadow",
+          "346216_01.cpp",
+          "-o",
+          "ulam_probe"
+        ],
+        "compile_exit_code": 0,
+        "tests": [
+          {
+            "command": [
+              "python3",
+              "verify_probe.py"
+            ],
+            "exit_code": 0,
+            "packaged_bfile_present": false,
+            "stdout": "PASS: all 120,000 candidate decisions match the independent pair-sum oracle;\nthree rational moduli, RAM/disk equality, >2^32 disk addressing and eviction,\nexisting-file protection, resource limits and exact-stop conditions checked.\nLong time allowance and stderr progress percentages/ETA checked.\n"
+          }
+        ]
+      },
+      {
+        "version": "02",
+        "source": "../../346216_02.cpp",
+        "source_sha256": "3001561f0a4d4d7f1694a85cfd4fc9046eee7800ab31a0207ea58f4ace8c50c3",
+        "compile_command": [
+          "/usr/bin/xcrun",
+          "--sdk",
+          "macosx",
+          "clang++",
+          "-std=c++17",
+          "-O3",
+          "-Wall",
+          "-Wextra",
+          "-Wconversion",
+          "-Wshadow",
+          "346216_02.cpp",
+          "-o",
+          "ulam02"
+        ],
+        "compile_exit_code": 0,
+        "tests": [
+          {
+            "command": [
+              "python3",
+              "verify_02.py"
+            ],
+            "exit_code": 0,
+            "packaged_bfile_present": false,
+            "stdout": "PASS: independent Python pair-sum oracle and all candidate decisions through 120,000;\nfive ratios, deliberately insufficient anchors/window/dictionary, >256 synthetic patterns;\nRAM/disk and raw-escape equality, >2^32 addressing, cache eviction, existing-file protection;\nb-file order, replay, duplicate prevention, writer lock, truncated/wrong rows, SIGTERM;\nstdout/stderr separation, default filename, resource/time/argument limits.\n"
+          },
+          {
+            "command": [
+              "python3",
+              "verify_summary_02.py"
+            ],
+            "exit_code": 0,
+            "packaged_bfile_present": false,
+            "stdout": "PASS: final JSON equals saved summary; independent residue-outlier counts and forced exceptions;\ndefault/custom filenames, latest-file replacement, no-summary, resource stop, setup failure, SIGTERM;\nb-file/cache/lock/stream aliases, hardlinks, symlink refusal, writer lock, combined terminal output;\npartial summary writes and fsync failure preserve the previous file and return incomplete.\ndirectory fsync failure publishes an incomplete report and returns failure.\n"
+          }
+        ],
+        "first_run_without_bfile": {
+          "command": [
+            "./ulam02",
+            "--ram",
+            "--terms",
+            "10000",
+            "--verify-until",
+            "120000",
+            "--report",
+            "0"
+          ],
+          "exit_code": 0,
+          "bfile_created_automatically": true,
+          "summary_created_automatically": true,
+          "bfile_matches_stdout": true,
+          "summary_status": "complete",
+          "terms": 10000,
+          "verified_candidates_through": 120000,
+          "stdout": "0 1\n1 18\n2 690\n3 12294\n4 132788\n"
+        }
+      }
+    ],
+    "production_a9_a10_started": false
+  }
+}
