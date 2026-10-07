@@ -1,0 +1,11 @@
+COMMAND: ./ulam02 --ram --terms 10000 --verify-until 120000 --report 0 --no-bfile --no-summary
+EXIT_CODE: 0
+STDOUT:
+0 1
+1 18
+2 690
+3 12294
+4 132788
+
+STDERR:
+{"status":"complete","target_terms":10000,"p":856371966,"q":350477575,"terms":10000,"value":132788,"completed_candidate":132788,"seconds":0.0356682,"rss_bytes":3522560,"patterns":148,"escaped_blocks":0,"digest64":7727063101748395568,"residue_outliers":66,"residue_outliers_low":27,"residue_outliers_high":39,"anchor_tests":428622,"brute_tests":315250,"brute_max":69,"fallback_calls":0,"fallback_tests":0,"lo_size":6034,"hi_size":3966,"lo_peak":6034,"hi_peak":3966,"lo_cutoff":428185984,"hi_cutoff":428185984,"disk_reads":0,"disk_writes":0,"verified_candidates_through":120000}
