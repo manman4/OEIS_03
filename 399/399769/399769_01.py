@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 LIMIT = 10000
-OUTPUT = Path(__file__).resolve().with_name("b39969.txt")
+OUTPUT = Path(__file__).resolve().with_name("b399769.txt")
 
 
 def sequence(limit: int) -> list[int]:
