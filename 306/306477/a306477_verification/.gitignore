@@ -1,4 +1,8 @@
 /verify
 /verify.dSYM/
+/a306477
+/a306477.dSYM/
 /progress.log
+/*.textClipping
 !/result.out
+!/c_result.out
