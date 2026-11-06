@@ -35,4 +35,4 @@ def f(n):
 
     print(n, g(coords) if n%12 in [0, 2, 9, 11] else 0)
 
-[f(x) for x in range(26)]
+[f(x) for x in range(21)]
