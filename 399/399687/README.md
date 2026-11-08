@@ -12,9 +12,8 @@ Here `C_k` is the cycle on `k` vertices and `AR(n, C_k)` is the maximum
 number of colors in an edge-coloring of `K_n` containing no rainbow copy of
 `C_k`.
 
-The shared statement of
-[Erdős problem #1105](https://www.erdosproblems.com/1105) is translated in
-[`../PROBLEM_JA.md`](../PROBLEM_JA.md).
+See [Erdős problem #1105](https://www.erdosproblems.com/1105) for the
+problem statement.
 
 The published result is stated using the minimum number of colors that forces
 a rainbow cycle; this is one more than the maximum number of colors avoiding
@@ -31,7 +30,7 @@ the deliberate limit.
 From the repository root, first enter this sequence directory:
 
 ```bash
-cd experiments/problem_1105/A399687
+cd 399/399687
 ```
 
 Run the exhaustive computation there.  Use a separate rerun file so that the
