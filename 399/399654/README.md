@@ -7,7 +7,7 @@ An unofficial Japanese translation of the problem statement is available in
 [`PROBLEM_JA.md`](PROBLEM_JA.md).
 
 The edge bound shared by the candidate-spectrum searches is proved in
-[`A399654_EDGE_BOUND_PROOF_JA.md`](A399654_EDGE_BOUND_PROOF_JA.md).  Its Lean 4
+[`399654_EDGE_BOUND_PROOF_JA.md`](399654_EDGE_BOUND_PROOF_JA.md).  Its Lean 4
 formalization is in [`lean/`](lean/).
 
 For a simple undirected graph `G` on `n` vertices, its cycle set is
@@ -60,35 +60,37 @@ not as a new table. In particular, the reference value at `n=8` is `f(8)=40`.
 
 ## Suggested commands
 
+Run the following commands from the repository root.
+
 Install the extra dependency in an isolated environment:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r experiments/problem_84/requirements.txt
+python -m pip install -r 399/399654/requirements.txt
 ```
 
 Start with a small range:
 
 ```bash
-python experiments/problem_84/enumerate_labeled.py --max-n 5
-python experiments/problem_84/enumerate_unlabeled.py --max-n 5
-python experiments/problem_84/compare_results.py
+python 399/399654/enumerate_labeled.py --max-n 5
+python 399/399654/enumerate_unlabeled.py --max-n 5
+python 399/399654/compare_results.py
 ```
 
 Run the independent verification checks:
 
 ```bash
-python experiments/problem_84/verify_problem_84.py
+python 399/399654/verify_problem_84.py
 ```
 
 Then increase the range. Method A grows as `2^(n choose 2)`, so `n=7` is much
 more expensive than `n=6`:
 
 ```bash
-python experiments/problem_84/enumerate_labeled.py --max-n 7
-python experiments/problem_84/enumerate_unlabeled.py --max-n 7
-python experiments/problem_84/compare_results.py
+python 399/399654/enumerate_labeled.py --max-n 7
+python 399/399654/enumerate_unlabeled.py --max-n 7
+python 399/399654/compare_results.py
 ```
 
 To extend the non-isomorphic enumeration to `n=8`, first install nauty. With
@@ -102,15 +104,15 @@ Then generate `n=3,...,8`. Including the overlap is intentional: it checks the
 new generator and detector against both earlier methods through `n=7`.
 
 ```bash
-/usr/bin/time -p python experiments/problem_84/enumerate_nauty.py --max-n 8
-python experiments/problem_84/verify_nauty_results.py
+/usr/bin/time -p python 399/399654/enumerate_nauty.py --max-n 8
+python 399/399654/verify_nauty_results.py
 ```
 
 The script looks for both `geng` (Homebrew) and `nauty-geng` (common on Debian).
 An explicit path can be supplied when necessary:
 
 ```bash
-python experiments/problem_84/enumerate_nauty.py \
+python 399/399654/enumerate_nauty.py \
   --max-n 8 --geng /path/to/geng
 ```
 
@@ -142,7 +144,7 @@ From the repository root, build and run it as follows:
 
 ```bash
 c++ -std=c++20 -O3 -Wall -Wextra -Wpedantic \
-  experiments/problem_84/enumerate_nauty_fast.cpp \
+  399/399654/enumerate_nauty_fast.cpp \
   -o /tmp/enumerate_nauty_fast
 
 /usr/bin/time -p /tmp/enumerate_nauty_fast \
@@ -150,7 +152,7 @@ c++ -std=c++20 -O3 -Wall -Wextra -Wpedantic \
   --geng /opt/homebrew/bin/geng \
   --output /tmp/results_nauty_fast.json
 
-python experiments/problem_84/verify_nauty_results.py \
+python 399/399654/verify_nauty_results.py \
   --input /tmp/results_nauty_fast.json
 ```
 
