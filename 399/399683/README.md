@@ -12,9 +12,8 @@ Here `P_k` is the path on `k` vertices and `AR(n, P_k)` is the maximum
 number of colors in an edge-coloring of `K_n` containing no rainbow copy of
 `P_k`.
 
-The shared statement of
-[Erdős problem #1105](https://www.erdosproblems.com/1105) is translated in
-[`../PROBLEM_JA.md`](../PROBLEM_JA.md).  An elementary proof of the cases
+See [Erdős problem #1105](https://www.erdosproblems.com/1105) for the
+problem statement. An elementary proof of the cases
 `k = 3, 4`, which lie outside Yuan's `k >= 5` theorem, is recorded in
 [`PATH_SMALL_CASES_JA.md`](PATH_SMALL_CASES_JA.md).  Its Lean 4
 formalization is in [`lean/`](lean/).
@@ -42,7 +41,7 @@ fast implementation.
 From the repository root, first enter this sequence directory:
 
 ```bash
-cd experiments/problem_1105/A399683
+cd 399/399683
 ```
 
 Run the computation there.  Use a separate rerun file so that the stored
