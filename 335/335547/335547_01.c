@@ -36,9 +36,6 @@
 #define _DARWIN_C_SOURCE
 #define ACCELERATE_NEW_LAPACK
 
-#include <Accelerate/Accelerate.h>
-#include <gmp.h>
-
 #include <errno.h>
 #include <fcntl.h>
 #include <float.h>
@@ -50,6 +47,9 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include <gmp.h>
+#include <vecLib/cblas_new.h>
 
 enum {
     MAX_N = 43,
