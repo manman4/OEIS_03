@@ -36,17 +36,30 @@
  * old cut bits (>= q-1) | context (typ, cont, doff, ext, prev) -- see
  * 358715_01.c for the meaning and the correctness argument.
  *
+ * Last row. Each old down slice of length d>1 must shrink to d-2.
+ * Only singleton down slices are allowed at the bottom, so d>=5
+ * contributes zero. An old up slice [s,e] may stop or occupy [s,e+2].
+ * This extended interval never hits a mandatory down slice: the old
+ * down slice to its right starts at e+1 and shrinks from that end.
+ * Two up extensions intersect exactly when their old slices are
+ * separated by a singleton down slice. Thus groups linked by singleton
+ * down slices give independent sets on paths. A group of k up slices
+ * contributes F(k+2). Remaining cells must be singleton tiles, uniquely.
+ * The final row can therefore be summed directly from the previous map.
+ *
  * Memory.  Hash table entries are 8 + 4*LANES bytes (key + residues; LANES
  * primes are done in one pass, default 1 -> 12 bytes);
  * capacity is not rounded to a power of two (index = (hash * cap) >> 64),
  * load factor <= 3/4.  Observed: row r has F(2r+1) states and the largest
  * intermediate table during the step to row r has F(2r+2) keys; tables are
  * pre-sized from that (and grow by 1.25x if ever needed).
- *   memory ~ 2 * F(2N) / 0.75 * 12 bytes:
- *   N=20: ~3.3 GB,  N=21: ~8.6 GB,  N=22: ~23 GB,  N=23: ~59 GB
+ *   The largest constructed row now has side N-1. The steady table
+ *   estimate for N>=3 is about 2 * F(2N-2) / 0.75 * (8+4*LANES)
+ *   bytes, with additional transient memory during resizing.
  * ---------------------------------------------------------------------------
  *
  * Build:  gcc -O3 -march=native -std=c17 -Wall -Wextra -Wpedantic -o 358715_02 358715_02.c
+ *         On macOS, use /usr/bin/clang in place of gcc.
  *         (options: -DMAXN=n   largest allowed N, default 27; at most 27
  *                   -DLANES=g  primes per pass, default 1: more memory, fewer passes)
  */
@@ -101,6 +114,8 @@ static void big_init(Big *x, uint32_t v) {
 }
 static void big_push(Big *x, uint32_t v) {
     if (x->n == x->cap) {
+        if (x->cap == 0 || x->cap > SIZE_MAX / (2 * sizeof(*x->d)))
+            die("big integer capacity overflow");
         x->cap *= 2;
         uint32_t *t = realloc(x->d, x->cap * sizeof(uint32_t));
         if (!t) die("out of memory");
@@ -121,12 +136,13 @@ static void big_add_small(Big *x, uint32_t a) {
 }
 static uint32_t big_mod_small(const Big *x, uint32_t m) {
     uint64_t r = 0;
-    for (size_t k = x->n; k-- > 0;) r = ((r << 32) | x->d[k]) % m;
+    for (size_t k = x->n; k > 0; --k) r = ((r << 32) | x->d[k - 1]) % m;
     return (uint32_t)r;
 }
 static int big_cmp(const Big *a, const Big *b) {
     if (a->n != b->n) return a->n < b->n ? -1 : 1;
-    for (size_t k = a->n; k-- > 0;) if (a->d[k] != b->d[k]) return a->d[k] < b->d[k] ? -1 : 1;
+    for (size_t k = a->n; k > 0; --k)
+        if (a->d[k - 1] != b->d[k - 1]) return a->d[k - 1] < b->d[k - 1] ? -1 : 1;
     return 0;
 }
 static void big_copy(Big *dst, const Big *src) {
@@ -140,20 +156,27 @@ static char *big_to_dec(const Big *x0) {
     if (!ch) die("out of memory");
     while (x.n) {
         uint64_t r = 0;
-        for (size_t k = x.n; k-- > 0;) {
-            uint64_t cur = (r << 32) | x.d[k];
-            x.d[k] = (uint32_t)(cur / 1000000000u);
+        for (size_t k = x.n; k > 0; --k) {
+            uint64_t cur = (r << 32) | x.d[k - 1];
+            x.d[k - 1] = (uint32_t)(cur / 1000000000u);
             r = cur % 1000000000u;
         }
         while (x.n && x.d[x.n - 1] == 0) x.n--;
         ch[nch++] = (uint32_t)r;
     }
-    char *s = malloc(nch * 9 + 2);
+    const size_t size = nch * 9 + 2;
+    char *s = malloc(size);
     if (!s) die("out of memory");
     if (nch == 0) strcpy(s, "0");
     else {
-        int len = sprintf(s, "%u", ch[nch - 1]);
-        for (size_t i = nch - 1; i-- > 0;) len += sprintf(s + len, "%09u", ch[i]);
+        int written = snprintf(s, size, "%u", ch[nch - 1]);
+        if (written <= 0 || (size_t)written >= size) die("cannot format result");
+        size_t len = (size_t)written;
+        for (size_t i = nch - 1; i > 0; --i) {
+            written = snprintf(s + len, size - len, "%09u", ch[i - 1]);
+            if (written != 9 || (size_t)written >= size - len) die("cannot format result");
+            len += (size_t)written;
+        }
     }
     free(ch); free(x.d);
     return s;
@@ -191,8 +214,11 @@ static void map_alloc(Map *m, size_t cap) {
 }
 static void map_free(Map *m) { free(m->keys); free(m->vals); m->keys = NULL; m->vals = NULL; m->cap = m->cnt = 0; }
 static inline size_t slot0(uint64_t k, size_t cap) {
-    k ^= k >> 33; k *= 0xff51afd7ed558ccdULL;
-    k ^= k >> 33; k *= 0xc4ceb9fe1a85ec53ULL;
+    /* The hash deliberately keeps the low 64 bits of each product. */
+    k ^= k >> 33;
+    (void)__builtin_mul_overflow(k, UINT64_C(0xff51afd7ed558ccd), &k);
+    k ^= k >> 33;
+    (void)__builtin_mul_overflow(k, UINT64_C(0xc4ceb9fe1a85ec53), &k);
     k ^= k >> 33;
     return (size_t)(((u128)k * cap) >> 64);
 }
@@ -240,7 +266,11 @@ static void row_step(Map *cur, Map *nxt, int i) {
     const int L = 2 * i + 1, M = L + 2;
     /* expected peak F(2(i+1)+2) keys (observed); reserve for it */
     size_t want = (size_t)FIB[2 * (i + 1) + 2];
-    map_reserve(nxt, want);
+    const size_t need = want / 3 * 4 + 64;
+    if (nxt->cap < need) {
+        map_free(nxt);
+        map_alloc(nxt, need);
+    }
     map_reserve(cur, want);
     for (int q = 0; q < M; q++) {
         map_clear(nxt);
@@ -305,15 +335,39 @@ static void row_step(Map *cur, Map *nxt, int i) {
     Map t = *cur; *cur = *nxt; *nxt = t;
 }
 
-static int final_ok(uint64_t mask, int L) {
-    int s = 0;
-    for (int p = 0; p < L; p++) {
-        if (p == L - 1 || ((mask >> p) & 1)) {
-            if ((s & 1) && p != s) return 0;
-            s = p + 1;
-        }
+/* The sentinel is the cut at the right edge, so every ctz has a
+ * nonzero argument and the loop visits precisely the tile slices. */
+static int final_ok(uint64_t mask, int length) {
+    uint64_t cuts = mask | (UINT64_C(1) << (length - 1));
+    int start = 0;
+    while (cuts) {
+        const int end = __builtin_ctzll(cuts);
+        if ((start & 1) && end != start) return 0;
+        start = end + 1;
+        cuts &= cuts - 1;
     }
     return 1;
+}
+
+static uint64_t bottom_extensions(uint64_t mask, int length) {
+    uint64_t cuts = mask | (UINT64_C(1) << (length - 1));
+    uint64_t ways = 1;
+    int start = 0, group = 0;
+    while (cuts) {
+        const int end = __builtin_ctzll(cuts);
+        if ((start & 1) == 0) {
+            ++group;
+        } else if (end != start) {
+            if (end - start != 2) return 0;
+            ways *= FIB[group + 2];
+            group = 0;
+        }
+        start = end + 1;
+        cuts &= cuts - 1;
+    }
+    /* The product is at most 2^(number of up slices), hence <= 2^26
+       for MAXN <= 27. Each residue product therefore fits in uint64_t. */
+    return ways * FIB[group + 2];
 }
 
 /* res[l][n] = a(n) mod g_p[l], n = 1..N  (res is LANES x (N+1)) */
@@ -322,7 +376,7 @@ static void run_pass(int N, Map *cur, Map *nxt, uint32_t *res) {
     uint32_t one[LANES];
     for (int l = 0; l < LANES; l++) { one[l] = 1 % g_p[l]; res[(size_t)l * (N + 1) + 1] = one[l]; }
     map_add(cur, 0, one);
-    for (int i = 0; i + 1 < N; i++) {
+    for (int i = 0; i + 2 < N; i++) {
         row_step(cur, nxt, i);
         const int L1 = 2 * (i + 1) + 1;
         uint64_t s[LANES] = { 0 };
@@ -331,6 +385,21 @@ static void run_pass(int N, Map *cur, Map *nxt, uint32_t *res) {
                 for (int l = 0; l < LANES; l++) { s[l] += cur->vals[h * LANES + l]; if (s[l] >= g_p[l]) s[l] -= g_p[l]; }
         for (int l = 0; l < LANES; l++) res[(size_t)l * (N + 1) + i + 2] = (uint32_t)s[l];
     }
+
+    if (N == 1) return;
+    const int length = 2 * N - 3;
+    uint64_t total[LANES] = {0};
+    for (size_t h = 0; h < cur->cap; ++h) {
+        if (cur->keys[h] == EMPTY) continue;
+        const uint64_t ways = bottom_extensions(cur->keys[h], length);
+        if (ways == 0) continue;
+        for (int l = 0; l < LANES; ++l) {
+            total[l] += (ways * cur->vals[h * LANES + l]) % g_p[l];
+            if (total[l] >= g_p[l]) total[l] -= g_p[l];
+        }
+    }
+    for (int l = 0; l < LANES; ++l)
+        res[(size_t)l * (N + 1) + N] = (uint32_t)total[l];
 }
 
 /* ---------------- arguments ---------------- */
@@ -358,7 +427,7 @@ static int parse_n(const char *s) {
 
 /* ---------------- files ---------------- */
 static void open_lock(void) {
-    int fd = open(LOCKFILE, O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0644);
+    int fd = open(LOCKFILE, O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK, 0644);
     if (fd < 0) die_errno("cannot open lock file");
     struct stat st;
     if (fstat(fd, &st) != 0) die_errno("fstat lock file");
@@ -385,7 +454,7 @@ static void push_val(const char *s) {
 }
 
 static void read_saved(void) {
-    int fd = open(OUTFILE, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+    int fd = open(OUTFILE, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK);
     if (fd < 0) {
         if (errno == ENOENT) return;
         die_errno("cannot open saved file (symlink?)");
@@ -412,10 +481,7 @@ static void read_saved(void) {
     long expect = 1;
     while (pos < len) {
         char *nl = memchr(data + pos, '\n', len - pos);
-        if (!nl) {
-            fprintf(stderr, "358715_02: note: ignoring incomplete last line of %s\n", OUTFILE);
-            break;
-        }
+        if (!nl) die("saved file: incomplete last line (file left unchanged)");
         *nl = '\0';
         char *line = data + pos;
         pos = (size_t)(nl - data) + 1;
@@ -506,7 +572,7 @@ int main(int argc, char **argv) {
     }
     const size_t K = np - 1;
     fprintf(stderr, "358715_02: N=%d, %zu primes + 1 check prime, LANES=%d, est. memory %.2f GiB\n", N, K, LANES,
-            2.0 * ((double)FIB[2 * N] / 0.75 + 64) * (8.0 + 4.0 * LANES) / (1u << 30));
+            2.0 * ((double)FIB[2 * (N - 1)] / 0.75 + 64) * (8.0 + 4.0 * LANES) / (1u << 30));
 
     uint32_t *R = calloc(np * ((size_t)N + 1), sizeof(uint32_t));
     if (!R) die("out of memory");
@@ -545,7 +611,10 @@ int main(int argc, char **argv) {
             cc[j] = (uint32_t)(diff * pow_mod(prod, pj - 2, pj) % pj);
         }
         Big x; big_init(&x, 0);
-        for (size_t j = K; j-- > 0;) { big_mul_small(&x, primes[j]); big_add_small(&x, cc[j]); }
+        for (size_t j = K; j > 0; --j) {
+            big_mul_small(&x, primes[j - 1]);
+            big_add_small(&x, cc[j - 1]);
+        }
         if (big_mod_small(&x, primes[K]) != R[K * ((size_t)N + 1) + (size_t)n]) {
             fprintf(stderr, "358715_02: check prime mismatch at n=%d; nothing written\n", n);
             return 1;
@@ -575,5 +644,15 @@ int main(int argc, char **argv) {
     for (int n = 1; n <= N; n++)
         if (printf("%d %s\n", n, computed[n]) < 0) die("printf failed");
     if (fflush(stdout) != 0) die("fflush stdout failed");
+    for (int n = 1; n <= N; ++n) {
+        free(Bn[n].d);
+        free(computed[n]);
+    }
+    free(Bn);
+    free(computed);
+    free(R);
+    free(cc);
+    for (size_t i = 0; i < nvals; ++i) free(vals[i]);
+    free(vals);
     return 0;
 }
