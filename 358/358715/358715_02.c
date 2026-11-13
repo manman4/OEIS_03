@@ -453,17 +453,44 @@ static void push_val(const char *s) {
     nvals++;
 }
 
+/* Retain the original descriptor until saving is over so that its inode
+ * cannot be recycled while comparing the output path with the snapshot. */
+static int saved_fd = -1;
+static struct stat saved_stat;
+
+static int same_saved_file(const struct stat *st) {
+    return S_ISREG(st->st_mode) && st->st_nlink == 1
+        && st->st_dev == saved_stat.st_dev && st->st_ino == saved_stat.st_ino
+        && st->st_size == saved_stat.st_size && st->st_mode == saved_stat.st_mode
+        && st->st_mtime == saved_stat.st_mtime && st->st_ctime == saved_stat.st_ctime
+#ifdef __APPLE__
+        && st->st_mtimespec.tv_nsec == saved_stat.st_mtimespec.tv_nsec
+        && st->st_ctimespec.tv_nsec == saved_stat.st_ctimespec.tv_nsec
+#else
+        && st->st_mtim.tv_nsec == saved_stat.st_mtim.tv_nsec
+        && st->st_ctim.tv_nsec == saved_stat.st_ctim.tv_nsec
+#endif
+        ;
+}
+
+static int saved_path_unchanged(void) {
+    struct stat st;
+    if (lstat(OUTFILE, &st) != 0) return errno == ENOENT && saved_fd < 0;
+    return saved_fd >= 0 && same_saved_file(&st);
+}
+
 static void read_saved(void) {
     int fd = open(OUTFILE, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK);
     if (fd < 0) {
         if (errno == ENOENT) return;
         die_errno("cannot open saved file (symlink?)");
     }
-    struct stat st;
-    if (fstat(fd, &st) != 0) die_errno("fstat saved file");
-    if (!S_ISREG(st.st_mode) || st.st_nlink != 1) die("saved file is not a plain regular file");
-    if ((uint64_t)st.st_size > MAX_SAVED_BYTES) die("saved file too large");
-    size_t cap = (size_t)st.st_size + 1, len = 0;
+    if (fstat(fd, &saved_stat) != 0) die_errno("fstat saved file");
+    if (!S_ISREG(saved_stat.st_mode) || saved_stat.st_nlink != 1)
+        die("saved file is not a plain regular file");
+    if ((uint64_t)saved_stat.st_size > MAX_SAVED_BYTES) die("saved file too large");
+    saved_fd = fd;
+    size_t cap = (size_t)saved_stat.st_size + 1, len = 0;
     char *data = malloc(cap + 1);
     if (!data) die("out of memory");
     for (;;) {
@@ -473,7 +500,8 @@ static void read_saved(void) {
         if (r == 0) break;
         len += (size_t)r;
     }
-    if (close(fd) != 0) die_errno("close saved file");
+    if (len != (size_t)saved_stat.st_size || !saved_path_unchanged())
+        die("saved file changed while reading");
     data[len] = '\0';
     if (memchr(data, '\0', len)) die("saved file contains NUL bytes (file left unchanged)");
 
@@ -502,31 +530,30 @@ static void read_saved(void) {
 }
 
 static void write_all(void) {
-    struct stat st;
-    if (lstat(OUTFILE, &st) == 0) {
-        if (!S_ISREG(st.st_mode) || st.st_nlink != 1)
-            die("refusing to replace result file: not a plain regular file");
-    } else if (errno != ENOENT) {
-        die_errno("lstat result file");
-    }
+    if (!saved_path_unchanged()) die("saved file changed before writing");
+    const mode_t mode = saved_fd >= 0 ? saved_stat.st_mode & 0777 : 0644;
+    int dfd = open(".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (dfd < 0) die_errno("open directory");
     char name[] = OUTFILE ".tmpXXXXXX";
     int fd = mkstemp(name);
     if (fd < 0) die_errno("mkstemp");
-    if (fchmod(fd, 0644) != 0) { unlink(name); die_errno("fchmod"); }
     FILE *f = fdopen(fd, "w");
     if (!f) { close(fd); unlink(name); die_errno("fdopen"); }
     for (size_t i = 0; i < nvals; i++)
         if (fprintf(f, "%zu %s\n", i + 1, vals[i]) < 0) { fclose(f); unlink(name); die("write to temp file failed"); }
     if (fflush(f) != 0) { fclose(f); unlink(name); die_errno("fflush temp"); }
+    if (fchmod(fileno(f), mode) != 0) { fclose(f); unlink(name); die_errno("fchmod temp"); }
     if (fsync(fileno(f)) != 0) { fclose(f); unlink(name); die_errno("fsync temp"); }
     if (fclose(f) != 0) { unlink(name); die_errno("fclose temp"); }
-    if (rename(name, OUTFILE) != 0) { unlink(name); die_errno("rename"); }
-    {   /* make the rename durable */
-        int dfd = open(".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
-        if (dfd < 0) die_errno("open directory");
-        if (fsync(dfd) != 0) die_errno("fsync directory");
-        if (close(dfd) != 0) die_errno("close directory");
+    /* flock serializes writers that use our lock. This final comparison
+     * also catches outside edits already visible at this point. */
+    if (!saved_path_unchanged()) {
+        unlink(name);
+        die("saved file changed before replacement");
     }
+    if (rename(name, OUTFILE) != 0) { unlink(name); die_errno("rename"); }
+    if (fsync(dfd) != 0) die_errno("fsync directory");
+    if (close(dfd) != 0) die_errno("close directory");
 }
 
 int main(int argc, char **argv) {
@@ -641,6 +668,7 @@ int main(int argc, char **argv) {
         }
     }
     if (changed) write_all();
+    if (saved_fd >= 0 && close(saved_fd) != 0) die_errno("close saved file");
     for (int n = 1; n <= N; n++)
         if (printf("%d %s\n", n, computed[n]) < 0) die("printf failed");
     if (fflush(stdout) != 0) die("fflush stdout failed");
